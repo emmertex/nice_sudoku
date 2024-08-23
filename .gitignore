@@ -1,0 +1,6 @@
+.godot/
+/android/
+/EXPORT/
+.vscode/
+*.keystore
+.DS_Store
