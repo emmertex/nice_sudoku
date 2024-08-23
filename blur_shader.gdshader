@@ -7,7 +7,7 @@ void fragment() {
     vec2 pixel_size = 1.0 / vec2(textureSize(SCREEN_TEXTURE, 0));
     vec4 color = vec4(0.0);
     float total_weight = 0.0;
-    
+
     for (float x = -2.0; x <= 2.0; x += 1.0) {
         for (float y = -2.0; y <= 2.0; y += 1.0) {
             vec2 offset = vec2(x, y) * pixel_size * blur_amount;
@@ -16,6 +16,6 @@ void fragment() {
             total_weight += weight;
         }
     }
-    
+
     COLOR = color / total_weight;
 }

@@ -8,6 +8,11 @@
 
 config_version=5
 
+[android]
+
+permissions/read_external_storage=true
+permissions/write_external_storage=true
+
 [application]
 
 config/name="Nice Sudoku"
@@ -107,7 +112,3 @@ undo={
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
-
-[android]
-permissions/read_external_storage=true
-permissions/write_external_storage=true

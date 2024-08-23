@@ -6,9 +6,9 @@ var selected_cell: Vector2 = Vector2(-1, -1)
 var selected_num = 0
 var puzzle_time: int = 0
 
-@onready var number_buttons = $VBoxContainer/NumberButtons
-@onready var grid_container = $VBoxContainer/HBoxContainerGrid/AspectRatioContainer/GridContainer
-@onready var blur_overlay = $VBoxContainer/HBoxContainerGrid/AspectRatioContainer/BlurOverlay
+@onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
+@onready var grid_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/GridContainer
+@onready var blur_overlay = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/BlurOverlay
 
 var CLR_BOARD = Color(0.21, 0.21, 0.21)
 var CLR_BOARD2 = Color(0.26, 0.26, 0.26)
@@ -67,38 +67,44 @@ func _ready():
 
 func _on_viewport_size_changed():
 	viewport_size = get_viewport().get_visible_rect().size
-	var scale = 1
-	if viewport_size.y / viewport_size.x > 1 && viewport_size.y / viewport_size.x < 1.55:
-		scale = viewport_size.y / viewport_size.x
-	button_size = (min(viewport_size.x, viewport_size.y / 1.3) / 10) / scale
-	print("Viewport size changed to: ", viewport_size, "Button Size: ", button_size)
+	$Panel.position = Vector2(0,0)
+	$Panel.size = viewport_size
+	#if viewport_size.y / viewport_size.x > 1 && viewport_size.y / viewport_size.x < 1.55:
+	#	scale = viewport_size.y / viewport_size.x
+	#button_size = (min(viewport_size.x, viewport_size.y / 1.3) / 10) / scale
+	var game_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer
+	#game_container.size = $Panel/AspectRatioContainer.size / 1.3
+	button_size = min($Panel.size.x, $Panel.size.y/1.6) / 9.5
+	print("Viewport size changed to: ", viewport_size, "Button Size: ", button_size, "game_container: ", game_container.size)
 	
-	number_buttons = $VBoxContainer/NumberButtons
+	number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
 	if !number_buttons:
-		number_buttons = $VBoxContainer/HBoxContainerGrid/NumberButtons
+		number_buttons = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/NumberButtons
 
-	if viewport_size.x < viewport_size.y / 1.55:
-		if number_buttons.get_parent() != $VBoxContainer:
+	if viewport_size.x < viewport_size.y / 1.2:
+		if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer:
 			number_buttons.get_parent().remove_child(number_buttons)
 			number_buttons.columns = 6
-			$VBoxContainer.add_child(number_buttons)
+			$Panel/AspectRatioContainer/VBoxContainer.add_child(number_buttons)
+			$Panel/AspectRatioContainer.ratio = 1.638
 	else:
-		if number_buttons.get_parent() != $VBoxContainer/HBoxContainerGrid:
+		if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid:
 			number_buttons.get_parent().remove_child(number_buttons)
 			number_buttons.columns = 2
-			$VBoxContainer/HBoxContainerGrid.add_child(number_buttons)
+			$Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid.add_child(number_buttons)
+			$Panel/AspectRatioContainer.ratio = 1
 			
-	for i in range($VBoxContainer/MenuLayer1.get_child_count()):
-		var child = $VBoxContainer/MenuLayer1.get_child(i)
+	for i in range($Panel/AspectRatioContainer/VBoxContainer/MenuLayer1.get_child_count()):
+		var child = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer1.get_child(i)
 		child.set_custom_minimum_size(Vector2(button_size*(9/4),button_size*.75))
 		child.add_theme_font_size_override("font_size", button_size*.375)
-	for i in range($VBoxContainer/MenuLayer2.get_child_count()):
-		var child = $VBoxContainer/MenuLayer2.get_child(i)
+	for i in range($Panel/AspectRatioContainer/VBoxContainer/MenuLayer2.get_child_count()):
+		var child = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2.get_child(i)
 		child.set_custom_minimum_size(Vector2(button_size*(9/4),button_size*.75))
 		child.add_theme_font_size_override("font_size", button_size*.375)
 	
-	$VBoxContainer/PuzzleInfo.set_custom_minimum_size(Vector2(button_size*.75,button_size*.75))
-	$VBoxContainer/PuzzleInfo.add_theme_font_size_override("font_size", button_size*.375)
+	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.set_custom_minimum_size(Vector2(button_size*.75,button_size*.75))
+	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.add_theme_font_size_override("font_size", button_size*.375)
 	
 	for col in range(9):
 		for row in range(9):
@@ -133,7 +139,7 @@ func load_puzzle(index: int):
 
 func update_puzzle_info():
 	var info = sudoku.get_puzzle_info()
-	$VBoxContainer/PuzzleInfo.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
+	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
 
 func _create_pencil_marks(container: Control, row: int, col: int):
 	for i in range(3):
@@ -335,15 +341,15 @@ func _update_grid_highlights():
 	
 	match highlight_mode:
 		HighlightMode.NUM:
-			$VBoxContainer/MenuLayer2/HighlightButton.text = "Num"
+			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "Num"
 		HighlightMode.NRC:
-			$VBoxContainer/MenuLayer2/HighlightButton.text = "RC"
+			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "RC"
 		HighlightMode.NRCB:
-			$VBoxContainer/MenuLayer2/HighlightButton.text = "RCB"
+			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "RCB"
 		HighlightMode.ALL:
-			$VBoxContainer/MenuLayer2/HighlightButton.text = "ALL"
+			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "ALL"
 		HighlightMode.ALLC:
-			$VBoxContainer/MenuLayer2/HighlightButton.text = "ALLC"
+			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "ALLC"
 	
 	for row in range(9):
 		for col in range(9):
@@ -531,7 +537,7 @@ func _on_timer_timeout():
 			str_sec = "0" + str(sec)
 		else:
 			str_sec = str(sec)
-		$VBoxContainer/MenuLayer1/Timer.text = str(minimum) + ":" + str_sec + "s"
+		$Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/Timer.text = str(minimum) + ":" + str_sec + "s"
 	
 func _input(event):
 	if event is InputEventKey and event.pressed:

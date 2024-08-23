@@ -23,136 +23,181 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 1)
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="Timer" type="Timer" parent="."]
+autostart = true
+
+[node name="ReferenceRect" type="ReferenceRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -317.0
+offset_top = -318.0
+offset_right = 319.0
+offset_bottom = 318.0
+grow_horizontal = 2
+grow_vertical = 2
+editor_only = false
+
+[node name="ReferenceRect2" type="ReferenceRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -195.0
+offset_top = -318.0
+offset_right = 194.0
+offset_bottom = 319.0
+grow_horizontal = 2
+grow_vertical = 2
+border_color = Color(0.101553, 0.584162, 0.759951, 1)
+editor_only = false
+
+[node name="Panel" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-alignment = 1
 
-[node name="MenuLayer1" type="HBoxContainer" parent="VBoxContainer"]
+[node name="AspectRatioContainer" type="AspectRatioContainer" parent="Panel"]
 layout_mode = 2
-size_flags_horizontal = 0
+
+[node name="ColorRect2" type="ColorRect" parent="Panel/AspectRatioContainer"]
+visible = false
+layout_mode = 2
+color = Color(0.131379, 0.131379, 0.131379, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/AspectRatioContainer"]
+layout_mode = 2
 alignment = 1
 
-[node name="LoadPuzzleButton" type="Button" parent="VBoxContainer/MenuLayer1"]
+[node name="MenuLayer1" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="LoadPuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
 layout_mode = 2
 text = "Load"
 
-[node name="PastePuzzleButton" type="Button" parent="VBoxContainer/MenuLayer1"]
+[node name="PastePuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
 layout_mode = 2
 text = "Paste"
 
-[node name="NewGameButton" type="Button" parent="VBoxContainer/MenuLayer1"]
+[node name="NewGameButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
 layout_mode = 2
 text = "New"
 
-[node name="Timer" type="Label" parent="VBoxContainer/MenuLayer1"]
+[node name="Timer" type="Label" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
 layout_mode = 2
 text = "0:00"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="MenuLayer2" type="HBoxContainer" parent="VBoxContainer"]
+[node name="MenuLayer2" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
-size_flags_horizontal = 0
+alignment = 1
 
-[node name="HighlightButton" type="Button" parent="VBoxContainer/MenuLayer2"]
+[node name="HighlightButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
 layout_mode = 2
 text = "HL Basic"
 
-[node name="AutoPencil" type="Button" parent="VBoxContainer/MenuLayer2"]
+[node name="AutoPencil" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
 layout_mode = 2
 text = "Auto P"
 
-[node name="HintButton" type="Button" parent="VBoxContainer/MenuLayer2"]
+[node name="HintButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
 layout_mode = 2
 text = "Hint"
 
-[node name="UndoButton" type="Button" parent="VBoxContainer/MenuLayer2"]
+[node name="UndoButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
 layout_mode = 2
 text = "Undo"
 
-[node name="HBoxContainerGrid" type="HBoxContainer" parent="VBoxContainer"]
+[node name="HBoxContainerGrid" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
+alignment = 1
 
-[node name="AspectRatioContainer" type="AspectRatioContainer" parent="VBoxContainer/HBoxContainerGrid"]
+[node name="AspectRatioContainer" type="AspectRatioContainer" parent="Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid"]
 layout_mode = 2
+alignment_horizontal = 0
 
-[node name="GridContainer" type="GridContainer" parent="VBoxContainer/HBoxContainerGrid/AspectRatioContainer"]
+[node name="GridContainer" type="GridContainer" parent="Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer"]
 layout_mode = 2
 columns = 9
 
-[node name="BlurOverlay" type="ColorRect" parent="VBoxContainer/HBoxContainerGrid/AspectRatioContainer"]
+[node name="BlurOverlay" type="ColorRect" parent="Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer"]
 layout_mode = 2
 color = Color(1, 1, 1, 0)
 script = ExtResource("2_sxbe2")
 
-[node name="NumberButtons" type="GridContainer" parent="VBoxContainer"]
-custom_minimum_size = Vector2(0, 40)
+[node name="NumberButtons" type="GridContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 columns = 6
 
-[node name="Button1" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button1" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button2" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button2" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button3" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button3" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button4" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button4" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button5" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button5" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button6" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button6" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button7" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button7" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button8" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button8" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button9" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button9" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 
-[node name="Button10" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button10" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 tooltip_text = "Clear Entry"
 text = "Cl"
 
-[node name="Button11" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button11" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 tooltip_text = "Pencil"
 text = "Pe"
 
-[node name="Button12" type="Button" parent="VBoxContainer/NumberButtons"]
+[node name="Button12" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 tooltip_text = "Clear Pencil"
 text = "Ex"
 
-[node name="PuzzleInfo" type="Label" parent="VBoxContainer"]
+[node name="PuzzleInfo" type="Label" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
+horizontal_alignment = 1
 
-[node name="Timer" type="Timer" parent="."]
-autostart = true
-
-[connection signal="pressed" from="VBoxContainer/MenuLayer1/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
-[connection signal="pressed" from="VBoxContainer/MenuLayer1/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/MenuLayer1/NewGameButton" to="." method="_on_NewGameButton_pressed"]
-[connection signal="pressed" from="VBoxContainer/MenuLayer2/HighlightButton" to="." method="_on_highlight_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/MenuLayer2/AutoPencil" to="." method="_on_auto_pencil_pressed"]
-[connection signal="pressed" from="VBoxContainer/MenuLayer2/HintButton" to="." method="_on_HintButton_pressed"]
-[connection signal="pressed" from="VBoxContainer/MenuLayer2/UndoButton" to="." method="_on_UndoButton_pressed"]
-[connection signal="pressed" from="VBoxContainer/NumberButtons/Button10" to="." method="_on_button_c_pressed"]
-[connection signal="pressed" from="VBoxContainer/NumberButtons/Button11" to="." method="_on_button_p_pressed"]
-[connection signal="pressed" from="VBoxContainer/NumberButtons/Button12" to="." method="_on_button_pc_pressed"]
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/NewGameButton" to="." method="_on_NewGameButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton" to="." method="_on_highlight_button_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/AutoPencil" to="." method="_on_auto_pencil_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HintButton" to="." method="_on_HintButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/UndoButton" to="." method="_on_UndoButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button10" to="." method="_on_button_c_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button11" to="." method="_on_button_p_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button12" to="." method="_on_button_pc_pressed"]
