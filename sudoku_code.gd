@@ -440,7 +440,7 @@ func load_puzzle_data(difficulty: String):
 	if file == null:
 		print("Failed to open Puzzle File")
 		return {}
-	
+	puzzle_data = []
 	var line_count = 0
 	while not file.eof_reached():
 		puzzle_data.append(fast_parse_puzzle_line(file.get_line()))

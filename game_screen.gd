@@ -404,7 +404,7 @@ func _on_NewGameButton_pressed():
 
 func show_puzzle_selection_popup():
 	var popup = PopupPanel.new()
-	popup.set_size(Vector2(600, 400))
+	popup.set_size(Vector2(button_size*9, button_size*10))
 	popup.name = "PuzzleSelectionPopup"
 	add_child(popup)
 
@@ -415,17 +415,15 @@ func show_puzzle_selection_popup():
 	var difficulty_options = OptionButton.new()
 	for difficulty in sudoku.puzzles.keys():
 		difficulty_options.add_item(difficulty.capitalize())
-	var font_size = button_size * 0.375
+	var font_size = button_size * 0.3
 	difficulty_options.add_theme_font_size_override("font_size", font_size)
 	vbox.add_child(difficulty_options)
 
 	var scroll_container = ScrollContainer.new()
-	scroll_container.set_v_size_flags(Control.SIZE_EXPAND_FILL)
-	scroll_container.set_custom_minimum_size(Vector2(580, 300)) 
+	scroll_container.set_v_size_flags(Control.SIZE_EXPAND_FILL) 
 	vbox.add_child(scroll_container)
 
 	var puzzle_list = VBoxContainer.new()
-	puzzle_list.set_custom_minimum_size(Vector2(560, 0))
 	scroll_container.add_child(puzzle_list)
 
 	difficulty_options.connect("item_selected", self._on_difficulty_selected.bind(puzzle_list))
