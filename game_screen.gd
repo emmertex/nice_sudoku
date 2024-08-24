@@ -1,130 +1,69 @@
 extends Control
 
+# Constants
+const CLR_BOARD = Color(0.21, 0.21, 0.21)
+const CLR_BOARD2 = Color(0.26, 0.26, 0.26)
+const CLR_SELECT = Color(0.13, 0.4, 0.65, 0.5)
+const CLR_SAME = Color(0.13, 0.4, 0.55, 0.5)
+const CLR_PLUS = Color(0.25, 0.35, 0.6, 0.5)
+const CLR_BLOCK = Color(0.2, 0.3, 0.55, 0.5)
+const CLR_ROW = Color(0.2, 0.3, 0.55, 0.5)
+const CLR_BLOCKED = Color(0.2, 0.3, 0.55, 0.5)
+const CLR_BACKGROUND = Color(0.1, 0.1, 0.1)
+const CLR_PENCIL = Color(0.95, 0.95, 0.95)
+const CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)
+
+# Enums
+enum HighlightMode { NUM, NRC, NRCB, ALL, ALLC }
+enum Mode { NUMBER, NUMBER_CLR, PENCIL, PENCIL_EXCLUDE }
+
+# Variables
 var sudoku: Sudoku
 var hint_generator: SudokuHintGenerator
 var selected_cell: Vector2 = Vector2(-1, -1)
 var selected_num = 0
 var puzzle_time: int = 0
-
-@onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
-@onready var grid_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/GridContainer
-@onready var blur_overlay = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/BlurOverlay
-
-var CLR_BOARD = Color(0.21, 0.21, 0.21)
-var CLR_BOARD2 = Color(0.26, 0.26, 0.26)
-var CLR_SELECT = Color(0.13, 0.4, 0.65, 0.5)
-var CLR_SAME = Color(0.13, 0.4, 0.55, 0.5)
-var CLR_PLUS = Color(0.25, 0.35, 0.6, 0.5)
-var CLR_BLOCK = Color(0.2, 0.3, 0.55, 0.5)
-var CLR_ROW = Color(0.2, 0.3, 0.55, 0.5)
-var CLR_BLOCKED = Color(0.2, 0.3, 0.55, 0.5)
-var CLR_BACKGROUND = Color(0.1, 0.1, 0.1)
-
-var CLR_PENCIL = Color(0.95, 0.95, 0.95)
-var CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)
-
-enum HighlightMode {
-	NUM,
-	NRC,
-	NRCB,
-	ALL,
-	ALLC
-}
 var highlight_mode: HighlightMode = HighlightMode.ALLC
-
-enum Mode {
-	NUMBER,
-	NUMBER_CLR,
-	PENCIL,
-	PENCIL_EXCLUDE
-}
-var mode: Mode
+var mode: Mode = Mode.NUMBER
 var viewport_size: Vector2
 var button_size: int = 70
 var font_size: int = 10
 var timer_running: bool = false
-
 var permissions_requested = false
 
+# Onready variables
+@onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
+@onready var grid_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/GridContainer
+@onready var blur_overlay = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/BlurOverlay
+
 func _ready():
-	$ColorRect.color = CLR_BACKGROUND
-	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	_initialize()
+	_setup_ui()
+	_connect_signals()
+	_load_initial_puzzle()
+
+func _initialize():
 	sudoku = Sudoku.new()
-	mode = Mode.NUMBER
-	_create_grid()
-	load_puzzle(0) 
-	_setup_number_buttons()
-	update_puzzle_info()
-	_on_viewport_size_changed()
+	$ColorRect.color = CLR_BACKGROUND
 	blur_overlay.material = ShaderMaterial.new()
 	blur_overlay.material.shader = load("res://blur_shader.gdshader")
 	blur_overlay.visible = false
+
+func _setup_ui():
+	_create_grid()
+	_setup_number_buttons()
+	update_puzzle_info()
+	_on_viewport_size_changed()
+
+func _load_initial_puzzle():
+	load_puzzle(0)
+
+func _connect_signals():
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	get_window().focus_entered.connect(_on_window_focus_in)
 	get_window().focus_exited.connect(_on_window_focus_out)
-
 	if OS.get_name() == "Android":
 		_request_permissions()
-
-func _on_viewport_size_changed():
-	viewport_size = get_viewport().get_visible_rect().size
-	$Panel.position = Vector2(0,0)
-	$Panel.size = viewport_size
-	#if viewport_size.y / viewport_size.x > 1 && viewport_size.y / viewport_size.x < 1.55:
-	#	scale = viewport_size.y / viewport_size.x
-	#button_size = (min(viewport_size.x, viewport_size.y / 1.3) / 10) / scale
-	var game_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer
-	#game_container.size = $Panel/AspectRatioContainer.size / 1.3
-	button_size = min($Panel.size.x, $Panel.size.y/1.6) / 9.5
-	print("Viewport size changed to: ", viewport_size, "Button Size: ", button_size, "game_container: ", game_container.size)
-	
-	number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
-	if !number_buttons:
-		number_buttons = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/NumberButtons
-
-	if viewport_size.x < viewport_size.y / 1.2:
-		if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer:
-			number_buttons.get_parent().remove_child(number_buttons)
-			number_buttons.columns = 6
-			$Panel/AspectRatioContainer/VBoxContainer.add_child(number_buttons)
-			$Panel/AspectRatioContainer.ratio = 1.638
-	else:
-		if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid:
-			number_buttons.get_parent().remove_child(number_buttons)
-			number_buttons.columns = 2
-			$Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid.add_child(number_buttons)
-			$Panel/AspectRatioContainer.ratio = 1
-			
-	for i in range($Panel/AspectRatioContainer/VBoxContainer/MenuLayer1.get_child_count()):
-		var child = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer1.get_child(i)
-		child.set_custom_minimum_size(Vector2(button_size*(9/4),button_size*.75))
-		child.add_theme_font_size_override("font_size", button_size*.375)
-	for i in range($Panel/AspectRatioContainer/VBoxContainer/MenuLayer2.get_child_count()):
-		var child = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2.get_child(i)
-		child.set_custom_minimum_size(Vector2(button_size*(9/4),button_size*.75))
-		child.add_theme_font_size_override("font_size", button_size*.375)
-	
-	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.set_custom_minimum_size(Vector2(button_size*.75,button_size*.75))
-	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.add_theme_font_size_override("font_size", button_size*.375)
-	
-	for col in range(9):
-		for row in range(9):
-			var grid_button = grid_container.get_child(row * 9 + col)
-			var pencil_container = grid_button.get_child(0)
-			grid_button.set_custom_minimum_size(Vector2(button_size, button_size))
-			pencil_container.set_custom_minimum_size(Vector2(button_size, button_size))
-			grid_button.add_theme_font_size_override("font_size", button_size * 0.5)
-			for pencil in range(9):
-				var pencil_cell = pencil_container.get_child(pencil)
-				pencil_cell.position = Vector2((pencil%3) * (button_size / 3), (pencil/3) * (button_size / 3))
-				pencil_cell.size = Vector2(button_size / 3, button_size / 3)
-				pencil_cell.add_theme_font_size_override("font_size", button_size * (0.8 / 3))
-			
-			
-			
-	for but in range(12):
-		var sel_button = number_buttons.get_node("Button" + str(but+1))
-		sel_button.set_custom_minimum_size(Vector2(button_size*1.5,button_size*1.5))
-		sel_button.add_theme_font_size_override("font_size", button_size*.75)
 
 func load_puzzle(index: int):
 	sudoku.puzzle_selected = "hard"
@@ -134,6 +73,7 @@ func load_puzzle(index: int):
 		_update_grid_highlights()
 		timer_running = true
 		puzzle_time = 0
+		_update_buttons()
 	else:
 		print("Failed to load puzzle")
 
@@ -141,7 +81,7 @@ func update_puzzle_info():
 	var info = sudoku.get_puzzle_info()
 	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
 
-func _create_pencil_marks(container: Control, row: int, col: int):
+func _create_pencil_marks(container: Control):
 	for i in range(3):
 		for j in range(3):
 			var label = Label.new()
@@ -160,17 +100,17 @@ func _create_grid():
 	for row in range(9):
 		for col in range(9):
 			var button = Button.new()
-			
+		   
 			var pencil_marks_container = Control.new()
 			pencil_marks_container.set_custom_minimum_size (Vector2(button_size, button_size))
 			pencil_marks_container.mouse_filter = Control.MOUSE_FILTER_PASS
 			button.add_child(pencil_marks_container)
-			_create_pencil_marks(pencil_marks_container, row, col)
-			
+			_create_pencil_marks(pencil_marks_container)
+		   
 			button.set_custom_minimum_size(Vector2(button_size, button_size))
 			button.add_theme_font_size_override("font_size", button_size * 0.5)
 			button.pressed.connect(_on_cell_pressed.bind(row, col))
-			
+		   
 			# Add thicker borders for 3x3 subgrids
 			var style = StyleBoxFlat.new()
 			if ((col * 9) + row) % 2 == 0:
@@ -179,7 +119,7 @@ func _create_grid():
 				style.set_bg_color(CLR_BOARD2)
 			style.set_border_width_all(0)
 			style.set_border_color(Color.BLACK)
-			
+		   
 			if col % 3 == 0:
 				style.set_border_width(SIDE_LEFT, 5)
 			if col % 3 == 2:
@@ -193,9 +133,6 @@ func _create_grid():
 				grid_container.add_theme_constant_override("vseparation", 3)
 			button.add_theme_stylebox_override("normal", style)
 			grid_container.add_child(button)
-	
-
-
 
 func _setup_number_buttons():
 	for i in range(1, 13):
@@ -205,7 +142,7 @@ func _setup_number_buttons():
 		if i < 10:
 			button.set_text(str(i))
 			button.pressed.connect(_on_number_button_pressed.bind(i))
-		
+	   
 
 func _on_cell_pressed(row: int, col: int):
 	if selected_cell == Vector2(row, col):
@@ -228,7 +165,7 @@ func _on_cell_pressed(row: int, col: int):
 				selected_cell = Vector2(-1, -1)
 		else:
 			selected_num = sudoku.grid[row][col]
-		sudoku._update_RnCnBn()
+		sudoku.update_RnCnBn()
 		_update_grid()
 		_update_pencil()
 
@@ -249,17 +186,16 @@ func _update_pencil():
 			for num in range(9):
 				var pencil_button = grid_container.get_child(row * 9 + col).get_child(0).get_child(num)
 				if (sudoku.pencil[row][col][num]):
-					pencil_button.text = str(sudoku.PENCIL_NUM[num])
+					pencil_button.text = str(Cardinals.PencilN[num])
 					pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
 				elif (sudoku.exclude[row][col][num]):
 					if highlight_mode == HighlightMode.ALLC && mode != Mode.PENCIL_EXCLUDE:
 						pencil_button.text = ""
 					else:
-						pencil_button.text = str(sudoku.PENCIL_NUM[num])
+						pencil_button.text = str(Cardinals.PencilN[num])
 						pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
 				else:
 					pencil_button.text = ""
-
 
 func _on_number_button_pressed(number: int):
 	if selected_num == number:
@@ -271,7 +207,7 @@ func _on_number_button_pressed(number: int):
 	if selected_cell.x >= 0 and selected_cell.y >= 0:
 		if mode == Mode.NUMBER:
 			if sudoku.set_number(selected_cell.x, selected_cell.y, number):
-				sudoku._update_RnCnBn()
+				sudoku.update_RnCnBn()
 				_update_grid()
 				_update_pencil()
 			selected_cell = Vector2(-1,-1)
@@ -286,13 +222,12 @@ func _update_grid():
 			var button = grid_container.get_child(row * 9 + col)
 			var number = sudoku.grid[row][col]
 			button.text = str(number) if number != 0 else ""
-			if sudoku.is_original_number(row, col):
+			if sudoku._is_given_number(row, col):
 				button.add_theme_color_override("font_color", Color.GRAY)
 			else:
 				button.add_theme_color_override("font_color", Color.WHITE)
 	if sudoku.is_completed():
 		timer_running = false
-
 
 func _update_buttons():
 	var needed = sudoku.get_needed_numbers()
@@ -307,21 +242,22 @@ func _update_buttons():
 		else:
 			button.disabled = false
 
-
 		if selected_num == i + 1:
 			style.bg_color = CLR_SELECT
 			button.add_theme_color_override("font_color", Color.WHITE)
 			button.add_theme_stylebox_override("normal", style)
 			continue
 		else:
-			if sudoku.is_valid_move(selected_cell.x, selected_cell.y, i+1) || selected_cell.x < 0 || selected_cell.y < 0:
+			if (sudoku.is_valid_move(selected_cell.x, selected_cell.y, i+1) || \
+					selected_cell.x < 0 || selected_cell.y < 0) && \
+					!sudoku._is_given_number(selected_cell.x, selected_cell.y):
 				button.add_theme_color_override("font_color", Color.WHITE)
 				style.bg_color = CLR_BOARD2
 			else:
 				button.add_theme_color_override("font_color", Color.WHITE)
 				style.bg_color = CLR_BACKGROUND
 			button.add_theme_stylebox_override("normal", style)
-			
+   
 	for i in range(10, 13):
 		var button = number_buttons.get_node("Button" + str(i))
 		var style = StyleBoxFlat.new()
@@ -338,7 +274,7 @@ func _update_buttons():
 
 func _update_grid_highlights():
 	_update_buttons()
-	
+   
 	match highlight_mode:
 		HighlightMode.NUM:
 			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "Num"
@@ -350,7 +286,7 @@ func _update_grid_highlights():
 			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "ALL"
 		HighlightMode.ALLC:
 			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "ALLC"
-	
+   
 	for row in range(9):
 		for col in range(9):
 			var button = grid_container.get_child(row * 9 + col)
@@ -365,7 +301,7 @@ func _update_grid_highlights():
 				# Filled Cell
 				style.set_bg_color(CLR_BLOCKED) 
 			button.add_theme_stylebox_override("normal", style)
-	
+   
 	if selected_num != 0 && highlight_mode >= HighlightMode.ALL:
 		for row in range(9):
 			for col in range(9):
@@ -392,15 +328,14 @@ func _update_grid_highlights():
 					var col_style = col_button.get_theme_stylebox("normal").duplicate()
 					col_style.set_bg_color(CLR_ROW)
 					col_button.add_theme_stylebox_override("normal", col_style)
-		
+
 	for row in range(9):
 		for col in range(9):
 			var button = grid_container.get_child(row * 9 + col)
 			var cell_value = sudoku.grid[row][col]
-			
+		   
 			var style = button.get_theme_stylebox("normal").duplicate()
-			
-
+		   
 			# Highlight selected cell
 			if row == selected_cell.x and col == selected_cell.y:
 				style.set_bg_color(CLR_SELECT) 
@@ -440,7 +375,7 @@ func _on_HintButton_pressed():
 	for i in hints.size():
 		var hint = hints[i]
 		print("%s: %s" % [hint.technique, hint.description])
-	
+
 func _on_NewGameButton_pressed():
 	# Instead of creating a new empty Sudoku, load the next puzzle
 	var current_index = sudoku.get_puzzle_index()
@@ -454,8 +389,7 @@ func _on_NewGameButton_pressed():
 	update_puzzle_info()
 	timer_running = true
 	puzzle_time = 0
-	
-	
+
 func _on_LoadPuzzleButton_pressed():
 	var dialog = FileDialog.new()
 	dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -478,8 +412,6 @@ func _on_puzzle_file_selected(path):
 		puzzle_time = 0
 	else:
 		print("Failed to load puzzle from file")
-		
-
 
 func _request_permissions():
 	if OS.get_name() == "Android" and not permissions_requested:
@@ -497,15 +429,12 @@ func _on_button_c_pressed():
 	selected_num = 0
 	_update_buttons()
 
-
 func _on_button_p_pressed():
 	if mode == Mode.PENCIL:
 		mode = Mode.NUMBER
 	else:
 		mode = Mode.PENCIL
 	_update_buttons()
-	
-
 
 func _on_button_pc_pressed():
 	if mode == Mode.PENCIL_EXCLUDE:
@@ -516,7 +445,6 @@ func _on_button_pc_pressed():
 	_update_pencil()
 	_update_grid_highlights()
 
-
 func _on_UndoButton_pressed():
 	selected_cell = Vector2(-1,-1)
 	selected_num = 0
@@ -525,7 +453,6 @@ func _on_UndoButton_pressed():
 	_update_pencil()
 	_update_grid_highlights()
 	_update_buttons()
-
 
 func _on_timer_timeout():
 	if timer_running:
@@ -538,7 +465,7 @@ func _on_timer_timeout():
 		else:
 			str_sec = str(sec)
 		$Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/Timer.text = str(minimum) + ":" + str_sec + "s"
-	
+
 func _input(event):
 	if event is InputEventKey and event.pressed:
 		var key = event.as_text()
@@ -554,7 +481,6 @@ func _input(event):
 		_on_button_pc_pressed()
 	if event.is_action_pressed("undo"):
 		_on_UndoButton_pressed()
-
 
 func _on_auto_pencil_pressed():
 	sudoku.auto_fill_pencil_marks()
@@ -624,3 +550,65 @@ func string_to_grid(puzzle_string: String) -> Array:
 			row.append(value)
 		_grid.append(row)
 	return _grid
+
+func _on_viewport_size_changed():
+	viewport_size = get_viewport().get_visible_rect().size
+	$Panel.position = Vector2.ZERO
+	$Panel.size = viewport_size
+	
+	var game_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer
+	button_size = min($Panel.size.x, $Panel.size.y/1.6) / 9.5
+	
+	_adjust_number_buttons_layout()
+	_resize_menu_buttons()
+	_resize_grid_buttons()
+
+func _adjust_number_buttons_layout():
+	number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
+	if !number_buttons:
+		number_buttons = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/NumberButtons
+
+	if viewport_size.x < viewport_size.y / 1.2:
+		_move_number_buttons_to_vbox()
+	else:
+		_move_number_buttons_to_hbox()
+
+func _move_number_buttons_to_vbox():
+	if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer:
+		number_buttons.get_parent().remove_child(number_buttons)
+		number_buttons.columns = 6
+		$Panel/AspectRatioContainer/VBoxContainer.add_child(number_buttons)
+		$Panel/AspectRatioContainer.ratio = 1.638
+
+func _move_number_buttons_to_hbox():
+	if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid:
+		number_buttons.get_parent().remove_child(number_buttons)
+		number_buttons.columns = 2
+		$Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid.add_child(number_buttons)
+		$Panel/AspectRatioContainer.ratio = 1
+
+func _resize_menu_buttons():
+	for layer in [$Panel/AspectRatioContainer/VBoxContainer/MenuLayer1, $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2]:
+		for child in layer.get_children():
+			child.set_custom_minimum_size(Vector2(button_size*(9/4), button_size*.75))
+			child.add_theme_font_size_override("font_size", button_size*.375)
+	
+	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.set_custom_minimum_size(Vector2(button_size*.75, button_size*.75))
+	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.add_theme_font_size_override("font_size", button_size*.375)
+
+func _resize_grid_buttons():
+	for row in range(9):
+		for col in range(9):
+			var grid_button = grid_container.get_child(row * 9 + col)
+			var pencil_container = grid_button.get_child(0)
+			grid_button.set_custom_minimum_size(Vector2(button_size, button_size))
+			pencil_container.set_custom_minimum_size(Vector2(button_size, button_size))
+			grid_button.add_theme_font_size_override("font_size", button_size * 0.5)
+			_resize_pencil_cells(pencil_container)
+
+func _resize_pencil_cells(pencil_container):
+	for pencil in range(9):
+		var pencil_cell = pencil_container.get_child(pencil)
+		pencil_cell.position = Vector2((pencil%3) * (button_size / 3), (pencil/3) * (button_size / 3))
+		pencil_cell.size = Vector2(button_size / 3, button_size / 3)
+		pencil_cell.add_theme_font_size_override("font_size", button_size * (0.8 / 3))
