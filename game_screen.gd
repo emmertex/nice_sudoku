@@ -26,6 +26,9 @@ var puzzle_time: int = 0
 var highlight_mode: HighlightMode = HighlightMode.ALLC
 var mode: Mode = Mode.NUMBER
 var viewport_size: Vector2
+var orientation: bool = true
+var vertical_aspect_ratio: float = 1/(1.638)
+var current_aspect_ratio: float = 1
 var button_size: int = 70
 var font_size: int = 10
 var timer_running: bool = false
@@ -35,6 +38,12 @@ var permissions_requested = false
 @onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
 @onready var grid_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/GridContainer
 @onready var blur_overlay = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/BlurOverlay
+@onready var puzzle_info = $Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo
+@onready var highlight_button = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton
+@onready var game_timer_text = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/Timer
+@onready var menu_layer1 = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer1
+@onready var menu_layer2 = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2
+@onready var aspect_container = $Panel/AspectRatioContainer/ColorRect2
 
 func _ready():
 	_initialize()
@@ -53,10 +62,10 @@ func _setup_ui():
 	_create_grid()
 	_setup_number_buttons()
 	update_puzzle_info()
-	_on_viewport_size_changed()
 
 func _load_initial_puzzle():
 	load_puzzle(0)
+	update_puzzle_info()
 
 func _connect_signals():
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -79,7 +88,7 @@ func load_puzzle(index: int):
 
 func update_puzzle_info():
 	var info = sudoku.get_puzzle_info()
-	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
+	puzzle_info.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
 
 func _create_pencil_marks(container: Control):
 	for i in range(3):
@@ -277,15 +286,15 @@ func _update_grid_highlights():
    
 	match highlight_mode:
 		HighlightMode.NUM:
-			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "Num"
+			highlight_button.text = "Num"
 		HighlightMode.NRC:
-			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "RC"
+			highlight_button.text = "RC"
 		HighlightMode.NRCB:
-			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "RCB"
+			highlight_button.text = "RCB"
 		HighlightMode.ALL:
-			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "ALL"
+			highlight_button.text = "ALL"
 		HighlightMode.ALLC:
-			$Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton.text = "ALLC"
+			highlight_button.text = "ALLC"
    
 	for row in range(9):
 		for col in range(9):
@@ -464,7 +473,7 @@ func _on_timer_timeout():
 			str_sec = "0" + str(sec)
 		else:
 			str_sec = str(sec)
-		$Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/Timer.text = str(minimum) + ":" + str_sec + "s"
+		game_timer_text.text = str(minimum) + ":" + str_sec + "s"
 
 func _input(event):
 	if event is InputEventKey and event.pressed:
@@ -553,48 +562,61 @@ func string_to_grid(puzzle_string: String) -> Array:
 
 func _on_viewport_size_changed():
 	viewport_size = get_viewport().get_visible_rect().size
-	$Panel.position = Vector2.ZERO
-	$Panel.size = viewport_size
-	
-	var game_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer
-	button_size = min($Panel.size.x, $Panel.size.y/1.6) / 9.5
-	
-	_adjust_number_buttons_layout()
+
+	#This dirty hack is needed -- sad face.  
+	# Someone fix it!
+	if aspect_container.size.y > viewport_size.y / 1.2 || aspect_container.size.x > viewport_size.x / 1.2:
+		button_size = 1
+		_resize_number_buttons()
+		_resize_grid_buttons()
+		_resize_menu_buttons()
+
+	if orientation:
+		button_size = int(aspect_container.size.x/11)
+	else:
+		button_size = int(aspect_container.size.x/13)
+
+	if orientation != _get_orientation():
+		orientation = _get_orientation()
+		_adjust_number_buttons_layout()
+	_resize_number_buttons()
 	_resize_menu_buttons()
 	_resize_grid_buttons()
 
+func _get_orientation():
+	return viewport_size.x < viewport_size.y / 1.2
+
 func _adjust_number_buttons_layout():
-	number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
-	if !number_buttons:
+	if orientation:
 		number_buttons = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/NumberButtons
-
-	if viewport_size.x < viewport_size.y / 1.2:
-		_move_number_buttons_to_vbox()
-	else:
-		_move_number_buttons_to_hbox()
-
-func _move_number_buttons_to_vbox():
-	if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer:
 		number_buttons.get_parent().remove_child(number_buttons)
 		number_buttons.columns = 6
 		$Panel/AspectRatioContainer/VBoxContainer.add_child(number_buttons)
-		$Panel/AspectRatioContainer.ratio = 1.638
+		$Panel/AspectRatioContainer.ratio = vertical_aspect_ratio
+		current_aspect_ratio = vertical_aspect_ratio
 
-func _move_number_buttons_to_hbox():
-	if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid:
+	else:
+		number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
 		number_buttons.get_parent().remove_child(number_buttons)
 		number_buttons.columns = 2
 		$Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid.add_child(number_buttons)
 		$Panel/AspectRatioContainer.ratio = 1
+		current_aspect_ratio = 1
+
+func _resize_number_buttons():
+	for button in number_buttons.get_children():
+		button.set_custom_minimum_size(Vector2(button_size*(1.5), button_size*(1.5)))
+		button.add_theme_font_size_override("font_size", button_size * 0.75)
 
 func _resize_menu_buttons():
-	for layer in [$Panel/AspectRatioContainer/VBoxContainer/MenuLayer1, $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2]:
+	for layer in [menu_layer1, menu_layer2]:
 		for child in layer.get_children():
-			child.set_custom_minimum_size(Vector2(button_size*(9/4), button_size*.75))
+
+			child.set_custom_minimum_size(Vector2(aspect_container.size.x/4.2, button_size))
 			child.add_theme_font_size_override("font_size", button_size*.375)
 	
-	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.set_custom_minimum_size(Vector2(button_size*.75, button_size*.75))
-	$Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo.add_theme_font_size_override("font_size", button_size*.375)
+	puzzle_info.set_custom_minimum_size(Vector2(aspect_container.size.x/1.5, button_size*.75))
+	puzzle_info.add_theme_font_size_override("font_size", button_size*.375)
 
 func _resize_grid_buttons():
 	for row in range(9):
@@ -611,4 +633,9 @@ func _resize_pencil_cells(pencil_container):
 		var pencil_cell = pencil_container.get_child(pencil)
 		pencil_cell.position = Vector2((pencil%3) * (button_size / 3), (pencil/3) * (button_size / 3))
 		pencil_cell.size = Vector2(button_size / 3, button_size / 3)
-		pencil_cell.add_theme_font_size_override("font_size", button_size * (0.8 / 3))
+		pencil_cell.add_theme_font_size_override("font_size", button_size * (0.7 / 3))
+
+func _ui_hack(): #YUCK
+	if aspect_container.size.y > viewport_size.y || aspect_container.size.x > viewport_size.x:
+		_on_viewport_size_changed()
+		print("BAD UI")

@@ -161,9 +161,9 @@ func is_valid_move(row: int, col: int, num: int) -> bool:
 	if (row < 0 || row > 8 || col < 0 || col > 8 || num < 1 || num > 9):
 		return false
 
-	print("Row" + str(Rn[row][col]) + "   " + int_to_binary_string(Rn[row][col]))
-	print("Col" + str(Cn[row][col]) + "   " + int_to_binary_string(Cn[row][col]))
-	print("Box" + str(Bn[row][col]) + "   " + int_to_binary_string(Bn[row][col]))
+	#print("Row" + str(Rn[row][col]) + "   " + int_to_binary_string(Rn[row][col]))
+	#print("Col" + str(Cn[row][col]) + "   " + int_to_binary_string(Cn[row][col]))
+	#print("Box" + str(Bn[row][col]) + "   " + int_to_binary_string(Bn[row][col]))
    
 	var mask:int = 1 << (num - 1)
 

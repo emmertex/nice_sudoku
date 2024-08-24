@@ -4,7 +4,7 @@
 // Incrementing CACHE_VERSION will kick off the install event and force
 // previously cached resources to be updated from the network.
 /** @type {string} */
-const CACHE_VERSION = '1724467961|7434042179';
+const CACHE_VERSION = '1724474251|13723991965';
 /** @type {string} */
 const CACHE_PREFIX = 'Nice Sudoku-sw-cache-';
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
