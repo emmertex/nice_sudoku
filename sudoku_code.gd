@@ -16,6 +16,8 @@ var exclude_history: Array = []
 var current_puzzle_name: String = ""
 var current_puzzle_difficulty: String = ""
 var current_puzzle_index: int = -1
+var puzzle_data: Array = []
+var puzzle_time: int = 0
 var puzzle_selected: String = "easy"
 var puzzles: Dictionary = {
 	"easy": "res://puzzles/easy.txt",
@@ -112,6 +114,17 @@ func load_puzzle_from_string(puzzle_data: Dictionary, puzzle_index: int = 0) -> 
 
 	_generate_RnCnBn()
 	return true
+
+func fast_parse_puzzle_line(line: String) -> Dictionary:
+	var result = {}
+	var difficulty = line.substr(95, 4).strip_edges()
+   
+	result["difficulty"] = difficulty
+	
+	if line.length() > 99:
+		result["name"] = line.substr(99).strip_edges()
+   
+	return result
 
 func parse_puzzle_line(line: String) -> Dictionary:
 	var result = {}
@@ -279,6 +292,7 @@ func undo_number_history() -> void:
 	if number_history.size() > 0:
 		var last = number_history.pop_back()
 		grid[last[0]][last[1]] = last[2]
+		_generate_RnCnBn()
 
 func undo_pencil_history() -> void:
 	if pencil_history.size() > 0:
@@ -349,3 +363,89 @@ func get_needed_numbers() -> Array:
 			needed[i] = false
    
 	return needed
+
+# Add these functions at the end of the file
+
+func save_state(file_path: String) -> bool:
+	var config = ConfigFile.new()
+	
+	# Save all relevant variables
+	config.set_value("state", "grid", grid)
+	config.set_value("state", "original_grid", original_grid)
+	config.set_value("state", "Rn", Rn)
+	config.set_value("state", "Cn", Cn)
+	config.set_value("state", "Bn", Bn)
+	config.set_value("state", "pencil", pencil)
+	config.set_value("state", "exclude", exclude)
+	config.set_value("state", "history", history)
+	config.set_value("state", "number_history", number_history)
+	config.set_value("state", "pencil_history", pencil_history)
+	config.set_value("state", "exclude_history", exclude_history)
+	config.set_value("state", "current_puzzle_name", current_puzzle_name)
+	config.set_value("state", "current_puzzle_difficulty", current_puzzle_difficulty)
+	config.set_value("state", "current_puzzle_index", current_puzzle_index)
+	config.set_value("state", "puzzle_selected", puzzle_selected)
+	config.set_value("state", "puzzle_time", puzzle_time)
+	
+	return config.save(file_path) == OK
+
+func load_state(file_path: String) -> bool:
+	var config = ConfigFile.new()
+	if config.load(file_path) != OK:
+		return false
+	
+	# Load all relevant variables
+	grid = config.get_value("state", "grid", [])
+	original_grid = config.get_value("state", "original_grid", [])
+	Rn = config.get_value("state", "Rn", [])
+	Cn = config.get_value("state", "Cn", [])
+	Bn = config.get_value("state", "Bn", [])
+	pencil = config.get_value("state", "pencil", [])
+	exclude = config.get_value("state", "exclude", [])
+	history = config.get_value("state", "history", [])
+	number_history = config.get_value("state", "number_history", [])
+	pencil_history = config.get_value("state", "pencil_history", [])
+	exclude_history = config.get_value("state", "exclude_history", [])
+	current_puzzle_name = config.get_value("state", "current_puzzle_name", "")
+	current_puzzle_difficulty = config.get_value("state", "current_puzzle_difficulty", "")
+	current_puzzle_index = config.get_value("state", "current_puzzle_index", -1)
+	puzzle_selected = config.get_value("state", "puzzle_selected", "easy")
+	puzzle_time = config.get_value("state", "puzzle_time", 0)
+	
+	return true
+
+func save_completed_puzzle() -> bool:
+	var config = ConfigFile.new()
+	var full_file_path =  "user://" + puzzle_selected + ".cfg"
+	
+	if config.load(full_file_path) != OK:
+		config = ConfigFile.new()
+	
+	var completed_puzzles = config.get_value("completed", "puzzles", [])
+	
+	var completed_puzzle = {
+		"grid": grid,
+		"original_grid": original_grid,
+		"current_puzzle_index": current_puzzle_index,
+		"puzzle_time": puzzle_time
+	}
+	completed_puzzles.append(completed_puzzle)
+	
+	config.set_value("completed", "puzzles", completed_puzzles)
+	
+	return config.save(full_file_path) == OK
+
+func load_puzzle_data(difficulty: String):
+	var file = FileAccess.open(puzzles[difficulty], FileAccess.READ)
+	if file == null:
+		print("Failed to open Puzzle File")
+		return {}
+	
+	var line_count = 0
+	while not file.eof_reached():
+		puzzle_data.append(fast_parse_puzzle_line(file.get_line()))
+	
+func get_puzzle_data(index: int) -> Dictionary:
+	if index < 0 || index >= puzzle_data.size():
+		return {}
+	return puzzle_data[index]

@@ -3,15 +3,20 @@ extends Control
 # Constants
 const CLR_BOARD = Color(0.21, 0.21, 0.21)
 const CLR_BOARD2 = Color(0.26, 0.26, 0.26)
-const CLR_SELECT = Color(0.13, 0.4, 0.65, 0.5)
-const CLR_SAME = Color(0.13, 0.4, 0.55, 0.5)
-const CLR_PLUS = Color(0.25, 0.35, 0.6, 0.5)
-const CLR_BLOCK = Color(0.2, 0.3, 0.55, 0.5)
-const CLR_ROW = Color(0.2, 0.3, 0.55, 0.5)
-const CLR_BLOCKED = Color(0.2, 0.3, 0.55, 0.5)
+const CLR_GIVEN = Color(0.1, 0.3, 0.4, 0.8)
+const CLR_SELECT = Color(0.13, 0.4, 0.65, 0.8)
+const CLR_SAME = Color(0.13, 0.4, 0.55, 0.8)
+const CLR_PLUS = Color(0.25, 0.35, 0.6, 0.8)
+const CLR_BLOCK = Color(0.2, 0.3, 0.55, 0.8)
+const CLR_ROW = Color(0.2, 0.3, 0.55, 0.8)
+const CLR_BLOCKED = Color(0.2, 0.3, 0.55, 0.8)
 const CLR_BACKGROUND = Color(0.1, 0.1, 0.1)
 const CLR_PENCIL = Color(0.95, 0.95, 0.95)
+const CLR_PENCIL_HIGHLIGHT = Color(0.3, 1.0, 0.3)
 const CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)
+
+const SAVE_STATE_PATH = "user://save_state.cfg"
+
 
 # Enums
 enum HighlightMode { NUM, NRC, NRCB, ALL, ALLC }
@@ -22,7 +27,6 @@ var sudoku: Sudoku
 var hint_generator: SudokuHintGenerator
 var selected_cell: Vector2 = Vector2(-1, -1)
 var selected_num = 0
-var puzzle_time: int = 0
 var highlight_mode: HighlightMode = HighlightMode.ALLC
 var mode: Mode = Mode.NUMBER
 var viewport_size: Vector2
@@ -46,10 +50,13 @@ var permissions_requested = false
 @onready var aspect_container = $Panel/AspectRatioContainer/ColorRect2
 
 func _ready():
+	await get_tree().process_frame
 	_initialize()
 	_setup_ui()
 	_connect_signals()
-	_load_initial_puzzle()
+	if !load_game_state():
+		_load_initial_puzzle()
+
 
 func _initialize():
 	sudoku = Sudoku.new()
@@ -57,15 +64,19 @@ func _initialize():
 	blur_overlay.material = ShaderMaterial.new()
 	blur_overlay.material.shader = load("res://blur_shader.gdshader")
 	blur_overlay.visible = false
-
+	
 func _setup_ui():
 	_create_grid()
 	_setup_number_buttons()
 	update_puzzle_info()
 
+
 func _load_initial_puzzle():
-	load_puzzle(0)
+	load_puzzle(0, "easy")
 	update_puzzle_info()
+	get_tree().call_group("root", "queue_free")
+	get_tree().root.call_deferred("add_child", self)
+	_on_viewport_size_changed()
 
 func _connect_signals():
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -74,14 +85,14 @@ func _connect_signals():
 	if OS.get_name() == "Android":
 		_request_permissions()
 
-func load_puzzle(index: int):
-	sudoku.puzzle_selected = "hard"
+func load_puzzle(index: int, difficulty: String):
+	sudoku.puzzle_selected = difficulty
 	if sudoku.load_puzzle(sudoku.puzzles[sudoku.puzzle_selected], index):
 		_update_grid()
 		selected_cell = Vector2(-1, -1)
 		_update_grid_highlights()
 		timer_running = true
-		puzzle_time = 0
+		sudoku.puzzle_time = 0
 		_update_buttons()
 	else:
 		print("Failed to load puzzle")
@@ -237,6 +248,7 @@ func _update_grid():
 				button.add_theme_color_override("font_color", Color.WHITE)
 	if sudoku.is_completed():
 		timer_running = false
+		save_completed_puzzle()
 
 func _update_buttons():
 	var needed = sudoku.get_needed_numbers()
@@ -300,7 +312,9 @@ func _update_grid_highlights():
 		for col in range(9):
 			var button = grid_container.get_child(row * 9 + col)
 			var style = button.get_theme_stylebox("normal").duplicate()
-			if sudoku.grid[row][col] == 0:
+			if sudoku._is_given_number(row, col):
+				style.set_bg_color(CLR_GIVEN)
+			elif sudoku.grid[row][col] == 0:
 				# Unfilled Cell
 				if ((col * 9) + row) % 2 == 0:
 					style.set_bg_color(CLR_BOARD)
@@ -386,9 +400,118 @@ func _on_HintButton_pressed():
 		print("%s: %s" % [hint.technique, hint.description])
 
 func _on_NewGameButton_pressed():
-	# Instead of creating a new empty Sudoku, load the next puzzle
-	var current_index = sudoku.get_puzzle_index()
-	load_puzzle((current_index + 1) % sudoku.get_puzzle_count())
+	show_puzzle_selection_popup()
+
+func show_puzzle_selection_popup():
+	var popup = PopupPanel.new()
+	popup.set_size(Vector2(600, 400))
+	popup.name = "PuzzleSelectionPopup"
+	add_child(popup)
+
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	popup.add_child(vbox)
+
+	var difficulty_options = OptionButton.new()
+	for difficulty in sudoku.puzzles.keys():
+		difficulty_options.add_item(difficulty.capitalize())
+	var font_size = button_size * 0.375
+	difficulty_options.add_theme_font_size_override("font_size", font_size)
+	vbox.add_child(difficulty_options)
+
+	var scroll_container = ScrollContainer.new()
+	scroll_container.set_v_size_flags(Control.SIZE_EXPAND_FILL)
+	scroll_container.set_custom_minimum_size(Vector2(580, 300)) 
+	vbox.add_child(scroll_container)
+
+	var puzzle_list = VBoxContainer.new()
+	puzzle_list.set_custom_minimum_size(Vector2(560, 0))
+	scroll_container.add_child(puzzle_list)
+
+	difficulty_options.connect("item_selected", self._on_difficulty_selected.bind(puzzle_list))
+	_on_difficulty_selected(0, puzzle_list)
+
+	popup.popup_centered()
+
+func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
+	var difficulty = sudoku.puzzles.keys()[index]
+	print("Selected difficulty:", difficulty)
+	
+	# Clear existing children
+	for child in puzzle_list.get_children():
+		child.queue_free()
+	
+	var header = HBoxContainer.new()
+	header.add_child(_create_label("Index", true))
+	header.add_child(_create_label("Difficulty", true))
+	header.add_child(_create_label("Completed Time", true))
+	header.add_child(_create_label("Load", true))
+	puzzle_list.add_child(header)
+
+	var completed_puzzles = _load_completed_puzzles(difficulty)
+
+	print("Number of puzzles:", sudoku.get_puzzle_count())
+	sudoku.load_puzzle_data(difficulty)
+	for i in range(sudoku.get_puzzle_count()-1):
+		var puzzle_data = sudoku.get_puzzle_data(i)
+		if puzzle_data:
+			var row = HBoxContainer.new()
+			row.add_child(_create_label(str(i)))
+			row.add_child(_create_label(puzzle_data["difficulty"]))
+			
+			var completed_time = ""
+			if completed_puzzles.has(i):
+				completed_time = _format_time(completed_puzzles[i])
+			row.add_child(_create_label(completed_time))
+
+			var button = Button.new()
+			button.text = "Load"
+			button.set_h_size_flags(Control.SIZE_EXPAND_FILL)
+
+			button.connect("pressed", self._on_load_puzzle_pressed.bind(difficulty, i))
+			
+			var font_size = int(button_size * 0.375)
+			button.add_theme_font_size_override("font_size", font_size)
+			
+			row.add_child(button)
+
+			print("Adding puzzle:", i)
+			puzzle_list.add_child(row)
+
+func _create_label(text: String, is_header: bool = false) -> Label:
+	var font_size = button_size * 0.375
+	var label = Label.new()
+	label.text = text
+	label.set_h_size_flags(Control.SIZE_EXPAND_FILL)
+	label.set_custom_minimum_size(Vector2(100, 30))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", font_size)
+	
+	if is_header:
+		label.add_theme_color_override("font_color", Color.YELLOW)
+	return label
+
+func _load_completed_puzzles(difficulty: String) -> Dictionary:
+	print("Loading completed puzzles for difficulty:", difficulty)
+	var config = ConfigFile.new()
+	var file_path = "user://" + difficulty + ".cfg"
+	if config.load(file_path) == OK:
+		var completed_puzzles = config.get_value("completed", "puzzles", [])
+		var result = {}
+		for puzzle in completed_puzzles:
+			result[puzzle.current_puzzle_index] = puzzle.puzzle_time
+		return result
+	return {}
+
+func _format_time(seconds: int) -> String:
+	var minutes = seconds / 60
+	seconds = seconds % 60
+	return "%d:%02d" % [minutes, seconds]
+
+func _on_load_puzzle_pressed(difficulty: String, index: int):
+	sudoku.puzzle_selected = difficulty
+	load_puzzle(index, difficulty)
 	_update_grid()
 	selected_cell = Vector2(-1, -1)
 	selected_num = 0
@@ -397,7 +520,12 @@ func _on_NewGameButton_pressed():
 	_update_pencil()
 	update_puzzle_info()
 	timer_running = true
-	puzzle_time = 0
+	sudoku.puzzle_time = 0
+	var popup = get_node_or_null("PuzzleSelectionPopup")
+	if popup:
+		popup.queue_free()
+	else:
+		print("PuzzleSelectionPopup not found, it may have been already closed.")
 
 func _on_LoadPuzzleButton_pressed():
 	var dialog = FileDialog.new()
@@ -418,7 +546,7 @@ func _on_puzzle_file_selected(path):
 		_update_pencil()
 		update_puzzle_info()
 		timer_running = true
-		puzzle_time = 0
+		sudoku.puzzle_time = 0
 	else:
 		print("Failed to load puzzle from file")
 
@@ -465,15 +593,19 @@ func _on_UndoButton_pressed():
 
 func _on_timer_timeout():
 	if timer_running:
-		puzzle_time += 1
-		var minimum = int(puzzle_time / 60)
-		var sec = puzzle_time % 60
+		sudoku.puzzle_time += 1
+		var minimum = int(sudoku.puzzle_time / 60)
+		var sec = sudoku.puzzle_time % 60
 		var str_sec = "00"
 		if sec < 10:
 			str_sec = "0" + str(sec)
 		else:
 			str_sec = str(sec)
 		game_timer_text.text = str(minimum) + ":" + str_sec + "s"
+
+		# Auto-save every minute
+		if sudoku.puzzle_time % 60 == 0:
+			save_game_state()
 
 func _input(event):
 	if event is InputEventKey and event.pressed:
@@ -507,6 +639,7 @@ func _on_window_focus_in():
 func _on_window_focus_out():
 	blur_overlay.visible = true
 	print("Window focus out")
+	save_game_state()
 
 func _on_paste_puzzle_button_pressed():
 	var popup = Popup.new()
@@ -544,7 +677,7 @@ func _on_load_button_pressed(text_input, popup):
 		selected_cell = Vector2(-1, -1)
 		_update_grid_highlights()
 		timer_running = true
-		puzzle_time = 0
+		sudoku.puzzle_time = 0
 		popup.hide()
 	else:
 		print("Invalid input. Please enter exactly 81 characters (0-9).")
@@ -606,7 +739,7 @@ func _adjust_number_buttons_layout():
 func _resize_number_buttons():
 	for button in number_buttons.get_children():
 		button.set_custom_minimum_size(Vector2(button_size*(1.5), button_size*(1.5)))
-		button.add_theme_font_size_override("font_size", button_size * 0.75)
+		button.add_theme_font_size_override("font_size", button_size*0.75)
 
 func _resize_menu_buttons():
 	for layer in [menu_layer1, menu_layer2]:
@@ -636,6 +769,33 @@ func _resize_pencil_cells(pencil_container):
 		pencil_cell.add_theme_font_size_override("font_size", button_size * (0.7 / 3))
 
 func _ui_hack(): #YUCK
-	if aspect_container.size.y > viewport_size.y || aspect_container.size.x > viewport_size.x:
+	if aspect_container.size.y >= viewport_size.y * 1.01 || aspect_container.size.x >= viewport_size.x* 1.01:
 		_on_viewport_size_changed()
-		print("BAD UI")
+		print("BAD UI BIG")
+
+	if aspect_container.size.y <= viewport_size.y / 1.01 && aspect_container.size.x <= viewport_size.x / 1.01:
+		_on_viewport_size_changed()
+		print("BAD UI SMALL")
+
+func save_game_state():
+	if sudoku.save_state(SAVE_STATE_PATH):
+		print("Game state saved successfully")
+	else:
+		print("Failed to save game state")
+
+func load_game_state() -> bool:
+	if sudoku.load_state(SAVE_STATE_PATH):
+		_update_grid()
+		_update_pencil()
+		_update_grid_highlights()
+		_update_buttons()
+		update_puzzle_info()
+		timer_running = true
+		return true
+	return false
+
+func save_completed_puzzle():
+	if sudoku.save_completed_puzzle():
+		print("Completed puzzle saved successfully")
+	else:
+		print("Failed to save completed puzzle")

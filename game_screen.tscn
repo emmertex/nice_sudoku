@@ -30,39 +30,6 @@ autostart = true
 wait_time = 0.05
 autostart = true
 
-[node name="ReferenceRect" type="ReferenceRect" parent="."]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -317.0
-offset_top = -318.0
-offset_right = 319.0
-offset_bottom = 318.0
-grow_horizontal = 2
-grow_vertical = 2
-editor_only = false
-
-[node name="ReferenceRect2" type="ReferenceRect" parent="."]
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -195.0
-offset_top = -318.0
-offset_right = 194.0
-offset_bottom = 319.0
-grow_horizontal = 2
-grow_vertical = 2
-border_color = Color(0.101553, 0.584162, 0.759951, 1)
-editor_only = false
-
 [node name="Panel" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -76,7 +43,7 @@ layout_mode = 2
 
 [node name="ColorRect2" type="ColorRect" parent="Panel/AspectRatioContainer"]
 layout_mode = 2
-color = Color(0.131379, 0.131379, 0.131379, 1)
+color = Color(0.131, 0.131, 0.131, 0)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel/AspectRatioContainer"]
 layout_mode = 2
@@ -126,6 +93,7 @@ text = "Undo"
 
 [node name="HBoxContainerGrid" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
+size_flags_vertical = 3
 alignment = 1
 
 [node name="AspectRatioContainer" type="AspectRatioContainer" parent="Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid"]
