@@ -305,14 +305,19 @@ func undo_exclude_history() -> void:
 		exclude[last[0]][last[1]][last[2]-1] = last[3]
 
 func undo_history() -> void:
-	if history.size() > 0:
-		match history.pop_back():
-			0:
-				undo_number_history()
-			1:
-				undo_pencil_history()
-			2:
-				undo_exclude_history()
+	var keep_undoing = true
+	while keep_undoing:
+		if history.size() > 0:
+			match history.pop_back():
+				0:
+					undo_number_history()
+					keep_undoing = false
+				1:
+					undo_pencil_history()
+				2:
+					undo_exclude_history()
+		else:
+			keep_undoing = false
 
 # Utility Functions
 func int_to_binary_string(value: int) -> String:
