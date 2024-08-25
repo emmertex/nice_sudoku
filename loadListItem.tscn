@@ -1,0 +1,59 @@
+[gd_scene load_steps=2 format=3 uid="uid://bdriehrwhkocb"]
+
+[ext_resource type="Script" path="res://load_list_item.gd" id="1_ylfag"]
+
+[node name="PuzzleRow" type="AspectRatioContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+ratio = 10.0
+script = ExtResource("1_ylfag")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 2
+color = Color(0.210507, 0.210507, 0.210507, 1)
+
+[node name="HC" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="Index" type="Label" parent="HC"]
+custom_minimum_size = Vector2(60, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "123"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Difficulty" type="Label" parent="HC"]
+custom_minimum_size = Vector2(60, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "3.3"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Time" type="Label" parent="HC"]
+custom_minimum_size = Vector2(60, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "12:23s"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Res" type="Button" parent="HC"]
+custom_minimum_size = Vector2(60, 30)
+layout_mode = 2
+size_flags_vertical = 4
+text = "Res"
+
+[node name="New" type="Button" parent="HC"]
+custom_minimum_size = Vector2(60, 30)
+layout_mode = 2
+size_flags_vertical = 4
+text = "New"

@@ -404,7 +404,8 @@ func _on_NewGameButton_pressed():
 
 func show_puzzle_selection_popup():
 	var popup = PopupPanel.new()
-	popup.set_size(Vector2(button_size*9, button_size*10))
+	var window_size = get_viewport().get_visible_rect().size
+	popup.set_size(Vector2(window_size.x * 0.8, window_size.y * 0.8))
 	popup.name = "PuzzleSelectionPopup"
 	add_child(popup)
 
@@ -415,15 +416,16 @@ func show_puzzle_selection_popup():
 	var difficulty_options = OptionButton.new()
 	for difficulty in sudoku.puzzles.keys():
 		difficulty_options.add_item(difficulty.capitalize())
-	var font_size = button_size * 0.3
-	difficulty_options.add_theme_font_size_override("font_size", font_size)
+	difficulty_options.add_theme_font_size_override("font_size", 24)
 	vbox.add_child(difficulty_options)
 
 	var scroll_container = ScrollContainer.new()
-	scroll_container.set_v_size_flags(Control.SIZE_EXPAND_FILL) 
+	scroll_container.set_v_size_flags(Control.SIZE_EXPAND_FILL)
+	scroll_container.set_h_size_flags(Control.SIZE_EXPAND_FILL)
 	vbox.add_child(scroll_container)
 
 	var puzzle_list = VBoxContainer.new()
+	puzzle_list.set_h_size_flags(Control.SIZE_EXPAND_FILL)
 	scroll_container.add_child(puzzle_list)
 
 	difficulty_options.connect("item_selected", self._on_difficulty_selected.bind(puzzle_list))
@@ -439,42 +441,51 @@ func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 	for child in puzzle_list.get_children():
 		child.queue_free()
 	
-	var header = HBoxContainer.new()
-	header.add_child(_create_label("Index", true))
-	header.add_child(_create_label("Difficulty", true))
-	header.add_child(_create_label("Completed Time", true))
-	header.add_child(_create_label("Load", true))
-	puzzle_list.add_child(header)
-
 	var completed_puzzles = _load_completed_puzzles(difficulty)
 
 	print("Number of puzzles:", sudoku.get_puzzle_count())
 	sudoku.load_puzzle_data(difficulty)
+	sudoku.fast_load_save_states(SAVE_STATE_PATH)
 	for i in range(sudoku.get_puzzle_count()-1):
 		var puzzle_data = sudoku.get_puzzle_data(i)
 		if puzzle_data:
-			var row = HBoxContainer.new()
-			row.add_child(_create_label(str(i)))
-			row.add_child(_create_label(puzzle_data["difficulty"]))
+			var puzzle_row = preload("res://loadListItem.tscn").instantiate()
+			puzzle_row.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
+			var min_width = puzzle_list.size.x * 0.9  # 90% of puzzle_list width
+			puzzle_row.set_custom_minimum_size(Vector2(min_width, 0))
+
+			# Update labels
+			_set_label_text(puzzle_row, "Index", str(i))
+			_set_label_text(puzzle_row, "Difficulty", puzzle_data["difficulty"])
 			
 			var completed_time = ""
 			if completed_puzzles.has(i):
 				completed_time = _format_time(completed_puzzles[i])
-			row.add_child(_create_label(completed_time))
-
-			var button = Button.new()
-			button.text = "Load"
-			button.set_h_size_flags(Control.SIZE_EXPAND_FILL)
-
-			button.connect("pressed", self._on_load_puzzle_pressed.bind(difficulty, i))
+			_set_label_text(puzzle_row, "Time", completed_time)
 			
-			var font_size = int(button_size * 0.375)
-			button.add_theme_font_size_override("font_size", font_size)
+			# Connect buttons
+			_connect_button(puzzle_row, "Res", self._on_resume_button_pressed.bind(difficulty, i), i, difficulty)
+			_connect_button(puzzle_row, "New", self._on_load_puzzle_pressed.bind(difficulty, i), i, difficulty)
 			
-			row.add_child(button)
+			puzzle_list.add_child(puzzle_row)
 
-			print("Adding puzzle:", i)
-			puzzle_list.add_child(row)
+# Helper function to set label text
+func _set_label_text(parent: Node, label_name: String, text: String):
+	var label = parent.find_child(label_name)
+	if label and label is Label:
+		label.text = text
+	else:
+		print("Warning: Label '%s' not found or not a Label node" % label_name)
+
+# Helper function to connect button signals
+func _connect_button(parent: Node, button_name: String, callback: Callable, index: int, difficulty: String):
+	var button = parent.find_child(button_name)
+	if button and button is BaseButton:
+		button.pressed.connect(callback)
+	else:
+		print("Warning: Button '%s' not found or not a button node" % button_name)
+	if (not sudoku.has_save_state(difficulty, index)) && button_name == "Res":
+		button.disabled = true
 
 func _create_label(text: String, is_header: bool = false) -> Label:
 	var font_size = button_size * 0.375
@@ -524,6 +535,9 @@ func _on_load_puzzle_pressed(difficulty: String, index: int):
 		popup.queue_free()
 	else:
 		print("PuzzleSelectionPopup not found, it may have been already closed.")
+
+func _on_resume_button_pressed(difficulty: String, index: int):
+	load_puzzle(index, difficulty)
 
 func _on_LoadPuzzleButton_pressed():
 	var dialog = FileDialog.new()
@@ -623,6 +637,10 @@ func _input(event):
 
 func _on_auto_pencil_pressed():
 	sudoku.auto_fill_pencil_marks()
+	selected_cell = Vector2(-1,-1)
+	selected_num = 0
+	_update_buttons()
+	_update_grid_highlights()
 	_update_pencil()
 
 func _on_highlight_button_pressed():

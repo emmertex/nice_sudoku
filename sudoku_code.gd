@@ -16,6 +16,7 @@ var exclude_history: Array = []
 var current_puzzle_name: String = ""
 var current_puzzle_difficulty: String = ""
 var current_puzzle_index: int = -1
+var save_states: Array = []
 var puzzle_data: Array = []
 var puzzle_time: int = 0
 var puzzle_selected: String = "easy"
@@ -114,6 +115,7 @@ func load_puzzle_from_string(puzzle_data: Dictionary, puzzle_index: int = 0) -> 
 
 	_generate_RnCnBn()
 	return true
+
 
 func fast_parse_puzzle_line(line: String) -> Dictionary:
 	var result = {}
@@ -373,49 +375,85 @@ func get_needed_numbers() -> Array:
 
 func save_state(file_path: String) -> bool:
 	var config = ConfigFile.new()
+	if config.load(file_path) != OK:
+		config = ConfigFile.new()
+
+	var puzzle_saves = config.get_value("puzzle_saves", "puzzles", [])
+	var save_data = {
+		"grid": grid,
+		"original_grid": original_grid,
+		"Rn": Rn,
+		"Cn": Cn,
+		"Bn": Bn,
+		"pencil": pencil,
+		"exclude": exclude,
+		"history": history,
+		"number_history": number_history,
+		"pencil_history": pencil_history,
+		"exclude_history": exclude_history,
+		"current_puzzle_name": current_puzzle_name,
+		"current_puzzle_difficulty": current_puzzle_difficulty,
+		"current_puzzle_index": current_puzzle_index,
+		"puzzle_selected": puzzle_selected,
+		"puzzle_time": puzzle_time
+	}
 	
-	# Save all relevant variables
-	config.set_value("state", "grid", grid)
-	config.set_value("state", "original_grid", original_grid)
-	config.set_value("state", "Rn", Rn)
-	config.set_value("state", "Cn", Cn)
-	config.set_value("state", "Bn", Bn)
-	config.set_value("state", "pencil", pencil)
-	config.set_value("state", "exclude", exclude)
-	config.set_value("state", "history", history)
-	config.set_value("state", "number_history", number_history)
-	config.set_value("state", "pencil_history", pencil_history)
-	config.set_value("state", "exclude_history", exclude_history)
-	config.set_value("state", "current_puzzle_name", current_puzzle_name)
-	config.set_value("state", "current_puzzle_difficulty", current_puzzle_difficulty)
-	config.set_value("state", "current_puzzle_index", current_puzzle_index)
-	config.set_value("state", "puzzle_selected", puzzle_selected)
-	config.set_value("state", "puzzle_time", puzzle_time)
+	# Check if a save for this puzzle already exists
+	var existing_save_index = -1
+	for i in range(puzzle_saves.size()):
+		if puzzle_saves[i].current_puzzle_difficulty == current_puzzle_difficulty and \
+		   puzzle_saves[i].current_puzzle_index == current_puzzle_index:
+			existing_save_index = i
+			break
 	
+	if existing_save_index != -1:
+		# Update existing save
+		puzzle_saves[existing_save_index] = save_data
+	else:
+		# Add new save
+		puzzle_saves.append(save_data)
+	
+	config.set_value("puzzle_saves", "puzzles", puzzle_saves)
 	return config.save(file_path) == OK
 
-func load_state(file_path: String) -> bool:
+func load_state(file_path: String, difficulty: String = "", index: int = -1) -> bool:
 	var config = ConfigFile.new()
 	if config.load(file_path) != OK:
 		return false
 	
-	# Load all relevant variables
-	grid = config.get_value("state", "grid", [])
-	original_grid = config.get_value("state", "original_grid", [])
-	Rn = config.get_value("state", "Rn", [])
-	Cn = config.get_value("state", "Cn", [])
-	Bn = config.get_value("state", "Bn", [])
-	pencil = config.get_value("state", "pencil", [])
-	exclude = config.get_value("state", "exclude", [])
-	history = config.get_value("state", "history", [])
-	number_history = config.get_value("state", "number_history", [])
-	pencil_history = config.get_value("state", "pencil_history", [])
-	exclude_history = config.get_value("state", "exclude_history", [])
-	current_puzzle_name = config.get_value("state", "current_puzzle_name", "")
-	current_puzzle_difficulty = config.get_value("state", "current_puzzle_difficulty", "")
-	current_puzzle_index = config.get_value("state", "current_puzzle_index", -1)
-	puzzle_selected = config.get_value("state", "puzzle_selected", "easy")
-	puzzle_time = config.get_value("state", "puzzle_time", 0)
+	var puzzle_saves = config.get_value("puzzle_saves", "puzzles", [])
+	var save_to_load = null
+	
+	if difficulty == "" and index == -1:
+		# Load latest save state
+		if puzzle_saves.size() > 0:
+			save_to_load = puzzle_saves[-1]
+	else:
+		# Match difficulty and index
+		for save in puzzle_saves:
+			if save.current_puzzle_difficulty == difficulty and save.current_puzzle_index == index:
+				save_to_load = save
+				break
+	
+	if save_to_load == null:
+		return false
+	
+	grid = save_to_load.grid
+	original_grid = save_to_load.original_grid
+	Rn = save_to_load.Rn
+	Cn = save_to_load.Cn
+	Bn = save_to_load.Bn
+	pencil = save_to_load.pencil
+	exclude = save_to_load.exclude
+	history = save_to_load.history
+	number_history = save_to_load.number_history
+	pencil_history = save_to_load.pencil_history
+	exclude_history = save_to_load.exclude_history
+	current_puzzle_name = save_to_load.current_puzzle_name
+	current_puzzle_difficulty = save_to_load.current_puzzle_difficulty
+	current_puzzle_index = save_to_load.current_puzzle_index
+	puzzle_selected = save_to_load.puzzle_selected
+	puzzle_time = save_to_load.puzzle_time
 	
 	return true
 
@@ -426,8 +464,8 @@ func save_completed_puzzle() -> bool:
 	if config.load(full_file_path) != OK:
 		config = ConfigFile.new()
 	
+	# Save completed puzzle
 	var completed_puzzles = config.get_value("completed", "puzzles", [])
-	
 	var completed_puzzle = {
 		"grid": grid,
 		"original_grid": original_grid,
@@ -435,9 +473,18 @@ func save_completed_puzzle() -> bool:
 		"puzzle_time": puzzle_time
 	}
 	completed_puzzles.append(completed_puzzle)
-	
 	config.set_value("completed", "puzzles", completed_puzzles)
-	
+
+	# Remove the save state for this puzzle
+	var puzzle_saves = config.get_value("puzzle_saves", "puzzles", [])
+	var updated_puzzle_saves = []
+	for save in puzzle_saves:
+		if save.current_puzzle_difficulty != current_puzzle_difficulty or \
+		   save.current_puzzle_index != current_puzzle_index:
+			updated_puzzle_saves.append(save)
+	config.set_value("puzzle_saves", "puzzles", updated_puzzle_saves)
+
+	# Save the updated config
 	return config.save(full_file_path) == OK
 
 func load_puzzle_data(difficulty: String):
@@ -454,3 +501,21 @@ func get_puzzle_data(index: int) -> Dictionary:
 	if index < 0 || index >= puzzle_data.size():
 		return {}
 	return puzzle_data[index]
+
+func fast_load_save_states(file_path: String):
+	var config = ConfigFile.new()
+	if config.load(file_path) != OK:
+		print("Failed to open save file")
+		return
+	
+	save_states = config.get_value("puzzle_saves", "puzzles", [])
+
+func has_save_state(difficulty: String, puzzle_index: int) -> bool:
+	if save_states.is_empty():
+		fast_load_save_states("user://sudoku_saves.cfg")  # Adjust the file path as needed
+	
+	for save in save_states:
+		if save.puzzle_selected == difficulty and save.current_puzzle_index == puzzle_index:
+			return true
+	
+	return false
