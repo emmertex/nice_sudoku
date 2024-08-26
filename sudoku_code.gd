@@ -26,6 +26,12 @@ var puzzles: Dictionary = {
 	"hard": "res://puzzles/hard.txt",
 	"expert": "res://puzzles/diabolical.txt"
 }
+var difficulty_index: Dictionary = {
+	"easy": 0,
+	"medium": 1,
+	"hard": 2,
+	"expert": 3
+}
 
 # Initialization
 func _init():
@@ -201,7 +207,7 @@ func _get_valid_numbers(row: int, col: int) -> Array:
 	return valid_numbers
 
 func set_number(row: int, col: int, num: int) -> bool:
-	if is_valid_move(row, col, num) && !_is_given_number(row, col):
+	if is_valid_move(row, col, num) && !is_given_number(row, col):
 		store_number_history(row, col, grid[row][col])
 		grid[row][col] = num
 	   
@@ -258,7 +264,7 @@ func auto_fill_pencil_marks():
 					store_pencil(row, col, num, true)
 
 func swap_pencil(row: int, col:int, num:int) -> void:
-	store_pencil(row, col, num, !pencil[row][col][num-1])
+	store_pencil(row, col, num, !pencil[row][col][num-1], true)
 
 func store_pencil(row: int, col:int, num:int, state:bool, keep_history:bool = true) -> void:
 	if exclude[row][col][num-1] == true:
@@ -266,10 +272,13 @@ func store_pencil(row: int, col:int, num:int, state:bool, keep_history:bool = tr
 		return
 	pencil_history.append([row, col, num, pencil[row][col][num-1]])
 	pencil[row][col][num-1] = state
-	history.append(1)
+	if keep_history:
+		history.append(3)
+	else:
+		history.append(1)
 
 func swap_exclude(row: int, col:int, num:int) -> void:
-	store_exclude(row, col, num, !exclude[row][col][num-1])
+	store_exclude(row, col, num, !exclude[row][col][num-1], true)
 
 func store_exclude(row: int, col:int, num:int, state:bool, keep_history:bool = true) -> void:
 	if pencil[row][col][num-1] == true:
@@ -277,7 +286,10 @@ func store_exclude(row: int, col:int, num:int, state:bool, keep_history:bool = t
 		return
 	exclude_history.append([row, col, num, exclude[row][col][num-1]])
 	exclude[row][col][num-1] = state
-	history.append(2)
+	if keep_history:
+		history.append(4)
+	else:
+		history.append(2)
 
 # History Management
 func store_number_history(row: int, col:int, num:int) -> void:
@@ -318,6 +330,12 @@ func undo_history() -> void:
 					undo_pencil_history()
 				2:
 					undo_exclude_history()
+				3:
+					undo_pencil_history()
+					keep_undoing = false
+				4:
+					undo_exclude_history()
+					keep_undoing = false
 		else:
 			keep_undoing = false
 
@@ -330,7 +348,7 @@ func int_to_binary_string(value: int) -> String:
 		temp = temp / 2
 	return binary if binary != "" else "0"
 
-func _is_given_number(row: int, col: int) -> bool:
+func is_given_number(row: int, col: int) -> bool:
 	return original_grid[row][col] != 0
 
 # Puzzle Information

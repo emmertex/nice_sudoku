@@ -172,7 +172,7 @@ func _on_cell_pressed(row: int, col: int):
 		return
 	selected_cell = Vector2(row, col)
 	if mode == Mode.NUMBER_CLR:
-		if !sudoku.is_original_number(row, col):
+		if !sudoku.is_given_number(row, col):
 			sudoku.clear_number(row, col)
 			selected_cell = Vector2(-1, -1)
 			_update_grid()
@@ -190,11 +190,13 @@ func _on_cell_pressed(row: int, col: int):
 		_update_pencil()
 
 	if mode == Mode.PENCIL:
-		sudoku.swap_pencil(row, col, selected_num)
+		if sudoku.grid[row][col] == 0:
+			sudoku.swap_pencil(row, col, selected_num)
 		selected_cell = Vector2(-1, -1)
 		_update_pencil()
 	if mode == Mode.PENCIL_EXCLUDE:
-		sudoku.swap_exclude(row, col, selected_num)
+		if sudoku.grid[row][col] == 0:
+			sudoku.swap_exclude(row, col, selected_num)
 		selected_cell = Vector2(-1, -1)
 		_update_pencil()
 
@@ -242,7 +244,7 @@ func _update_grid():
 			var button = grid_container.get_child(row * 9 + col)
 			var number = sudoku.grid[row][col]
 			button.text = str(number) if number != 0 else ""
-			if sudoku._is_given_number(row, col):
+			if sudoku.is_given_number(row, col):
 				button.add_theme_color_override("font_color", Color.GRAY)
 			else:
 				button.add_theme_color_override("font_color", Color.WHITE)
@@ -271,7 +273,7 @@ func _update_buttons():
 		else:
 			if (sudoku.is_valid_move(selected_cell.x, selected_cell.y, i+1) || \
 					selected_cell.x < 0 || selected_cell.y < 0) && \
-					!sudoku._is_given_number(selected_cell.x, selected_cell.y):
+					!sudoku.is_given_number(selected_cell.x, selected_cell.y):
 				button.add_theme_color_override("font_color", Color.WHITE)
 				style.bg_color = CLR_BOARD2
 			else:
@@ -312,7 +314,7 @@ func _update_grid_highlights():
 		for col in range(9):
 			var button = grid_container.get_child(row * 9 + col)
 			var style = button.get_theme_stylebox("normal").duplicate()
-			if sudoku._is_given_number(row, col):
+			if sudoku.is_given_number(row, col):
 				style.set_bg_color(CLR_GIVEN)
 			elif sudoku.grid[row][col] == 0:
 				# Unfilled Cell
@@ -405,7 +407,7 @@ func _on_NewGameButton_pressed():
 func show_puzzle_selection_popup():
 	var popup = PopupPanel.new()
 	var window_size = get_viewport().get_visible_rect().size
-	popup.set_size(Vector2(window_size.x * 0.8, window_size.y * 0.8))
+	popup.set_size(Vector2((min(window_size.y, window_size.x)) * 0.8, window_size.y * 0.8))
 	popup.name = "PuzzleSelectionPopup"
 	add_child(popup)
 
@@ -416,7 +418,9 @@ func show_puzzle_selection_popup():
 	var difficulty_options = OptionButton.new()
 	for difficulty in sudoku.puzzles.keys():
 		difficulty_options.add_item(difficulty.capitalize())
-	difficulty_options.add_theme_font_size_override("font_size", 24)
+	difficulty_options.add_theme_font_size_override("font_size", button_size * 0.6)
+	difficulty_options.get_popup().add_theme_font_size_override("font_size", button_size * 0.6)
+	difficulty_options.selected = sudoku.difficulty_index[sudoku.puzzle_selected]
 	vbox.add_child(difficulty_options)
 
 	var scroll_container = ScrollContainer.new()
@@ -429,33 +433,38 @@ func show_puzzle_selection_popup():
 	scroll_container.add_child(puzzle_list)
 
 	difficulty_options.connect("item_selected", self._on_difficulty_selected.bind(puzzle_list))
-	_on_difficulty_selected(0, puzzle_list)
+	_on_difficulty_selected(sudoku.difficulty_index[sudoku.puzzle_selected], puzzle_list)
 
 	popup.popup_centered()
 
 func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 	var difficulty = sudoku.puzzles.keys()[index]
+	var window_size = get_viewport().get_visible_rect().size
 	print("Selected difficulty:", difficulty)
-	
+	print("Window size:", window_size)
+
 	# Clear existing children
 	for child in puzzle_list.get_children():
 		child.queue_free()
-	
+
 	var completed_puzzles = _load_completed_puzzles(difficulty)
 
 	print("Number of puzzles:", sudoku.get_puzzle_count())
 	sudoku.load_puzzle_data(difficulty)
 	sudoku.fast_load_save_states(SAVE_STATE_PATH)
+
+	var min_width = min(window_size.y, window_size.x) * 0.75
+	print("Calculated min_width:", min_width)
+
 	for i in range(sudoku.get_puzzle_count()-1):
 		var puzzle_data = sudoku.get_puzzle_data(i)
 		if puzzle_data:
 			var puzzle_row = preload("res://loadListItem.tscn").instantiate()
-			puzzle_row.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
-			var min_width = puzzle_list.size.x * 0.9  # 90% of puzzle_list width
-			puzzle_row.set_custom_minimum_size(Vector2(min_width, 0))
+			puzzle_row.custom_minimum_size = Vector2(min_width, 0)
+			puzzle_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 			# Update labels
-			_set_label_text(puzzle_row, "Index", str(i))
+			_set_label_text(puzzle_row, "Index", str(i+1))
 			_set_label_text(puzzle_row, "Difficulty", puzzle_data["difficulty"])
 			
 			var completed_time = ""
@@ -468,6 +477,21 @@ func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 			_connect_button(puzzle_row, "New", self._on_load_puzzle_pressed.bind(difficulty, i), i, difficulty)
 			
 			puzzle_list.add_child(puzzle_row)
+
+	# Force layout update
+	puzzle_list.queue_sort()
+	
+	# Add a yield to allow the GUI to update
+	await get_tree().process_frame
+	
+	# Print the size of the first child for debugging
+	if puzzle_list.get_child_count() > 0:
+		print("First child size:", puzzle_list.get_child(0).size)
+
+	# Ensure the ScrollContainer updates its scroll size
+	var scroll_container = puzzle_list.get_parent()
+	if scroll_container is ScrollContainer:
+		scroll_container.queue_sort()
 
 # Helper function to set label text
 func _set_label_text(parent: Node, label_name: String, text: String):
