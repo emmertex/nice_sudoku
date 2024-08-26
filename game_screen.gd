@@ -1,5 +1,7 @@
 extends Control
 
+const BasicGrid = preload("res://StormDoku/BasicGrid.gd")
+
 # Constants
 const CLR_BOARD = Color(0.21, 0.21, 0.21)
 const CLR_BOARD2 = Color(0.26, 0.26, 0.26)
@@ -24,8 +26,7 @@ enum Mode { NUMBER, NUMBER_CLR, PENCIL, PENCIL_EXCLUDE }
 
 # Variables
 var sudoku: Sudoku
-var hint_generator: SudokuHintGenerator
-var selected_cell: Vector2 = Vector2(-1, -1)
+var selected_cell: int = -1
 var selected_num = 0
 var highlight_mode: HighlightMode = HighlightMode.ALLC
 var mode: Mode = Mode.NUMBER
@@ -89,7 +90,7 @@ func load_puzzle(index: int, difficulty: String):
 	sudoku.puzzle_selected = difficulty
 	if sudoku.load_puzzle(sudoku.puzzles[sudoku.puzzle_selected], index):
 		_update_grid()
-		selected_cell = Vector2(-1, -1)
+		selected_cell = -1
 		_update_grid_highlights()
 		timer_running = true
 		sudoku.puzzle_time = 0
@@ -165,57 +166,57 @@ func _setup_number_buttons():
 	   
 
 func _on_cell_pressed(row: int, col: int):
-	if selected_cell == Vector2(row, col):
-		selected_cell = Vector2(-1, -1)
+	var cell = row * 9 + col
+	if selected_cell == cell:
+		selected_cell = -1
 		_update_buttons()
 		_update_grid_highlights()
 		return
-	selected_cell = Vector2(row, col)
+	selected_cell = cell
 	if mode == Mode.NUMBER_CLR:
-		if !sudoku.is_original_number(row, col):
+		if !sudoku.is_given_number(cell):
 			sudoku.clear_number(row, col)
-			selected_cell = Vector2(-1, -1)
+			selected_cell = -1
 			_update_grid()
 			_update_pencil()
 
 	if mode == Mode.NUMBER:
-		if sudoku.grid[row][col] == 0:
+		var current_value = sudoku.get_cell_value(cell)
+		if current_value == 0:
 			if selected_num != 0:
 				sudoku.set_number(row, col, selected_num)
-				selected_cell = Vector2(-1, -1)
+				selected_cell = -1
 		else:
-			selected_num = sudoku.grid[row][col]
-		sudoku.update_RnCnBn()
+			selected_num = current_value
 		_update_grid()
 		_update_pencil()
 
 	if mode == Mode.PENCIL:
 		sudoku.swap_pencil(row, col, selected_num)
-		selected_cell = Vector2(-1, -1)
+		selected_cell = -1
 		_update_pencil()
 	if mode == Mode.PENCIL_EXCLUDE:
 		sudoku.swap_exclude(row, col, selected_num)
-		selected_cell = Vector2(-1, -1)
+		selected_cell = -1
 		_update_pencil()
 
 	_update_grid_highlights()
 
 func _update_pencil():
-	for row in range(9):
-		for col in range(9):
-			for num in range(9):
-				var pencil_button = grid_container.get_child(row * 9 + col).get_child(0).get_child(num)
-				if (sudoku.pencil[row][col][num]):
-					pencil_button.text = str(Cardinals.PencilN[num])
-					pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
-				elif (sudoku.exclude[row][col][num]):
-					if highlight_mode == HighlightMode.ALLC && mode != Mode.PENCIL_EXCLUDE:
-						pencil_button.text = ""
-					else:
-						pencil_button.text = str(Cardinals.PencilN[num])
-						pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
-				else:
+	for cell in range(Cardinals.Length):
+		for num in range(9):
+			var pencil_button = grid_container.get_child(cell).get_child(0).get_child(num)
+			if (sudoku.get_pencil(cell, num)):
+				pencil_button.text = str(Cardinals.PencilN[num])
+				pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
+			elif (sudoku.get_exclude(cell, num)):
+				if highlight_mode == HighlightMode.ALLC && mode != Mode.PENCIL_EXCLUDE:
 					pencil_button.text = ""
+				else:
+					pencil_button.text = str(Cardinals.PencilN[num])
+					pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
+			else:
+				pencil_button.text = ""
 
 func _on_number_button_pressed(number: int):
 	if selected_num == number:
@@ -224,28 +225,28 @@ func _on_number_button_pressed(number: int):
 		_update_grid_highlights()
 		return
 	selected_num = number
-	if selected_cell.x >= 0 and selected_cell.y >= 0:
+	if selected_cell != -1:
 		if mode == Mode.NUMBER:
-			if sudoku.set_number(selected_cell.x, selected_cell.y, number):
-				sudoku.update_RnCnBn()
+			var row = selected_cell / 9
+			var col = selected_cell % 9
+			if sudoku.set_number(row, col, number):
 				_update_grid()
 				_update_pencil()
-			selected_cell = Vector2(-1,-1)
+			selected_cell = -1
 			_update_grid_highlights()
 		selected_num = 0
 	_update_grid_highlights()
 	_update_buttons()
 
 func _update_grid():
-	for row in range(9):
-		for col in range(9):
-			var button = grid_container.get_child(row * 9 + col)
-			var number = sudoku.grid[row][col]
-			button.text = str(number) if number != 0 else ""
-			if sudoku._is_given_number(row, col):
-				button.add_theme_color_override("font_color", Color.GRAY)
-			else:
-				button.add_theme_color_override("font_color", Color.WHITE)
+	for cell in range(Cardinals.Length):
+		var button = grid_container.get_child(cell)
+		var number = sudoku.get_cell_value(cell)
+		button.text = str(number) if number != 0 else ""
+		if sudoku.is_given_number(cell):
+			button.add_theme_color_override("font_color", Color.GRAY)
+		else:
+			button.add_theme_color_override("font_color", Color.WHITE)
 	if sudoku.is_completed():
 		timer_running = false
 		save_completed_puzzle()
@@ -269,9 +270,7 @@ func _update_buttons():
 			button.add_theme_stylebox_override("normal", style)
 			continue
 		else:
-			if (sudoku.is_valid_move(selected_cell.x, selected_cell.y, i+1) || \
-					selected_cell.x < 0 || selected_cell.y < 0) && \
-					!sudoku._is_given_number(selected_cell.x, selected_cell.y):
+			if selected_cell == -1 && sudoku.is_solved_number(selected_cell, i):
 				button.add_theme_color_override("font_color", Color.WHITE)
 				style.bg_color = CLR_BOARD2
 			else:
@@ -308,96 +307,103 @@ func _update_grid_highlights():
 		HighlightMode.ALLC:
 			highlight_button.text = "ALLC"
    
-	for row in range(9):
-		for col in range(9):
-			var button = grid_container.get_child(row * 9 + col)
-			var style = button.get_theme_stylebox("normal").duplicate()
-			if sudoku._is_given_number(row, col):
-				style.set_bg_color(CLR_GIVEN)
-			elif sudoku.grid[row][col] == 0:
-				# Unfilled Cell
-				if ((col * 9) + row) % 2 == 0:
-					style.set_bg_color(CLR_BOARD)
-				else:
-					style.set_bg_color(CLR_BOARD2)
+	for cell in range(Cardinals.Length):
+		var button = grid_container.get_child(cell)
+		var style = button.get_theme_stylebox("normal").duplicate()
+		if sudoku.is_given_number(cell):
+			style.set_bg_color(CLR_GIVEN)
+		elif sudoku.get_cell_value(cell) == 0:
+			# Unfilled Cell
+			if cell % 2 == 0:
+				style.set_bg_color(CLR_BOARD)
 			else:
-				# Filled Cell
-				style.set_bg_color(CLR_BLOCKED) 
-			button.add_theme_stylebox_override("normal", style)
+				style.set_bg_color(CLR_BOARD2)
+		else:
+			# Filled Cell
+			style.set_bg_color(CLR_BLOCKED) 
+		button.add_theme_stylebox_override("normal", style)
    
 	if selected_num != 0 && highlight_mode >= HighlightMode.ALL:
-		for row in range(9):
-			for col in range(9):
-				if selected_num == sudoku.grid[row][col]:
-					for i in range(9):
-						var row_button = grid_container.get_child(row * 9 + i)
-						var col_button = grid_container.get_child(i * 9 + col)
-						var row_style = row_button.get_theme_stylebox("normal").duplicate()
-						var col_style = col_button.get_theme_stylebox("normal").duplicate()
-						# All blocked Rows and Columns
-						row_style.set_bg_color(CLR_ROW) 
-						col_style.set_bg_color(CLR_ROW) 
-						row_button.add_theme_stylebox_override("normal", row_style)
-						col_button.add_theme_stylebox_override("normal", col_style)
-					for i in range(3):
-						for j in range(3):
-							var col_button = grid_container.get_child((((row/3)*3)+i) * 9 + j + ((col/3)*3))
-							var style = col_button.get_theme_stylebox("normal").duplicate()
-							# Blocked 3x3 Cell
-							style.set_bg_color(Color(CLR_ROW))
-							col_button.add_theme_stylebox_override("normal", style)
-				if sudoku.exclude[row][col][selected_num-1]:
-					var col_button = grid_container.get_child(row * 9 + col)
+		for cell in range(Cardinals.Length):
+			if selected_num == sudoku.get_cell_value(cell):
+				var row = cell / 9
+				var col = cell % 9
+				for i in range(9):
+					var row_cell = row * 9 + i
+					var col_cell = i * 9 + col
+					var row_button = grid_container.get_child(row_cell)
+					var col_button = grid_container.get_child(col_cell)
+					var row_style = row_button.get_theme_stylebox("normal").duplicate()
 					var col_style = col_button.get_theme_stylebox("normal").duplicate()
-					col_style.set_bg_color(CLR_ROW)
+					# All blocked Rows and Columns
+					row_style.set_bg_color(CLR_ROW) 
+					col_style.set_bg_color(CLR_ROW) 
+					row_button.add_theme_stylebox_override("normal", row_style)
 					col_button.add_theme_stylebox_override("normal", col_style)
+				for i in range(3):
+					for j in range(3):
+						var block_cell = (((row/3)*3)+i) * 9 + j + ((col/3)*3)
+						var block_button = grid_container.get_child(block_cell)
+						var style = block_button.get_theme_stylebox("normal").duplicate()
+						# Blocked 3x3 Cell
+						style.set_bg_color(Color(CLR_ROW))
+						block_button.add_theme_stylebox_override("normal", style)
+			if sudoku.get_exclude(cell, selected_num-1):
+				var exclude_button = grid_container.get_child(cell)
+				var exclude_style = exclude_button.get_theme_stylebox("normal").duplicate()
+				exclude_style.set_bg_color(CLR_ROW)
+				exclude_button.add_theme_stylebox_override("normal", exclude_style)
 
-	for row in range(9):
-		for col in range(9):
-			var button = grid_container.get_child(row * 9 + col)
-			var cell_value = sudoku.grid[row][col]
-		   
-			var style = button.get_theme_stylebox("normal").duplicate()
-		   
-			# Highlight selected cell
-			if row == selected_cell.x and col == selected_cell.y:
-				style.set_bg_color(CLR_SELECT) 
+	# Highlight selected cell
+	if selected_cell != -1:
+		var button = grid_container.get_child(selected_cell)
+		var style = button.get_theme_stylebox("normal").duplicate()
+		style.set_bg_color(CLR_SELECT) 
+		button.add_theme_stylebox_override("normal", style)
+
+	# Highlight cells with the same number as selected cell
+	if highlight_mode >= HighlightMode.NUM && selected_num != 0:
+		for cell in range(Cardinals.Length):
+			if sudoku.get_cell_value(cell) == selected_num:
+				var button = grid_container.get_child(cell)
+				var style = button.get_theme_stylebox("normal").duplicate()
+				style.set_bg_color(CLR_SAME) 
 				button.add_theme_stylebox_override("normal", style)
-				continue
 
-			# Highlight cells with the same number as selected cell
-			if highlight_mode >= HighlightMode.NUM:
-				if int(cell_value) == selected_num and selected_num != 0:
-					style.set_bg_color(CLR_SAME) 
-					button.add_theme_stylebox_override("normal", style)
-					continue
+	# Highlight row/column of selected cell
+	if highlight_mode >= HighlightMode.NRC && selected_cell != -1:
+		var row = selected_cell / 9
+		var col = selected_cell % 9
+		for i in range(9):
+			var row_cell = row * 9 + i
+			var col_cell = i * 9 + col
+			if row_cell != selected_cell && col_cell != selected_cell:
+				var row_button = grid_container.get_child(row_cell)
+				var col_button = grid_container.get_child(col_cell)
+				var row_style = row_button.get_theme_stylebox("normal").duplicate()
+				var col_style = col_button.get_theme_stylebox("normal").duplicate()
+				row_style.set_bg_color(CLR_PLUS) 
+				col_style.set_bg_color(CLR_PLUS) 
+				row_button.add_theme_stylebox_override("normal", row_style)
+				col_button.add_theme_stylebox_override("normal", col_style)
 
-			# Highlight row/column of selected cell
-			if highlight_mode >= HighlightMode.NRC:
-				if  (row == selected_cell.x or col == selected_cell.y):
-					style.set_bg_color(CLR_PLUS) 
-					button.add_theme_stylebox_override("normal", style)
-					continue
-
-			# Highlight 3x3 subgrid of selected cell
-			if highlight_mode >= HighlightMode.NRCB:
-				if selected_cell.x >= 0 && selected_cell.y >= 0:
-					if int(row / 3) == int(selected_cell.x / 3) && int(col / 3) == int(selected_cell.y / 3):
-						style.set_bg_color(CLR_BLOCK) 
-					button.add_theme_stylebox_override("normal", style)
-					continue
+	# Highlight 3x3 subgrid of selected cell
+	if highlight_mode >= HighlightMode.NRCB && selected_cell != -1:
+		var row = selected_cell / 9
+		var col = selected_cell % 9
+		var block_row = (row / 3) * 3
+		var block_col = (col / 3) * 3
+		for i in range(3):
+			for j in range(3):
+				var block_cell = (block_row + i) * 9 + (block_col + j)
+				if block_cell != selected_cell:
+					var block_button = grid_container.get_child(block_cell)
+					var style = block_button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(CLR_BLOCK) 
+					block_button.add_theme_stylebox_override("normal", style)
 
 func _on_HintButton_pressed():
-	var hints = hint_generator.get_hints()
-	if hints.size() > 0:
-		var hint = hints[0]
-		print("%s: %s" % [hint.technique, hint.description])
-	else:
-		print("No hints available")
-
-	for i in hints.size():
-		var hint = hints[i]
-		print("%s: %s" % [hint.technique, hint.description])
+	print("No hint for you!")
 
 func _on_NewGameButton_pressed():
 	show_puzzle_selection_popup()
@@ -522,7 +528,7 @@ func _on_load_puzzle_pressed(difficulty: String, index: int):
 	sudoku.puzzle_selected = difficulty
 	load_puzzle(index, difficulty)
 	_update_grid()
-	selected_cell = Vector2(-1, -1)
+	selected_cell = -1
 	selected_num = 0
 	_update_grid_highlights()
 	_update_buttons()
@@ -551,7 +557,7 @@ func _on_LoadPuzzleButton_pressed():
 func _on_puzzle_file_selected(path):
 	if sudoku.puzzle_file(path):
 		_update_grid()
-		selected_cell = Vector2(-1, -1)
+		selected_cell = -1
 		selected_num = 0
 		_update_grid_highlights()
 		_update_buttons()
@@ -574,7 +580,7 @@ func _on_button_c_pressed():
 		mode = Mode.NUMBER
 	else:
 		mode = Mode.NUMBER_CLR
-	selected_cell = Vector2(-1,-1)
+	selected_cell = -1
 	selected_num = 0
 	_update_buttons()
 
@@ -595,7 +601,7 @@ func _on_button_pc_pressed():
 	_update_grid_highlights()
 
 func _on_UndoButton_pressed():
-	selected_cell = Vector2(-1,-1)
+	selected_cell = -1
 	selected_num = 0
 	sudoku.undo_history()
 	_update_grid()
@@ -637,7 +643,7 @@ func _input(event):
 
 func _on_auto_pencil_pressed():
 	sudoku.auto_fill_pencil_marks()
-	selected_cell = Vector2(-1,-1)
+	selected_cell = -1
 	selected_num = 0
 	_update_buttons()
 	_update_grid_highlights()
@@ -690,7 +696,7 @@ func _on_load_button_pressed(text_input, popup):
 		var puzzle_data = {"grid": string_to_grid(input_text), "difficulty": "Custom", "name": "Custom Puzzle"}
 		sudoku.load_puzzle_from_string(puzzle_data)
 		_update_grid()
-		selected_cell = Vector2(-1, -1)
+		selected_cell = -1
 		_update_grid_highlights()
 		timer_running = true
 		sudoku.puzzle_time = 0

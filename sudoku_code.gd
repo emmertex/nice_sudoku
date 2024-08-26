@@ -1,12 +1,14 @@
 extends RefCounted
 class_name Sudoku
 
+const BasicGrid = preload("res://StormDoku/BasicGrid.gd")
+const Tools = preload("res://StormDoku/Tools.gd")
+
+
 # Properties
-var grid: Array = []
-var original_grid: Array = []
-var Rn: Array = []
-var Cn: Array = []
-var Bn: Array = []
+var grid: BasicGrid
+var original_grid: BasicGrid
+var sbrcgrid: SBRCGrid = SBRCGrid.new(grid)
 var pencil: Array = []
 var exclude: Array = []
 var history: Array = []
@@ -29,18 +31,10 @@ var puzzles: Dictionary = {
 
 # Initialization
 func _init():
-	_generate_empty_grid()
+	grid = BasicGrid.new()
+	original_grid = BasicGrid.new()
 	_generate_pencil_grid()
-
-# Grid Generation
-func _generate_empty_grid():
-	grid = []
-	for _i in range(9):
-		var row = []
-		for _j in range(9):
-			row.append(0)
-		grid.append(row)
-	original_grid = grid.duplicate(true)
+	sbrcgrid = SBRCGrid.new(grid)
 
 func _generate_pencil_grid():
 	pencil = []
@@ -52,32 +46,7 @@ func _generate_pencil_grid():
 				col.append(false)
 			row.append(col)
 		pencil.append(row)
-		exclude.append(row)
-
-func _generate_RnCnBn():
-	Rn = []
-	Cn = []
-	Bn = []	
-	for i in range(9):
-		Rn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
-		Cn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
-		Bn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
-	update_RnCnBn()
-
-func update_RnCnBn():
-	for cell in range(Cardinals.Length):
-		var row = Cardinals.Rx[cell]
-		var col = Cardinals.Cy[cell]
-		var value = grid[row][col]
-	   
-		if value != 0:
-			var mask = ~(1 << (value - 1))
-			var box = Cardinals.Bxy[cell]
-			for i in range(9):
-				Rn[row][i] &= mask
-				Cn[i][col] &= mask
-				var rc = Cardinals.box_to_rc(box, i)
-				Bn[rc.x][rc.y] &= mask
+		exclude.append(row.duplicate(true))
 
 # Puzzle Loading
 func puzzle_file(path: String) -> bool:
@@ -106,16 +75,21 @@ func load_puzzle_from_string(puzzle_data: Dictionary, puzzle_index: int = 0) -> 
 		print("Invalid puzzle data")
 		return false
    
-	grid = puzzle_data["grid"]
-	original_grid = grid.duplicate(true)
+	grid = BasicGrid.new()
+	for row in range(9):
+		for col in range(9):
+			var value = puzzle_data["grid"][row][col]
+			if value != 0:
+				grid.set_solved(row * 9 + col, value - 1, true)
+	
+	original_grid = BasicGrid.new()
+	original_grid.data = grid.data.duplicate()
 	current_puzzle_name = puzzle_data.get("name", "Puzzle " + str(puzzle_index + 1))
 	current_puzzle_difficulty = puzzle_data["difficulty"]
 	current_puzzle_index = puzzle_index
 	_generate_pencil_grid()
 
-	_generate_RnCnBn()
 	return true
-
 
 func fast_parse_puzzle_line(line: String) -> Dictionary:
 	var result = {}
@@ -131,9 +105,6 @@ func fast_parse_puzzle_line(line: String) -> Dictionary:
 func parse_puzzle_line(line: String) -> Dictionary:
 	var result = {}
    
-	print(line)
-	print(line.length())
-
 	if line.length() < 99:
 		result["difficulty"] = "Unknown"
 		result["hashstr"] = "Unknown"
@@ -152,7 +123,6 @@ func parse_puzzle_line(line: String) -> Dictionary:
 	if line.length() > 99:
 		result["name"] = line.substr(99).strip_edges()
    
-	print(result)
 	return result
 
 func string_to_grid(puzzle_string: String) -> Array:
@@ -166,44 +136,28 @@ func string_to_grid(puzzle_string: String) -> Array:
 		_grid.append(row)
 	return _grid
 
-func _set_grid(puzzle: Array):
-	assert(len(puzzle) == 9 and len(puzzle[0]) == 9, "Invalid puzzle dimensions")
-	grid = puzzle.duplicate(true)
-	original_grid = grid.duplicate(true)
+func is_valid_move(cell: int, num: int) -> bool:
+	return grid.has_candidate(cell, num-1)
 
-# Game Logic
-func is_valid_move(row: int, col: int, num: int) -> bool:
-	if (row < 0 || row > 8 || col < 0 || col > 8 || num < 1 || num > 9):
-		return false
-
-	#print("Row" + str(Rn[row][col]) + "   " + int_to_binary_string(Rn[row][col]))
-	#print("Col" + str(Cn[row][col]) + "   " + int_to_binary_string(Cn[row][col]))
-	#print("Box" + str(Bn[row][col]) + "   " + int_to_binary_string(Bn[row][col]))
-   
-	var mask:int = 1 << (num - 1)
-
-
-	var row_mask:int = Rn[row][col] & mask
-	var col_mask:int = Cn[row][col] & mask
-	var box_mask:int = Bn[row][col] & mask
-	return row_mask == mask && col_mask == mask && box_mask == mask
+func is_solved_number(cell: int, num: int) -> bool:
+	return !grid.has_candidate(cell, num-1)
 
 func _get_valid_numbers(row: int, col: int) -> Array:
 	var valid_numbers = []
-	if grid[row][col] != 0:
-		return valid_numbers  # Cell is already filled
+	var cell = row * 9 + col
+	if grid.is_solved(cell):
+		return valid_numbers
 
-	var intersection = Rn[row][col] & Cn[row][col] & Bn[row][col]
 	for num in range(1, 10):
-		if intersection & (1 << (num - 1)) != 0:
+		if grid.has_candidate(cell, num - 1):
 			valid_numbers.append(num)
 
 	return valid_numbers
 
 func set_number(row: int, col: int, num: int) -> bool:
-	if is_valid_move(row, col, num) && !_is_given_number(row, col):
-		store_number_history(row, col, grid[row][col])
-		grid[row][col] = num
+	if is_valid_move(((row*9)+col), num) && !_is_given_number(row, col):
+		store_number_history(row, col, grid.get_solved(row * 9 + col))
+		grid.set_solved(row * 9 + col, num - 1, false)
 	   
 		# Clear all pencil marks from the cell
 		for i in range(9):
@@ -212,41 +166,25 @@ func set_number(row: int, col: int, num: int) -> bool:
 			if exclude[row][col][i]:
 				store_exclude(row, col, i+1, false)
 	   
-		# Clear pencil marks of the number from the block
+		# Clear pencil marks of the number from the block, row, and column
 		var block_row = (row / 3) * 3
 		var block_col = (col / 3) * 3
-		for r in range(block_row, block_row + 3):
-			for c in range(block_col, block_col + 3):
-				if pencil[r][c][num-1]:
-					store_pencil(r, c, num, false)
-				if exclude[r][c][num-1]:
-					store_exclude(r, c, num, false)
-		# Clear pencil marks of the number from the row
-		for c in range(9):
-			if pencil[row][c][num-1]:
-				store_pencil(row, c, num, false)
-			if exclude[row][c][num-1]:
-				store_exclude(row, c, num, false)
-		# Clear pencil marks of the number from the column
 		for r in range(9):
-			if pencil[r][col][num-1]:
-				store_pencil(r, col, num, false)
-			if exclude[r][col][num-1]:
-				store_exclude(r, col, num, false)
+			for c in range(9):
+				if (r >= block_row and r < block_row + 3 and c >= block_col and c < block_col + 3) or r == row or c == col:
+					if pencil[r][c][num-1]:
+						store_pencil(r, c, num, false)
+					if exclude[r][c][num-1]:
+						store_exclude(r, c, num, false)
 		return true
 	return false
 
 func clear_number(row: int, col: int):
-	store_number_history(row, col, grid[row][col])
-	grid[row][col] = 0
+	store_number_history(row, col, grid.get_solved(row * 9 + col))
+	grid.set_cell_bits(row * 9 + col, grid.ones(Cardinals.rcbs))
 
 func is_completed() -> bool:
-	for row in range(9):
-		for col in range(9):
-			if grid[row][col] == 0:
-				return false
-	print("Puzzle is completed")
-	return true
+	return grid.get_num_solved() == Cardinals.Length
 
 # Pencil Marks and Exclude
 func auto_fill_pencil_marks():
@@ -293,8 +231,10 @@ func clear_history() -> void:
 func undo_number_history() -> void:
 	if number_history.size() > 0:
 		var last = number_history.pop_back()
-		grid[last[0]][last[1]] = last[2]
-		_generate_RnCnBn()
+		if last[2] == -1:
+			grid.set_cell_bits(last[0] * 9 + last[1], grid.ones(Cardinals.rcbs))
+		else:
+			grid.set_solved(last[0] * 9 + last[1], last[2], false)
 
 func undo_pencil_history() -> void:
 	if pencil_history.size() > 0:
@@ -322,16 +262,15 @@ func undo_history() -> void:
 			keep_undoing = false
 
 # Utility Functions
-func int_to_binary_string(value: int) -> String:
-	var binary = ""
-	var temp = value
-	while temp > 0:
-		binary = str(temp % 2) + binary
-		temp = temp / 2
-	return binary if binary != "" else "0"
-
 func _is_given_number(row: int, col: int) -> bool:
-	return original_grid[row][col] != 0
+	return grid.is_given(row * 9 + col)
+
+func get_cell_value(cell: int) -> int:
+	var solved = grid.get_solved(cell)
+	return solved + 1 if solved != -1 else 0
+
+func is_given_number(cell: int) -> bool:
+	return grid.is_given(cell)
 
 # Puzzle Information
 func get_puzzle_index() -> int:
@@ -357,22 +296,23 @@ func get_puzzle_info() -> Dictionary:
 	}
 
 func get_needed_numbers() -> Array:
-	var needed = [true, true, true, true, true, true, true, true, true]
 	var count = [0, 0, 0, 0, 0, 0, 0, 0, 0]
-	for row in range(9):
-		for col in range(9):
-			var num = grid[row][col]
-			if num != 0:
-				count[num - 1] += 1
-   
+	var needed = [true, true, true, true, true, true, true, true, true]
+
+	for cell in range(Cardinals.Length):
+		if grid.is_solved(cell):
+			var cell_bits = grid.get_cell_bits(cell)
+			for bit in range(9):
+				if cell_bits & (1 << bit):
+					count[bit] += 1
+
 	for i in range(9):
 		if count[i] == 9:
 			needed[i] = false
-   
+
 	return needed
 
-# Add these functions at the end of the file
-
+# Save and Load functions
 func save_state(file_path: String) -> bool:
 	var config = ConfigFile.new()
 	if config.load(file_path) != OK:
@@ -380,11 +320,8 @@ func save_state(file_path: String) -> bool:
 
 	var puzzle_saves = config.get_value("puzzle_saves", "puzzles", [])
 	var save_data = {
-		"grid": grid,
-		"original_grid": original_grid,
-		"Rn": Rn,
-		"Cn": Cn,
-		"Bn": Bn,
+		"grid_data": grid.data,
+		"original_grid_data": original_grid.data,
 		"pencil": pencil,
 		"exclude": exclude,
 		"history": history,
@@ -398,19 +335,16 @@ func save_state(file_path: String) -> bool:
 		"puzzle_time": puzzle_time
 	}
 	
-	# Check if a save for this puzzle already exists
 	var existing_save_index = -1
 	for i in range(puzzle_saves.size()):
-		if puzzle_saves[i].current_puzzle_difficulty == current_puzzle_difficulty and \
-		   puzzle_saves[i].current_puzzle_index == current_puzzle_index:
+		if puzzle_saves[i].get("current_puzzle_difficulty") == current_puzzle_difficulty and \
+		   puzzle_saves[i].get("current_puzzle_index") == current_puzzle_index:
 			existing_save_index = i
 			break
 	
 	if existing_save_index != -1:
-		# Update existing save
 		puzzle_saves[existing_save_index] = save_data
 	else:
-		# Add new save
 		puzzle_saves.append(save_data)
 	
 	config.set_value("puzzle_saves", "puzzles", puzzle_saves)
@@ -425,35 +359,32 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	var save_to_load = null
 	
 	if difficulty == "" and index == -1:
-		# Load latest save state
 		if puzzle_saves.size() > 0:
 			save_to_load = puzzle_saves[-1]
 	else:
-		# Match difficulty and index
 		for save in puzzle_saves:
-			if save.current_puzzle_difficulty == difficulty and save.current_puzzle_index == index:
+			if save.get("current_puzzle_difficulty") == difficulty and save.get("current_puzzle_index") == index:
 				save_to_load = save
 				break
 	
 	if save_to_load == null:
 		return false
 	
-	grid = save_to_load.grid
-	original_grid = save_to_load.original_grid
-	Rn = save_to_load.Rn
-	Cn = save_to_load.Cn
-	Bn = save_to_load.Bn
-	pencil = save_to_load.pencil
-	exclude = save_to_load.exclude
-	history = save_to_load.history
-	number_history = save_to_load.number_history
-	pencil_history = save_to_load.pencil_history
-	exclude_history = save_to_load.exclude_history
-	current_puzzle_name = save_to_load.current_puzzle_name
-	current_puzzle_difficulty = save_to_load.current_puzzle_difficulty
-	current_puzzle_index = save_to_load.current_puzzle_index
-	puzzle_selected = save_to_load.puzzle_selected
-	puzzle_time = save_to_load.puzzle_time
+	grid = BasicGrid.new()
+	grid.data = save_to_load.get("grid_data", [])
+	original_grid = BasicGrid.new()
+	original_grid.data = save_to_load.get("original_grid_data", [])
+	pencil = save_to_load.get("pencil", [])
+	exclude = save_to_load.get("exclude", [])
+	history = save_to_load.get("history", [])
+	number_history = save_to_load.get("number_history", [])
+	pencil_history = save_to_load.get("pencil_history", [])
+	exclude_history = save_to_load.get("exclude_history", [])
+	current_puzzle_name = save_to_load.get("current_puzzle_name", "")
+	current_puzzle_difficulty = save_to_load.get("current_puzzle_difficulty", "")
+	current_puzzle_index = save_to_load.get("current_puzzle_index", -1)
+	puzzle_selected = save_to_load.get("puzzle_selected", "")
+	puzzle_time = save_to_load.get("puzzle_time", 0)
 	
 	return true
 
@@ -464,27 +395,24 @@ func save_completed_puzzle() -> bool:
 	if config.load(full_file_path) != OK:
 		config = ConfigFile.new()
 	
-	# Save completed puzzle
 	var completed_puzzles = config.get_value("completed", "puzzles", [])
 	var completed_puzzle = {
-		"grid": grid,
-		"original_grid": original_grid,
+		"grid_data": grid.data,
+		"original_grid_data": original_grid.data,
 		"current_puzzle_index": current_puzzle_index,
 		"puzzle_time": puzzle_time
 	}
 	completed_puzzles.append(completed_puzzle)
 	config.set_value("completed", "puzzles", completed_puzzles)
 
-	# Remove the save state for this puzzle
 	var puzzle_saves = config.get_value("puzzle_saves", "puzzles", [])
 	var updated_puzzle_saves = []
 	for save in puzzle_saves:
-		if save.current_puzzle_difficulty != current_puzzle_difficulty or \
-		   save.current_puzzle_index != current_puzzle_index:
+		if save.get("current_puzzle_difficulty") != current_puzzle_difficulty or \
+		   save.get("current_puzzle_index") != current_puzzle_index:
 			updated_puzzle_saves.append(save)
 	config.set_value("puzzle_saves", "puzzles", updated_puzzle_saves)
 
-	# Save the updated config
 	return config.save(full_file_path) == OK
 
 func load_puzzle_data(difficulty: String):
@@ -493,7 +421,6 @@ func load_puzzle_data(difficulty: String):
 		print("Failed to open Puzzle File")
 		return {}
 	puzzle_data = []
-	var line_count = 0
 	while not file.eof_reached():
 		puzzle_data.append(fast_parse_puzzle_line(file.get_line()))
 	
@@ -515,7 +442,13 @@ func has_save_state(difficulty: String, puzzle_index: int) -> bool:
 		fast_load_save_states("user://sudoku_saves.cfg")  # Adjust the file path as needed
 	
 	for save in save_states:
-		if save.puzzle_selected == difficulty and save.current_puzzle_index == puzzle_index:
+		if save.get("puzzle_selected") == difficulty and save.get("current_puzzle_index") == puzzle_index:
 			return true
 	
 	return false
+
+func get_pencil(cell: int, num: int) -> bool:
+	return pencil[cell / 9][cell % 9][num]
+
+func get_exclude(cell: int, num: int) -> bool:
+	return exclude[cell / 9][cell % 9][num]
