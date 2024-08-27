@@ -220,11 +220,21 @@ func _update_pencil():
 					pencil_button.text = ""
 
 func _on_number_button_pressed(number: int):
+	if number > 0:
+		if mode == Mode.NUMBER_CLR:
+			mode = Mode.NUMBER
+			selected_num = number
+			selected_cell = Vector2(-1,-1)
+			sudoku.update_RnCnBn()
+			_update_grid_highlights()
+			_update_grid()
+			_update_pencil()
+			_update_buttons()
+			return
 	if selected_num == number:
 		selected_num = 0
 		_update_buttons()
 		_update_grid_highlights()
-		return
 	selected_num = number
 	if selected_cell.x >= 0 and selected_cell.y >= 0:
 		if mode == Mode.NUMBER:
@@ -601,6 +611,9 @@ func _on_button_c_pressed():
 	selected_cell = Vector2(-1,-1)
 	selected_num = 0
 	_update_buttons()
+	_update_grid_highlights()
+	_update_pencil()
+
 
 func _on_button_p_pressed():
 	if mode == Mode.PENCIL:

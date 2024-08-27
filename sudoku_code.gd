@@ -245,6 +245,7 @@ func set_number(row: int, col: int, num: int) -> bool:
 func clear_number(row: int, col: int):
 	store_number_history(row, col, grid[row][col])
 	grid[row][col] = 0
+	_generate_RnCnBn()
 
 func is_completed() -> bool:
 	for row in range(9):
@@ -328,14 +329,14 @@ func undo_history() -> void:
 					keep_undoing = false
 				1:
 					undo_pencil_history()
+					keep_undoing = false
 				2:
 					undo_exclude_history()
+					keep_undoing = false
 				3:
 					undo_pencil_history()
-					keep_undoing = false
 				4:
 					undo_exclude_history()
-					keep_undoing = false
 		else:
 			keep_undoing = false
 
