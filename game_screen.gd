@@ -61,9 +61,9 @@ func _ready():
 func _initialize():
 	sudoku = Sudoku.new()
 	$ColorRect.color = CLR_BACKGROUND
-	blur_overlay.material = ShaderMaterial.new()
-	blur_overlay.material.shader = load("res://blur_shader.gdshader")
-	blur_overlay.visible = false
+	# blur_overlay.material = ShaderMaterial.new()
+	# blur_overlay.material.shader = load("res://blur_shader.gdshader")
+	# blur_overlay.visible = false
 	
 func _setup_ui():
 	_create_grid()
@@ -506,7 +506,7 @@ func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 # Helper function to set label text
 func _set_label_text(parent: Node, label_name: String, text: String):
 	var label = parent.find_child(label_name)
-	if label and label is Label:
+	if label and (label is Label or label is TextEdit):
 		label.text = text
 	else:
 		print("Warning: Label '%s' not found or not a Label node" % label_name)
@@ -695,31 +695,42 @@ func _on_window_focus_out():
 	save_game_state()
 
 func _on_paste_puzzle_button_pressed():
-	var popup = Popup.new()
-	popup.set_size(Vector2(300, 200))
-	add_child(popup)
+	var pastePanel = preload("res://paste.tscn").instantiate()
+	var dimensions = get_viewport().get_visible_rect().size
+	pastePanel.size = Vector2(dimensions.x * 0.8, dimensions.y * 0.8)
+	pastePanel.popup_centered()
+	add_child(pastePanel)
 
-	var vbox = VBoxContainer.new()
-	popup.add_child(vbox)
+	var loadInput = pastePanel.find_child("LoadBox")
+	_connect_generic_button(pastePanel, "LoadButton", self._on_load_button_pressed.bind(loadInput, pastePanel))
+	_connect_generic_button(pastePanel, "CloseButton", self._on_close_paste_panel.bind(pastePanel))
+	var given = ""
+	var puzzle = ""
+	var p810 = ""
+	for i in range(81):
+		given += str(sudoku.original_grid[i%9][i/9])
+		puzzle += str(sudoku.grid[i%9][i/9])
+	p810 = puzzle
+	for i in range(81):
+		for j in range(9):
+			if (sudoku.pencil[i%9][i/9][j]):
+				p810 += "1"
+			else:
+				p810 += "0"
+	_set_label_text(pastePanel, "Game81Given", given)
+	_set_label_text(pastePanel, "Game81State", puzzle)
+	_set_label_text(pastePanel, "Game810", p810)
 
-	var text_input = LineEdit.new()
-	text_input.placeholder_text = "Enter 81 characters (0-9)"
-	vbox.add_child(text_input)
 
-	var hbox = HBoxContainer.new()
-	vbox.add_child(hbox)
+func _on_close_paste_panel(popup):
+	popup.queue_free()
 
-	var cancel_button = Button.new()
-	cancel_button.text = "Cancel"
-	cancel_button.pressed.connect(popup.hide)
-	hbox.add_child(cancel_button)
-
-	var load_button = Button.new()
-	load_button.text = "Load"
-	load_button.connect("pressed", func(): _on_load_button_pressed(text_input, popup))
-	hbox.add_child(load_button)
-
-	popup.popup_centered()
+func _connect_generic_button(parent: Node, button_name: String, callback: Callable):
+	var button = parent.find_child(button_name)
+	if button and button is BaseButton:
+		button.pressed.connect(callback)
+	else:
+		print("Warning: Button '%s' not found or not a button node" % button_name)
 
 func _on_load_button_pressed(text_input, popup):
 	var input_text = text_input.text.strip_edges()
@@ -733,7 +744,7 @@ func _on_load_button_pressed(text_input, popup):
 		sudoku.puzzle_time = 0
 		popup.hide()
 	else:
-		print("Invalid input. Please enter exactly 81 characters (0-9).")
+		print("Invalid input.")
 
 func string_to_grid(puzzle_string: String) -> Array:
 	var _grid = []

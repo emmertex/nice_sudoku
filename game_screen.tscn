@@ -53,10 +53,6 @@ alignment = 1
 layout_mode = 2
 alignment = 1
 
-[node name="LoadPuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
-layout_mode = 2
-text = "Load"
-
 [node name="PastePuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
 layout_mode = 2
 text = "Paste"
@@ -64,6 +60,10 @@ text = "Paste"
 [node name="NewGameButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
 layout_mode = 2
 text = "New"
+
+[node name="LoadPuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
+layout_mode = 2
+text = "Next"
 
 [node name="Timer" type="Label" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
 layout_mode = 2
@@ -163,9 +163,9 @@ horizontal_alignment = 1
 
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
 [connection signal="timeout" from="UIFixTimer" to="." method="_ui_hack"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/NewGameButton" to="." method="_on_NewGameButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton" to="." method="_on_highlight_button_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/AutoPencil" to="." method="_on_auto_pencil_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HintButton" to="." method="_on_HintButton_pressed"]

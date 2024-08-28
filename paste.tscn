@@ -1,0 +1,110 @@
+[gd_scene load_steps=2 format=3 uid="uid://b6g43fiasvl5g"]
+
+[ext_resource type="Script" path="res://paste.gd" id="1_qmyhd"]
+
+[node name="PastePanel" type="PopupPanel"]
+position = Vector2i(366, 114)
+size = Vector2i(420, 420)
+visible = true
+script = ExtResource("1_qmyhd")
+
+[node name="V1" type="VBoxContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 416.0
+offset_bottom = 416.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="H1" type="HBoxContainer" parent="V1"]
+layout_mode = 2
+
+[node name="Game81Text" type="Label" parent="V1/H1"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Current Game
+Givens"
+horizontal_alignment = 1
+
+[node name="Game81Given" type="TextEdit" parent="V1/H1"]
+clip_contents = false
+layout_mode = 2
+size_flags_horizontal = 3
+text = "123456789123456789123456789123456789123456789123456789123456789123456789123456789"
+editable = false
+wrap_mode = 1
+scroll_fit_content_height = true
+
+[node name="H2" type="HBoxContainer" parent="V1"]
+layout_mode = 2
+
+[node name="Game81Text" type="Label" parent="V1/H2"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Current Game
+State"
+horizontal_alignment = 1
+
+[node name="Game81State" type="TextEdit" parent="V1/H2"]
+clip_contents = false
+layout_mode = 2
+size_flags_horizontal = 3
+text = "123456789123456789123456789123456789123456789123456789123456789123456789123456789"
+editable = false
+wrap_mode = 1
+scroll_fit_content_height = true
+
+[node name="H3" type="HBoxContainer" parent="V1"]
+layout_mode = 2
+
+[node name="Game810Text" type="Label" parent="V1/H3"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Current Game
+810 Number
+Puzzle State"
+horizontal_alignment = 1
+
+[node name="Game810" type="TextEdit" parent="V1/H3"]
+custom_minimum_size = Vector2(0, 89)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789123456789"
+editable = false
+wrap_mode = 1
+
+[node name="H4" type="HBoxContainer" parent="V1"]
+layout_mode = 2
+
+[node name="LoadText" type="Label" parent="V1/H4"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Load Puzzle"
+horizontal_alignment = 1
+
+[node name="LoadBox" type="TextEdit" parent="V1/H4"]
+clip_contents = false
+custom_minimum_size = Vector2(0, 89)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Paste 81 number puzzle or
+810 number state puzzle"
+wrap_mode = 1
+scroll_fit_content_height = true
+
+[node name="H5" type="HBoxContainer" parent="V1"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LoadButton" type="Button" parent="V1/H5"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Load"
+
+[node name="CloseButton" type="Button" parent="V1/H5"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Close"
