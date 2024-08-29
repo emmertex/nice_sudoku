@@ -50,6 +50,7 @@ func _generate_empty_grid():
 
 func _generate_pencil_grid():
 	pencil = []
+	exclude = []
 	for _i in range(9):
 		var row = []
 		for _j in range(9):
@@ -60,7 +61,7 @@ func _generate_pencil_grid():
 		pencil.append(row)
 		exclude.append(row)
 
-func _generate_RnCnBn():
+func generate_RnCnBn():
 	Rn = []
 	Cn = []
 	Bn = []	
@@ -68,9 +69,6 @@ func _generate_RnCnBn():
 		Rn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
 		Cn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
 		Bn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
-	update_RnCnBn()
-
-func update_RnCnBn():
 	for cell in range(Cardinals.Length):
 		var row = Cardinals.Rx[cell]
 		var col = Cardinals.Cy[cell]
@@ -85,41 +83,36 @@ func update_RnCnBn():
 				var rc = Cardinals.box_to_rc(box, i)
 				Bn[rc.x][rc.y] &= mask
 
-# Puzzle Loading
-func puzzle_file(path: String) -> bool:
-	return load_puzzle(path, 0)
-
 func load_puzzle(puzzle_file: String, puzzle_index: int) -> bool:
 	var file = FileAccess.open(puzzle_file, FileAccess.READ)
 	if file == null:
 		print("Failed to open Puzzle File")
 		return false
-   
+	_init()
 	var line_count = 0
 	while not file.eof_reached():
 		var line = file.get_line()
 		if line_count == puzzle_index:
 			var puzzle_data = parse_puzzle_line(line)
-			return load_puzzle_from_string(puzzle_data, puzzle_index)
+			return load_puzzle_from_dictionary(puzzle_data, puzzle_index)
 	   
 		line_count += 1
    
 	print("Puzzle index out of range")
 	return false
 
-func load_puzzle_from_string(puzzle_data: Dictionary, puzzle_index: int = 0) -> bool:
+func load_puzzle_from_dictionary(puzzle_data: Dictionary, puzzle_index: int = 0) -> bool:
 	if puzzle_data.is_empty():
 		print("Invalid puzzle data")
 		return false
-   
+	_init()
 	grid = puzzle_data["grid"]
 	original_grid = grid.duplicate(true)
 	current_puzzle_name = puzzle_data.get("name", "Puzzle " + str(puzzle_index + 1))
 	current_puzzle_difficulty = puzzle_data["difficulty"]
 	current_puzzle_index = puzzle_index
-	_generate_pencil_grid()
-
-	_generate_RnCnBn()
+	generate_RnCnBn()
+	_clear_history()
 	return true
 
 
@@ -134,29 +127,64 @@ func fast_parse_puzzle_line(line: String) -> Dictionary:
    
 	return result
 
+func load_puzzle_from_string(line: String) -> bool:
+	if line.length() == 81:
+		_init()
+		grid = string_to_grid(line.substr(0, 81))
+		original_grid = grid.duplicate(true)
+		current_puzzle_difficulty = "Unknown"
+		current_puzzle_name = "Custom Puzzle"
+	elif line.length() == 99:
+		_init()
+		current_puzzle_difficulty = line.substr(95, 4).strip_edges()
+		grid = string_to_grid(line.substr(13, 81))
+		original_grid = grid.duplicate(true)
+		current_puzzle_name = "Custom Puzzle"
+	elif line.length() == 891:
+		_init()
+		original_grid = string_to_grid(line.substr(0, 81))
+		grid = string_to_grid(line.substr(81, 81))
+		current_puzzle_name = "Custom Resume"
+		# Iterate over every character from 162 to 891
+		for i in range(162, 891):
+			var row = (i - 162) / 81
+			var col = ((i - 162) % 81) / 9
+			var num = (i - 162) % 9
+			if line[i] == "1":
+				pencil[row][col][num] = true
+				exclude[row][col][num] = false
+			elif line[i] == "2":
+				exclude[row][col][num] = true
+				pencil[row][col][num] = false
+			else:
+				pencil[row][col][num] = false
+				exclude[row][col][num] = false
+	else:
+		return false
+
+	generate_RnCnBn()
+	_clear_history()
+	current_puzzle_index = 0
+	return true
+
 func parse_puzzle_line(line: String) -> Dictionary:
 	var result = {}
    
 	print(line)
 	print(line.length())
 
-	if line.length() < 99:
+	if line.length() == 81:
 		result["difficulty"] = "Unknown"
 		result["hashstr"] = "Unknown"
 		result["grid"] = string_to_grid(line.substr(0, 81))
-		result["name"] = puzzle_selected
-		return result
-   
-	var hashstr = line.substr(0, 12)
-	var puzzle_string = line.substr(13, 81)
-	var difficulty = line.substr(95, 4).strip_edges()
-   
-	result["hashstr"] = hashstr
-	result["difficulty"] = difficulty
-	result["grid"] = string_to_grid(puzzle_string)
-   
-	if line.length() > 99:
-		result["name"] = line.substr(99).strip_edges()
+		result["name"] = "Custom Puzzle"
+	else:
+		var hashstr = line.substr(0, 12)
+		var puzzle_string = line.substr(13, 81)
+		var difficulty = line.substr(95, 4).strip_edges()
+		result["hashstr"] = hashstr
+		result["difficulty"] = difficulty
+		result["grid"] = string_to_grid(puzzle_string)
    
 	print(result)
 	return result
@@ -245,7 +273,7 @@ func set_number(row: int, col: int, num: int) -> bool:
 func clear_number(row: int, col: int):
 	store_number_history(row, col, grid[row][col])
 	grid[row][col] = 0
-	_generate_RnCnBn()
+	generate_RnCnBn()
 
 func is_completed() -> bool:
 	for row in range(9):
@@ -257,47 +285,49 @@ func is_completed() -> bool:
 
 # Pencil Marks and Exclude
 func auto_fill_pencil_marks():
+	generate_RnCnBn()
 	for row in range(9):
 		for col in range(9):
 			var valid_numbers = _get_valid_numbers(row, col)
-			if valid_numbers.size() > 0:
-				for num in valid_numbers:
-					store_pencil(row, col, num, true)
+			for i in range(9):
+				if i+1 in valid_numbers:
+					pencil[row][col][i] = true
+				else:
+					pencil[row][col][i] = false
+
 
 func swap_pencil(row: int, col:int, num:int) -> void:
 	store_pencil(row, col, num, !pencil[row][col][num-1], true)
 
-func store_pencil(row: int, col:int, num:int, state:bool, keep_history:bool = true) -> void:
-	if exclude[row][col][num-1] == true:
-		store_exclude(row, col, num, false, keep_history)
-		return
+func store_pencil(row: int, col:int, num:int, state:bool, keep_history:bool = true, noreturn:bool = false) -> void:
 	pencil_history.append([row, col, num, pencil[row][col][num-1]])
 	pencil[row][col][num-1] = state
 	if keep_history:
 		history.append(3)
 	else:
 		history.append(1)
+	if exclude[row][col][num-1] == true && noreturn == false:
+		store_exclude(row, col, num, false, keep_history, true)
 
 func swap_exclude(row: int, col:int, num:int) -> void:
 	store_exclude(row, col, num, !exclude[row][col][num-1], true)
 
-func store_exclude(row: int, col:int, num:int, state:bool, keep_history:bool = true) -> void:
-	if pencil[row][col][num-1] == true:
-		store_pencil(row, col, num, false, keep_history)
-		return
+func store_exclude(row: int, col:int, num:int, state:bool, keep_history:bool = true, noreturn:bool = false) -> void:
 	exclude_history.append([row, col, num, exclude[row][col][num-1]])
 	exclude[row][col][num-1] = state
 	if keep_history:
 		history.append(4)
 	else:
 		history.append(2)
+	if pencil[row][col][num-1] == true && noreturn == false:
+		store_pencil(row, col, num, false, keep_history, true)
 
 # History Management
 func store_number_history(row: int, col:int, num:int) -> void:
 	number_history.append([row, col, num])
 	history.append(0)
 
-func clear_history() -> void:
+func _clear_history() -> void:
 	history = []
 	number_history = []
 	pencil_history = []
@@ -307,7 +337,7 @@ func undo_number_history() -> void:
 	if number_history.size() > 0:
 		var last = number_history.pop_back()
 		grid[last[0]][last[1]] = last[2]
-		_generate_RnCnBn()
+		generate_RnCnBn()
 
 func undo_pencil_history() -> void:
 	if pencil_history.size() > 0:
@@ -401,9 +431,6 @@ func save_state(file_path: String) -> bool:
 	var save_data = {
 		"grid": grid,
 		"original_grid": original_grid,
-		"Rn": Rn,
-		"Cn": Cn,
-		"Bn": Bn,
 		"pencil": pencil,
 		"exclude": exclude,
 		"history": history,
@@ -444,13 +471,12 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	var save_to_load = null
 	
 	if difficulty == "" and index == -1:
-		# Load latest save state
 		if puzzle_saves.size() > 0:
 			save_to_load = puzzle_saves[-1]
 	else:
-		# Match difficulty and index
 		for save in puzzle_saves:
-			if save.current_puzzle_difficulty == difficulty and save.current_puzzle_index == index:
+			print("Save to load: " + str(save.puzzle_selected) + " " + str(save.current_puzzle_index))
+			if save.puzzle_selected == difficulty and save.current_puzzle_index == index:
 				save_to_load = save
 				break
 	
@@ -459,9 +485,6 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	
 	grid = save_to_load.grid
 	original_grid = save_to_load.original_grid
-	Rn = save_to_load.Rn
-	Cn = save_to_load.Cn
-	Bn = save_to_load.Bn
 	pencil = save_to_load.pencil
 	exclude = save_to_load.exclude
 	history = save_to_load.history
@@ -473,6 +496,7 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	current_puzzle_index = save_to_load.current_puzzle_index
 	puzzle_selected = save_to_load.puzzle_selected
 	puzzle_time = save_to_load.puzzle_time
+	generate_RnCnBn()
 	
 	return true
 

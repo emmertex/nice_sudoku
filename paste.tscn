@@ -22,7 +22,7 @@ grow_vertical = 2
 [node name="H1" type="HBoxContainer" parent="V1"]
 layout_mode = 2
 
-[node name="Game81Text" type="Label" parent="V1/H1"]
+[node name="Game81GivenText" type="Label" parent="V1/H1"]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 text = "Current Game
@@ -60,15 +60,15 @@ scroll_fit_content_height = true
 [node name="H3" type="HBoxContainer" parent="V1"]
 layout_mode = 2
 
-[node name="Game810Text" type="Label" parent="V1/H3"]
+[node name="Game891Text" type="Label" parent="V1/H3"]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 text = "Current Game
-810 Number
+891 Number
 Puzzle State"
 horizontal_alignment = 1
 
-[node name="Game810" type="TextEdit" parent="V1/H3"]
+[node name="Game891" type="TextEdit" parent="V1/H3"]
 custom_minimum_size = Vector2(0, 89)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -91,7 +91,7 @@ custom_minimum_size = Vector2(0, 89)
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "Paste 81 number puzzle or
-810 number state puzzle"
+891 number state puzzle"
 wrap_mode = 1
 scroll_fit_content_height = true
 
@@ -108,3 +108,7 @@ text = "Load"
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Close"
+
+[connection signal="gui_input" from="V1/H1/Game81GivenText" to="." method="_on_game_81_given_text_gui_input"]
+[connection signal="gui_input" from="V1/H2/Game81Text" to="." method="_on_game_81_text_gui_input"]
+[connection signal="gui_input" from="V1/H3/Game891Text" to="." method="_on_game_891_text_gui_input"]

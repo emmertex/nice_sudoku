@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://copuf3rjdgojg"]
+[gd_scene load_steps=2 format=3 uid="uid://copuf3rjdgojg"]
 
 [ext_resource type="Script" path="res://game_screen.gd" id="1_8jluj"]
-[ext_resource type="Script" path="res://blur_overlay.gd" id="2_sxbe2"]
 
 [node name="Control" type="Control"]
 layout_mode = 3
@@ -103,11 +102,6 @@ alignment_horizontal = 0
 [node name="GridContainer" type="GridContainer" parent="Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer"]
 layout_mode = 2
 columns = 9
-
-[node name="BlurOverlay" type="ColorRect" parent="Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer"]
-layout_mode = 2
-color = Color(1, 1, 1, 0)
-script = ExtResource("2_sxbe2")
 
 [node name="NumberButtons" type="GridContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2

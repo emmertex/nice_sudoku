@@ -7,6 +7,7 @@ extends PopupPanel
 func _ready():
     get_parent().resized.connect(_on_parent_resized)
     _on_parent_resized()
+    
 
 func _on_parent_resized():
     var dimension = get_parent().size
@@ -31,3 +32,20 @@ func _scale_controls(node, scale_factor):
     # Recursively scale child controls
     for child in node.get_children():
         _scale_controls(child, scale_factor)
+
+
+func _on_game_81_text_gui_input(event:InputEvent):
+    if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+        var text = get_node("Game81Text").text
+        DisplayServer.clipboard_set(text)
+
+
+func _on_game_81_given_text_gui_input(event:InputEvent):
+    if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+        var text = get_node("Game81GivenText").text
+        DisplayServer.clipboard_set(text)
+
+func _on_game_891_text_gui_input(event:InputEvent):
+    if (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+        var text = get_node("Game891Text").text
+        DisplayServer.clipboard_set(text)

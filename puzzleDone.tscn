@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://bsll2rx5oq2gv"]
+
+[node name="PuzzleDone" type="PopupPanel"]
+visible = true
+
+[node name="Panel" type="PanelContainer" parent="."]
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 96.0
+offset_bottom = 96.0
+
+[node name="Label" type="Label" parent="Panel"]
+layout_mode = 2
+text = "Yay"
