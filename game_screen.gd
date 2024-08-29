@@ -704,7 +704,6 @@ func _on_paste_puzzle_button_pressed():
 	_set_label_text(pastePanel, "Game81Given", given)
 	_set_label_text(pastePanel, "Game81State", puzzle)
 	_set_label_text(pastePanel, "Game891", p891)
-	pastePanel.queue_free()
 	_update_ui()
 
 func _on_close_paste_panel(popup):
