@@ -691,3 +691,9 @@ func has_pencil_mark(row: int, col: int, num: int) -> bool:
 
 func has_exclude_mark(row: int, col: int, num: int) -> bool:
 	return exclude[row][col][num - 1]
+
+func get_grid_value(row: int, col: int) -> int:
+	return grid[row][col]
+
+func get_grid_given(row: int, col: int) -> bool:
+	return original_grid[row][col] != 0

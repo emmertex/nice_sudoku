@@ -337,31 +337,53 @@ func _update_grid_highlights():
 		highlight_number = sudoku.grid[selected_cell.x][selected_cell.y]
 
 	if (highlight_mode == HighlightMode.ALL or highlight_mode == HighlightMode.ALLC) and highlight_number != 0:
-		# 1. Find all anchor cells (cells with the selected number)
-		var anchor_cells = []
 		for row in range(9):
 			for col in range(9):
 				if sudoku.grid[row][col] == highlight_number:
-					anchor_cells.append(Vector2(row, col))
-
-		# 2. For each cell, determine highlight
+					# Highlight Block
+					var block_row = int(row / 3) * 3
+					var block_col = int(col / 3) * 3
+					for r in range(block_row, block_row + 3):
+						for c in range(block_col, block_col + 3):
+							var block_button = grid_container.get_child(r * 9 + c)
+							var block_style = block_button.get_theme_stylebox("normal").duplicate()
+							block_style.set_bg_color(CLR_BLOCK)
+							block_button.add_theme_stylebox_override("normal", block_style)
 		for row in range(9):
 			for col in range(9):
-				var highlight = null
-				for anchor in anchor_cells:
-					if row == int(anchor.x) and col == int(anchor.y):
-						highlight = CLR_SAME
-						break
-					elif row == int(anchor.x) or col == int(anchor.y):
-						highlight = CLR_PLUS
-						break
-					elif int(row/3) == int(anchor.x/3) and int(col/3) == int(anchor.y/3):
-						highlight = CLR_BLOCK
-						break
-				if highlight != null:
+				if sudoku.grid[row][col] == highlight_number:
+					# Highlight Row
+					for c in range(9):
+						var row_button = grid_container.get_child(row * 9 + c)
+						var row_style = row_button.get_theme_stylebox("normal").duplicate()
+						row_style.set_bg_color(CLR_PLUS)
+						row_button.add_theme_stylebox_override("normal", row_style)
+					# Highlight Column
+					for r in range(9):
+						var col_button = grid_container.get_child(r * 9 + col)
+						var col_style = col_button.get_theme_stylebox("normal").duplicate()
+						col_style.set_bg_color(CLR_PLUS)
+						col_button.add_theme_stylebox_override("normal", col_style)
+		for row in range(9):
+			for col in range(9):
+				# Highlight Exclude
+				if sudoku.has_exclude_mark(row, col, highlight_number):
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(highlight)
+					style.set_bg_color(CLR_BLOCK)
+					button.add_theme_stylebox_override("normal", style)
+				if sudoku.get_grid_value(row, col) > 0:
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					if sudoku.get_grid_given(row, col):
+						style.set_bg_color(CLR_GIVEN)
+					else:
+						style.set_bg_color(CLR_BLOCKED)
+					button.add_theme_stylebox_override("normal", style)
+				if sudoku.grid[row][col] == highlight_number:
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(CLR_SAME)
 					button.add_theme_stylebox_override("normal", style)
 
 	# Restore NUM, NRC, NRCB highlight logic
