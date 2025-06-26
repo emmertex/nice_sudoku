@@ -4,3 +4,6 @@
 /EXPORT/
 *.keystore
 .DS_Store
+*.uid
+/sudoku-java/
+.gitattributes

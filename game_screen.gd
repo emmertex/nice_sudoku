@@ -38,11 +38,12 @@ var button_size: int = 70
 var font_size: int = 10
 var timer_running: bool = false
 var permissions_requested = false
+var _pending_updates: Array = []
+var _update_timer: Timer
 
 # Onready variables
 @onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
 @onready var grid_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/GridContainer
-@onready var blur_overlay = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/BlurOverlay
 @onready var puzzle_info = $Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo
 @onready var highlight_button = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton
 @onready var game_timer_text = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/Timer
@@ -55,59 +56,75 @@ func _ready():
 	_initialize()
 	_setup_ui()
 	_connect_signals()
+	_setup_update_batching()
 	if !load_game_state():
 		_load_initial_puzzle()
 
-
 func _initialize():
 	sudoku = Sudoku.new()
+	hint_generator = SudokuHintGenerator.new()
+	hint_generator.sudoku = sudoku
 	$ColorRect.color = CLR_BACKGROUND
 	
 func _setup_ui():
 	_create_grid()
 	_setup_number_buttons()
-	_update_ui()
+	_update_highlight_button_text()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	queue_update("info")
 
+func _setup_update_batching():
+	_update_timer = Timer.new()
+	_update_timer.wait_time = 0.016  # ~60 FPS
+	_update_timer.timeout.connect(_process_pending_updates)
+	add_child(_update_timer)
+	_update_timer.start()
+
+func queue_update(update_type: String):
+	if not _pending_updates.has(update_type):
+		_pending_updates.append(update_type)
+
+func _process_pending_updates():
+	if _pending_updates.is_empty():
+		return
+
+	for update_type in _pending_updates:
+		match update_type:
+			"grid": _update_grid()
+			"buttons": _update_buttons()
+			"pencil": _update_pencil()
+			"highlights": _update_grid_highlights()
+			"info": update_puzzle_info()
+
+	_pending_updates.clear()
 
 func _load_initial_puzzle():
 	load_puzzle(0, "easy")
-	get_tree().call_group("root", "queue_free")
-	get_tree().root.call_deferred("add_child", self)
 	_on_viewport_size_changed()
 
-func _update_ui():
-	_update_buttons()
-	_update_grid()
-	_update_pencil()
-	_update_grid_highlights()
-	update_puzzle_info()
-
-func _connect_signals():
-	get_viewport().size_changed.connect(_on_viewport_size_changed)
-	get_window().focus_entered.connect(_on_window_focus_in)
-	get_window().focus_exited.connect(_on_window_focus_out)
-	if OS.get_name() == "Android":
-		_request_permissions()
-
-func load_puzzle(index: int, difficulty: String):
-	sudoku.puzzle_selected = difficulty
-	if sudoku.load_puzzle(sudoku.puzzles[sudoku.puzzle_selected], index):
-		selected_cell = Vector2(-1, -1)
-		timer_running = true
-		sudoku.puzzle_time = 0
-		_update_ui()
-	else:
-		print("Failed to load puzzle")
-
-func update_puzzle_info():
-	var info = sudoku.get_puzzle_info()
-	puzzle_info.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
+func _update_grid():
+	for row in range(9):
+		for col in range(9):
+			var button = grid_container.get_child(row * 9 + col)
+			var number = sudoku.grid[row][col]
+			button.text = str(number) if number != 0 else ""
+			if sudoku.is_given_number(row, col):
+				button.add_theme_color_override("font_color", Color.GRAY)
+			else:
+				button.add_theme_color_override("font_color", Color.WHITE)
+	if sudoku.is_completed():
+		timer_running = false
+		save_completed_puzzle()
+		show_puzzle_done_popup()
 
 func _create_pencil_marks(container: Control):
 	for i in range(3):
 		for j in range(3):
 			var label = Label.new()
-			label.position = Vector2(i * (button_size / 3), i * (button_size / 3))  # Position the label
+			label.position = Vector2(i * (button_size / 3), j * (button_size / 3))  # Position the label
 			label.size = Vector2(button_size / 3, button_size / 3)
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -200,7 +217,10 @@ func _on_cell_pressed(row: int, col: int):
 		if sudoku.grid[row][col] == 0:
 			sudoku.swap_exclude(row, col, selected_num)
 		selected_cell = Vector2(-1, -1)
-	_update_ui()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
 
 func _update_pencil():
 	for row in range(9):
@@ -226,11 +246,11 @@ func _on_number_button_pressed(number: int):
 			selected_num = number
 			selected_cell = Vector2(-1,-1)
 			sudoku.generate_RnCnBn()
-			_update_ui()
+			queue_update("buttons")
 			return
 	if selected_num == number:
 		selected_num = 0
-		_update_ui()
+		queue_update("buttons")
 		return
 	selected_num = number
 	if selected_cell.x >= 0 and selected_cell.y >= 0:
@@ -239,29 +259,10 @@ func _on_number_button_pressed(number: int):
 				sudoku.generate_RnCnBn()
 			selected_cell = Vector2(-1,-1)
 		selected_num = 0
-	_update_ui()
-
-func _update_grid():
-	for row in range(9):
-		for col in range(9):
-			var button = grid_container.get_child(row * 9 + col)
-			var number = sudoku.grid[row][col]
-			button.text = str(number) if number != 0 else ""
-			if sudoku.is_given_number(row, col):
-				button.add_theme_color_override("font_color", Color.GRAY)
-			else:
-				button.add_theme_color_override("font_color", Color.WHITE)
-	if sudoku.is_completed():
-		timer_running = false
-		save_completed_puzzle()
-		show_puzzle_done_popup()
-
-func show_puzzle_done_popup():
-	var popupDone = preload("res://puzzleDone.tscn").instantiate()
-	var dimensions = get_viewport().get_visible_rect().size
-	popupDone.size = Vector2(dimensions.x * 0.5, dimensions.y * 0.5)
-	add_child(popupDone)
-	popupDone.popup_centered()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
 
 func _update_buttons():
 	var needed = sudoku.get_needed_numbers()
@@ -307,18 +308,7 @@ func _update_buttons():
 		button.add_theme_stylebox_override("hover", style)
 
 func _update_grid_highlights():
-	match highlight_mode:
-		HighlightMode.NUM:
-			highlight_button.text = "Num"
-		HighlightMode.NRC:
-			highlight_button.text = "RC"
-		HighlightMode.NRCB:
-			highlight_button.text = "RCB"
-		HighlightMode.ALL:
-			highlight_button.text = "ALL"
-		HighlightMode.ALLC:
-			highlight_button.text = "ALLC"
-   
+	# 1. Clear all highlights
 	for row in range(9):
 		for col in range(9):
 			var button = grid_container.get_child(row * 9 + col)
@@ -326,77 +316,95 @@ func _update_grid_highlights():
 			if sudoku.is_given_number(row, col):
 				style.set_bg_color(CLR_GIVEN)
 			elif sudoku.grid[row][col] == 0:
-				# Unfilled Cell
 				if ((col * 9) + row) % 2 == 0:
 					style.set_bg_color(CLR_BOARD)
 				else:
 					style.set_bg_color(CLR_BOARD2)
 			else:
-				# Filled Cell
-				style.set_bg_color(CLR_BLOCKED) 
+				style.set_bg_color(CLR_BLOCKED)
 			button.add_theme_stylebox_override("normal", style)
-   
-	if selected_num != 0 && highlight_mode >= HighlightMode.ALL:
+
+	# 2. Highlight selected cell
+	if selected_cell.x >= 0 and selected_cell.y >= 0:
+		var button = grid_container.get_child(selected_cell.x * 9 + selected_cell.y)
+		var style = button.get_theme_stylebox("normal").duplicate()
+		style.set_bg_color(CLR_SELECT)
+		button.add_theme_stylebox_override("normal", style)
+
+	# 3. Highlight logic by mode
+	var highlight_number = selected_num
+	if highlight_number == 0 and selected_cell.x >= 0 and selected_cell.y >= 0:
+		highlight_number = sudoku.grid[selected_cell.x][selected_cell.y]
+
+	if (highlight_mode == HighlightMode.ALL or highlight_mode == HighlightMode.ALLC) and highlight_number != 0:
+		# 1. Find all anchor cells (cells with the selected number)
+		var anchor_cells = []
 		for row in range(9):
 			for col in range(9):
-				if selected_num == sudoku.grid[row][col]:
-					for i in range(9):
-						var row_button = grid_container.get_child(row * 9 + i)
-						var col_button = grid_container.get_child(i * 9 + col)
-						var row_style = row_button.get_theme_stylebox("normal").duplicate()
-						var col_style = col_button.get_theme_stylebox("normal").duplicate()
-						# All blocked Rows and Columns
-						row_style.set_bg_color(CLR_ROW) 
-						col_style.set_bg_color(CLR_ROW) 
-						row_button.add_theme_stylebox_override("normal", row_style)
-						col_button.add_theme_stylebox_override("normal", col_style)
-					for i in range(3):
-						for j in range(3):
-							var col_button = grid_container.get_child((((row/3)*3)+i) * 9 + j + ((col/3)*3))
-							var style = col_button.get_theme_stylebox("normal").duplicate()
-							# Blocked 3x3 Cell
-							style.set_bg_color(Color(CLR_ROW))
-							col_button.add_theme_stylebox_override("normal", style)
-				if sudoku.exclude[row][col][selected_num-1]:
-					var col_button = grid_container.get_child(row * 9 + col)
-					var col_style = col_button.get_theme_stylebox("normal").duplicate()
-					col_style.set_bg_color(CLR_ROW)
-					col_button.add_theme_stylebox_override("normal", col_style)
+				if sudoku.grid[row][col] == highlight_number:
+					anchor_cells.append(Vector2(row, col))
 
-	for row in range(9):
-		for col in range(9):
-			var button = grid_container.get_child(row * 9 + col)
-			var cell_value = sudoku.grid[row][col]
-		   
-			var style = button.get_theme_stylebox("normal").duplicate()
-		   
-			# Highlight selected cell
-			if row == selected_cell.x and col == selected_cell.y:
-				style.set_bg_color(CLR_SELECT) 
-				button.add_theme_stylebox_override("normal", style)
-				continue
-
-			# Highlight cells with the same number as selected cell
-			if highlight_mode >= HighlightMode.NUM:
-				if int(cell_value) == selected_num and selected_num != 0:
-					style.set_bg_color(CLR_SAME) 
+		# 2. For each cell, determine highlight
+		for row in range(9):
+			for col in range(9):
+				var highlight = null
+				for anchor in anchor_cells:
+					if row == int(anchor.x) and col == int(anchor.y):
+						highlight = CLR_SAME
+						break
+					elif row == int(anchor.x) or col == int(anchor.y):
+						highlight = CLR_PLUS
+						break
+					elif int(row/3) == int(anchor.x/3) and int(col/3) == int(anchor.y/3):
+						highlight = CLR_BLOCK
+						break
+				if highlight != null:
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(highlight)
 					button.add_theme_stylebox_override("normal", style)
-					continue
 
-			# Highlight row/column of selected cell
-			if highlight_mode >= HighlightMode.NRC:
-				if  (row == selected_cell.x or col == selected_cell.y):
-					style.set_bg_color(CLR_PLUS) 
+	# Restore NUM, NRC, NRCB highlight logic
+	elif highlight_mode == HighlightMode.NUM and highlight_number != 0:
+		# Highlight all cells with the same number as selected cell
+		for row in range(9):
+			for col in range(9):
+				if sudoku.grid[row][col] == highlight_number:
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(CLR_SAME)
 					button.add_theme_stylebox_override("normal", style)
-					continue
-
-			# Highlight 3x3 subgrid of selected cell
-			if highlight_mode >= HighlightMode.NRCB:
-				if selected_cell.x >= 0 && selected_cell.y >= 0:
-					if int(row / 3) == int(selected_cell.x / 3) && int(col / 3) == int(selected_cell.y / 3):
-						style.set_bg_color(CLR_BLOCK) 
-					button.add_theme_stylebox_override("normal", style)
-					continue
+	elif highlight_mode == HighlightMode.NRC and selected_cell.x >= 0 and selected_cell.y >= 0:
+		# Highlight row and column of selected cell
+		for i in range(9):
+			var row_button = grid_container.get_child(selected_cell.x * 9 + i)
+			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
+			var row_style = row_button.get_theme_stylebox("normal").duplicate()
+			var col_style = col_button.get_theme_stylebox("normal").duplicate()
+			row_style.set_bg_color(CLR_PLUS)
+			col_style.set_bg_color(CLR_PLUS)
+			row_button.add_theme_stylebox_override("normal", row_style)
+			col_button.add_theme_stylebox_override("normal", col_style)
+	elif highlight_mode == HighlightMode.NRCB and selected_cell.x >= 0 and selected_cell.y >= 0:
+		# Highlight row, column, and block of selected cell
+		for i in range(9):
+			var row_button = grid_container.get_child(selected_cell.x * 9 + i)
+			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
+			var row_style = row_button.get_theme_stylebox("normal").duplicate()
+			var col_style = col_button.get_theme_stylebox("normal").duplicate()
+			row_style.set_bg_color(CLR_PLUS)
+			col_style.set_bg_color(CLR_PLUS)
+			row_button.add_theme_stylebox_override("normal", row_style)
+			col_button.add_theme_stylebox_override("normal", col_style)
+		# Highlight block
+		var block_row = int(selected_cell.x / 3) * 3
+		var block_col = int(selected_cell.y / 3) * 3
+		for r in range(block_row, block_row + 3):
+			for c in range(block_col, block_col + 3):
+				var block_button = grid_container.get_child(r * 9 + c)
+				var block_style = block_button.get_theme_stylebox("normal").duplicate()
+				block_style.set_bg_color(CLR_BLOCK)
+				block_button.add_theme_stylebox_override("normal", block_style)
 
 func _on_HintButton_pressed():
 	var hints = hint_generator.get_hints()
@@ -562,7 +570,11 @@ func _on_load_puzzle_pressed(difficulty: String, index: int):
 		popup.queue_free()
 	else:
 		print("PuzzleSelectionPopup not found, it may have been already closed.")
-	_update_ui()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	queue_update("info")
 
 func _on_resume_button_pressed(difficulty: String, index: int):
 	print("Loading state for difficulty: " + difficulty + " and index: " + str(index))
@@ -571,11 +583,19 @@ func _on_resume_button_pressed(difficulty: String, index: int):
 	var popup = get_node_or_null("PuzzleSelectionPopup")
 	if popup:
 		popup.queue_free()
-	_update_ui()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	queue_update("info")
 
 func _on_LoadPuzzleButton_pressed():
 	load_puzzle(sudoku.current_puzzle_index+1, sudoku.puzzle_selected)
-	_update_ui()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	queue_update("info")
 
 func _on_puzzle_file_selected(path):
 	if sudoku.puzzle_file(path):
@@ -583,7 +603,11 @@ func _on_puzzle_file_selected(path):
 		selected_num = 0
 		timer_running = true
 		sudoku.puzzle_time = 0
-		_update_ui()
+		queue_update("grid")
+		queue_update("buttons")
+		queue_update("pencil")
+		queue_update("highlights")
+		queue_update("info")
 	else:
 		print("Failed to load puzzle from file")
 
@@ -601,28 +625,30 @@ func _on_button_c_pressed():
 		mode = Mode.NUMBER_CLR
 	selected_cell = Vector2(-1,-1)
 	selected_num = 0
-	_update_ui()
-
+	queue_update("buttons")
 
 func _on_button_p_pressed():
 	if mode == Mode.PENCIL:
 		mode = Mode.NUMBER
 	else:
 		mode = Mode.PENCIL
-	_update_ui()
+	queue_update("buttons")
 
 func _on_button_pc_pressed():
 	if mode == Mode.PENCIL_EXCLUDE:
 		mode = Mode.NUMBER
 	else:
 		mode = Mode.PENCIL_EXCLUDE
-	_update_ui()
+	queue_update("buttons")
 	
 func _on_UndoButton_pressed():
 	selected_cell = Vector2(-1,-1)
 	selected_num = 0
 	sudoku.undo_history()
-	_update_ui()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
 
 func _on_timer_timeout():
 	if timer_running:
@@ -660,12 +686,26 @@ func _on_auto_pencil_pressed():
 	sudoku.auto_fill_pencil_marks()
 	selected_cell = Vector2(-1,-1)
 	selected_num = 0
-	_update_ui()
-  
+	queue_update("pencil")
+	queue_update("highlights")
 
 func _on_highlight_button_pressed():
 	highlight_mode = HighlightMode.values()[(int(highlight_mode) + 1) % HighlightMode.size()]
-	_update_ui()
+	_update_highlight_button_text()
+	queue_update("highlights")
+
+func _update_highlight_button_text():
+	match highlight_mode:
+		HighlightMode.NUM:
+			highlight_button.text = "Num"
+		HighlightMode.NRC:
+			highlight_button.text = "RC"
+		HighlightMode.NRCB:
+			highlight_button.text = "RCB"
+		HighlightMode.ALL:
+			highlight_button.text = "ALL"
+		HighlightMode.ALLC:
+			highlight_button.text = "ALLC"
 
 func _on_window_focus_in():
 	timer_running = true
@@ -690,21 +730,25 @@ func _on_paste_puzzle_button_pressed():
 	var puzzle = ""
 	var p891 = ""
 	for i in range(81):
-		given += str(sudoku.original_grid[i%9][i/9])
-		puzzle += str(sudoku.grid[i%9][i/9])
+		given += str(sudoku.original_grid[i/9][i%9])
+		puzzle += str(sudoku.grid[i/9][i%9])
 	p891 = puzzle
 	for i in range(81):
 		for j in range(9):
-			if (sudoku.pencil[i%9][i/9][j]):
+			if (sudoku.pencil[i/9][i%9][j]):
 				p891 += "1"
-			elif (sudoku.exclude[i%9][i/9][j]):
+			elif (sudoku.exclude[i/9][i%9][j]):
 				p891 += "2"
 			else:
 				p891 += "0"
 	_set_label_text(pastePanel, "Game81Given", given)
 	_set_label_text(pastePanel, "Game81State", puzzle)
 	_set_label_text(pastePanel, "Game891", p891)
-	_update_ui()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	queue_update("info")
 
 func _on_close_paste_panel(popup):
 	popup.queue_free()
@@ -723,51 +767,63 @@ func _on_load_button_pressed(text_input, popup):
 		timer_running = true
 		sudoku.puzzle_time = 0
 		popup.hide()
-		_update_ui()
+		queue_update("grid")
+		queue_update("buttons")
+		queue_update("pencil")
+		queue_update("highlights")
+		queue_update("info")
 	else:
 		print("Invalid input.")
 
 func _on_viewport_size_changed():
 	viewport_size = get_viewport().get_visible_rect().size
 
-	#This dirty hack is needed -- sad face.  
-	# Someone fix it!
-	if aspect_container.size.y > viewport_size.y / 1.2 || aspect_container.size.x > viewport_size.x / 1.2:
-		button_size = 1
-		_resize_number_buttons()
-		_resize_grid_buttons()
-		_resize_menu_buttons()
-
+	# Calculate button size based on available space
+	var available_width = min(viewport_size.x, viewport_size.y * 1.2)
+	var available_height = min(viewport_size.y, viewport_size.x / 1.2)
+	
 	if orientation:
-		button_size = int(aspect_container.size.x/11)
+		# Vertical layout: prioritize height, use width for number buttons
+		button_size = int(min(available_height / 15, available_width / 8))
 	else:
-		button_size = int(aspect_container.size.x/13)
-
+		# Horizontal layout: prioritize width
+		button_size = int(min(available_width / 15, available_height / 8))
+	
+	# Ensure minimum button size
+	button_size = max(button_size, 20)
+	
+	# Check if orientation changed
 	if orientation != _get_orientation():
 		orientation = _get_orientation()
 		_adjust_number_buttons_layout()
+	
 	_resize_number_buttons()
 	_resize_menu_buttons()
 	_resize_grid_buttons()
-	_update_ui()
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	queue_update("info")
 
 func _get_orientation():
 	return viewport_size.x < viewport_size.y / 1.2
 
 func _adjust_number_buttons_layout():
 	if orientation:
-		number_buttons = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/NumberButtons
-		number_buttons.get_parent().remove_child(number_buttons)
+		# For vertical layout, move NumberButtons to VBoxContainer
+		if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer:
+			number_buttons.get_parent().remove_child(number_buttons)
+			$Panel/AspectRatioContainer/VBoxContainer.add_child(number_buttons)
 		number_buttons.columns = 6
-		$Panel/AspectRatioContainer/VBoxContainer.add_child(number_buttons)
 		$Panel/AspectRatioContainer.ratio = vertical_aspect_ratio
 		current_aspect_ratio = vertical_aspect_ratio
-
 	else:
-		number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
-		number_buttons.get_parent().remove_child(number_buttons)
+		# For horizontal layout, move NumberButtons to HBoxContainerGrid
+		if number_buttons.get_parent() != $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid:
+			number_buttons.get_parent().remove_child(number_buttons)
+			$Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid.add_child(number_buttons)
 		number_buttons.columns = 2
-		$Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid.add_child(number_buttons)
 		$Panel/AspectRatioContainer.ratio = 1
 		current_aspect_ratio = 1
 
@@ -804,11 +860,14 @@ func _resize_pencil_cells(pencil_container):
 		pencil_cell.add_theme_font_size_override("font_size", button_size * (0.7 / 3))
 
 func _ui_hack(): #YUCK
-	if aspect_container.size.y >= viewport_size.y * 1.01 || aspect_container.size.x >= viewport_size.x* 1.01:
+	# Only trigger resize if there's a significant size mismatch
+	var size_threshold = 0.05  # 5% threshold
+	
+	if aspect_container.size.y >= viewport_size.y * (1.0 + size_threshold) || aspect_container.size.x >= viewport_size.x * (1.0 + size_threshold):
 		_on_viewport_size_changed()
 		print("BAD UI BIG")
 
-	if aspect_container.size.y <= viewport_size.y / 1.01 && aspect_container.size.x <= viewport_size.x / 1.01:
+	if aspect_container.size.y <= viewport_size.y * (1.0 - size_threshold) && aspect_container.size.x <= viewport_size.x * (1.0 - size_threshold):
 		_on_viewport_size_changed()
 		print("BAD UI SMALL")
 
@@ -820,7 +879,11 @@ func save_game_state():
 
 func load_game_state() -> bool:
 	if sudoku.load_state(SAVE_STATE_PATH):
-		_update_ui()
+		queue_update("grid")
+		queue_update("buttons")
+		queue_update("pencil")
+		queue_update("highlights")
+		queue_update("info")
 		timer_running = true
 		return true
 	return false
@@ -830,3 +893,35 @@ func save_completed_puzzle():
 		print("Completed puzzle saved successfully")
 	else:
 		print("Failed to save completed puzzle")
+
+func _connect_signals():
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	get_window().focus_entered.connect(_on_window_focus_in)
+	get_window().focus_exited.connect(_on_window_focus_out)
+	if OS.get_name() == "Android":
+		_request_permissions()
+
+func update_puzzle_info():
+	var info = sudoku.get_puzzle_info()
+	puzzle_info.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
+
+func load_puzzle(index: int, difficulty: String):
+	sudoku.puzzle_selected = difficulty
+	if sudoku.load_puzzle(sudoku.puzzles[sudoku.puzzle_selected], index):
+		selected_cell = Vector2(-1, -1)
+		timer_running = true
+		sudoku.puzzle_time = 0
+		queue_update("grid")
+		queue_update("buttons")
+		queue_update("pencil")
+		queue_update("highlights")
+		queue_update("info")
+	else:
+		print("Failed to load puzzle")
+
+func show_puzzle_done_popup():
+	var popupDone = preload("res://puzzleDone.tscn").instantiate()
+	var dimensions = get_viewport().get_visible_rect().size
+	popupDone.size = Vector2(dimensions.x * 0.5, dimensions.y * 0.5)
+	add_child(popupDone)
+	popupDone.popup_centered()

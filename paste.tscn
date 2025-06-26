@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://b6g43fiasvl5g"]
 
-[ext_resource type="Script" path="res://paste.gd" id="1_qmyhd"]
+[ext_resource type="Script" uid="uid://eyuj8wmnalr0" path="res://paste.gd" id="1_qmyhd"]
 
 [node name="PastePanel" type="PopupPanel"]
 position = Vector2i(366, 114)

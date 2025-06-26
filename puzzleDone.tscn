@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://bsll2rx5oq2gv"]
 
-[ext_resource type="Script" path="res://puzzle_done.gd" id="1_y8il7"]
+[ext_resource type="Script" uid="uid://b4tqrya2n4ixa" path="res://puzzle_done.gd" id="1_y8il7"]
 
 [node name="PuzzleDone" type="PopupPanel"]
 size = Vector2i(100, 50)

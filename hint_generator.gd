@@ -40,7 +40,8 @@ func get_hints() -> Array:
 		for key in pairs.keys():
 			var positions = pairs[key]
 			if len(positions) == 2:
-				var numbers = JSON.parse_string(key)
+				var json_result = JSON.parse_string(key)
+				var numbers = json_result.result if json_result.error == OK else []
 				hints.append({
 					"row": positions[0][0],
 					"col": positions[0][1],
@@ -67,7 +68,8 @@ func get_hints() -> Array:
 		for key in triples.keys():
 			var positions = triples[key]
 			if len(positions) == 3:
-				var numbers = JSON.parse_string(key)
+				var json_result = JSON.parse_string(key)
+				var numbers = json_result.result if json_result.error == OK else []
 				hints.append({
 					"row": positions[0][0],
 					"col": positions[0][1],

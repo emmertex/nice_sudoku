@@ -7,8 +7,8 @@ var original_grid: Array = []
 var Rn: Array = []
 var Cn: Array = []
 var Bn: Array = []
-var pencil: Array = []
-var exclude: Array = []
+var pencil: Array = []  # 9x9x9 array of booleans
+var exclude: Array = [] # 9x9x9 array of booleans
 var history: Array = []
 var number_history: Array = []
 var pencil_history: Array = []
@@ -32,6 +32,14 @@ var difficulty_index: Dictionary = {
 	"hard": 2,
 	"expert": 3
 }
+
+# Add validation caching
+var _validation_cache: Dictionary = {}
+var _cache_dirty: bool = true
+
+# Replace 3D arrays with bit-based storage
+var pencil_bits: Array = []  # 9x9 array of integers
+var exclude_bits: Array = [] # 9x9 array of integers
 
 # Initialization
 func _init():
@@ -82,6 +90,8 @@ func generate_RnCnBn():
 				Cn[i][col] &= mask
 				var rc = Cardinals.box_to_rc(box, i)
 				Bn[rc.x][rc.y] &= mask
+	
+	_invalidate_cache()  # Invalidate cache when constraint masks change
 
 func load_puzzle(puzzle_file: String, puzzle_index: int) -> bool:
 	var file = FileAccess.open(puzzle_file, FileAccess.READ)
@@ -151,14 +161,14 @@ func load_puzzle_from_string(line: String) -> bool:
 			var col = ((i - 162) % 81) / 9
 			var num = (i - 162) % 9
 			if line[i] == "1":
-				pencil[row][col][num] = true
-				exclude[row][col][num] = false
+				pencil[row][col][num - 1] = true
+				exclude[row][col][num - 1] = false
 			elif line[i] == "2":
-				exclude[row][col][num] = true
-				pencil[row][col][num] = false
+				exclude[row][col][num - 1] = true
+				pencil[row][col][num - 1] = false
 			else:
-				pencil[row][col][num] = false
-				exclude[row][col][num] = false
+				pencil[row][col][num - 1] = false
+				exclude[row][col][num - 1] = false
 	else:
 		return false
 
@@ -207,20 +217,30 @@ func _set_grid(puzzle: Array):
 
 # Game Logic
 func is_valid_move(row: int, col: int, num: int) -> bool:
+	if _cache_dirty:
+		_validation_cache.clear()
+		_cache_dirty = false
+	
+	var cache_key = "%d_%d_%d" % [row, col, num]
+	if _validation_cache.has(cache_key):
+		return _validation_cache[cache_key]
+	
+	# Original validation logic
 	if (row < 0 || row > 8 || col < 0 || col > 8 || num < 1 || num > 9):
+		_validation_cache[cache_key] = false
 		return false
+	
+	var mask: int = 1 << (num - 1)
+	var row_mask: int = Rn[row][col] & mask
+	var col_mask: int = Cn[row][col] & mask
+	var box_mask: int = Bn[row][col] & mask
+	var result = row_mask == mask && col_mask == mask && box_mask == mask
+	
+	_validation_cache[cache_key] = result
+	return result
 
-	#print("Row" + str(Rn[row][col]) + "   " + int_to_binary_string(Rn[row][col]))
-	#print("Col" + str(Cn[row][col]) + "   " + int_to_binary_string(Cn[row][col]))
-	#print("Box" + str(Bn[row][col]) + "   " + int_to_binary_string(Bn[row][col]))
-   
-	var mask:int = 1 << (num - 1)
-
-
-	var row_mask:int = Rn[row][col] & mask
-	var col_mask:int = Cn[row][col] & mask
-	var box_mask:int = Bn[row][col] & mask
-	return row_mask == mask && col_mask == mask && box_mask == mask
+func _invalidate_cache():
+	_cache_dirty = true
 
 func _get_valid_numbers(row: int, col: int) -> Array:
 	var valid_numbers = []
@@ -238,6 +258,7 @@ func set_number(row: int, col: int, num: int) -> bool:
 	if is_valid_move(row, col, num) && !is_given_number(row, col):
 		store_number_history(row, col, grid[row][col])
 		grid[row][col] = num
+		_invalidate_cache()  # Invalidate cache when grid changes
 	   
 		# Clear all pencil marks from the cell
 		for i in range(9):
@@ -273,6 +294,7 @@ func set_number(row: int, col: int, num: int) -> bool:
 func clear_number(row: int, col: int):
 	store_number_history(row, col, grid[row][col])
 	grid[row][col] = 0
+	_invalidate_cache()  # Invalidate cache when grid changes
 	generate_RnCnBn()
 
 func is_completed() -> bool:
@@ -296,30 +318,34 @@ func auto_fill_pencil_marks():
 					pencil[row][col][i] = false
 
 
-func swap_pencil(row: int, col:int, num:int) -> void:
+func swap_pencil(row: int, col: int, num: int) -> void:
 	store_pencil(row, col, num, !pencil[row][col][num-1], true)
 
-func store_pencil(row: int, col:int, num:int, state:bool, keep_history:bool = true, noreturn:bool = false) -> void:
+func store_pencil(row: int, col: int, num: int, state: bool, keep_history: bool = true, noreturn: bool = false) -> void:
 	pencil_history.append([row, col, num, pencil[row][col][num-1]])
 	pencil[row][col][num-1] = state
+	
 	if keep_history:
 		history.append(3)
 	else:
 		history.append(1)
-	if exclude[row][col][num-1] == true && noreturn == false:
+	
+	if exclude[row][col][num-1] and not noreturn:
 		store_exclude(row, col, num, false, keep_history, true)
 
-func swap_exclude(row: int, col:int, num:int) -> void:
+func swap_exclude(row: int, col: int, num: int) -> void:
 	store_exclude(row, col, num, !exclude[row][col][num-1], true)
 
-func store_exclude(row: int, col:int, num:int, state:bool, keep_history:bool = true, noreturn:bool = false) -> void:
+func store_exclude(row: int, col: int, num: int, state: bool, keep_history: bool = true, noreturn: bool = false) -> void:
 	exclude_history.append([row, col, num, exclude[row][col][num-1]])
 	exclude[row][col][num-1] = state
+	
 	if keep_history:
 		history.append(4)
 	else:
 		history.append(2)
-	if pencil[row][col][num-1] == true && noreturn == false:
+	
+	if pencil[row][col][num-1] and not noreturn:
 		store_pencil(row, col, num, false, keep_history, true)
 
 # History Management
@@ -350,25 +376,102 @@ func undo_exclude_history() -> void:
 		exclude[last[0]][last[1]][last[2]-1] = last[3]
 
 func undo_history() -> void:
-	var keep_undoing = true
-	while keep_undoing:
-		if history.size() > 0:
-			match history.pop_back():
-				0:
-					undo_number_history()
-					keep_undoing = false
-				1:
-					undo_pencil_history()
-					keep_undoing = false
-				2:
-					undo_exclude_history()
-					keep_undoing = false
-				3:
-					undo_pencil_history()
-				4:
-					undo_exclude_history()
-		else:
-			keep_undoing = false
+	if history.size() == 0:
+		return
+	
+	# Create snapshot for safety
+	var snapshot = _create_snapshot()
+	
+	# Perform undo operation
+	var operation = history.pop_back()
+	var success = false
+	
+	match operation:
+		0: success = _undo_number_safe()
+		1: success = _undo_pencil_safe()
+		2: success = _undo_exclude_safe()
+		3: success = _undo_pencil_safe()
+		4: success = _undo_exclude_safe()
+	
+	# Validate and restore if needed
+	if not success or not _validate_grid_state():
+		_restore_snapshot(snapshot)
+		print("Warning: Invalid undo operation, state restored")
+
+func _create_snapshot() -> Dictionary:
+	return {
+		"grid": grid.duplicate(true),
+		"pencil": pencil.duplicate(true),
+		"exclude": exclude.duplicate(true),
+		"history": history.duplicate(true),
+		"number_history": number_history.duplicate(true),
+		"pencil_history": pencil_history.duplicate(true),
+		"exclude_history": exclude_history.duplicate(true)
+	}
+
+func _restore_snapshot(snapshot: Dictionary):
+	grid = snapshot.grid
+	pencil = snapshot.pencil
+	exclude = snapshot.exclude
+	history = snapshot.history
+	number_history = snapshot.number_history
+	pencil_history = snapshot.pencil_history
+	exclude_history = snapshot.exclude_history
+	_invalidate_cache()
+
+func _validate_grid_state() -> bool:
+	# Basic validation - check for obvious conflicts
+	for row in range(9):
+		for col in range(9):
+			if grid[row][col] != 0:
+				# Check if this number conflicts with others in row/col/box
+				if not _is_valid_placement(row, col, grid[row][col]):
+					return false
+	return true
+
+func _is_valid_placement(row: int, col: int, num: int) -> bool:
+	# Check row
+	for c in range(9):
+		if c != col and grid[row][c] == num:
+			return false
+	
+	# Check column
+	for r in range(9):
+		if r != row and grid[r][col] == num:
+			return false
+	
+	# Check box
+	var box_row = (row / 3) * 3
+	var box_col = (col / 3) * 3
+	for r in range(box_row, box_row + 3):
+		for c in range(box_col, box_col + 3):
+			if (r != row or c != col) and grid[r][c] == num:
+				return false
+	
+	return true
+
+func _undo_number_safe() -> bool:
+	if number_history.size() > 0:
+		var last = number_history.pop_back()
+		grid[last[0]][last[1]] = last[2]
+		generate_RnCnBn()
+		_invalidate_cache()
+		return true
+	return false
+
+func _undo_pencil_safe() -> bool:
+	if pencil_history.size() > 0:
+		var last = pencil_history.pop_back()
+		pencil[last[0]][last[1]][last[2]-1] = last[3]
+		return true
+	return false
+
+func _undo_exclude_safe() -> bool:
+	if exclude_history.size() > 0:
+		var last = exclude_history.pop_back()
+		exclude[last[0]][last[1]][last[2]-1] = last[3]
+		return true
+	return false
 
 # Utility Functions
 func int_to_binary_string(value: int) -> String:
@@ -485,8 +588,15 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	
 	grid = save_to_load.grid
 	original_grid = save_to_load.original_grid
-	pencil = save_to_load.pencil
-	exclude = save_to_load.exclude
+	
+	# Handle backward compatibility for old save files
+	if save_to_load.has("pencil") and save_to_load.has("exclude"):
+		pencil = save_to_load.pencil
+		exclude = save_to_load.exclude
+	else:
+		# Initialize empty pencil/exclude arrays for old save files
+		_generate_pencil_grid()
+	
 	history = save_to_load.history
 	number_history = save_to_load.number_history
 	pencil_history = save_to_load.pencil_history
@@ -562,3 +672,22 @@ func has_save_state(difficulty: String, puzzle_index: int) -> bool:
 			return true
 	
 	return false
+
+func puzzle_file(path: String) -> bool:
+	# This method is called from game_screen.gd but was missing
+	# For now, we'll implement a basic file loading functionality
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Try to load as a puzzle string
+	return load_puzzle_from_string(content)
+
+func has_pencil_mark(row: int, col: int, num: int) -> bool:
+	return pencil[row][col][num - 1]
+
+func has_exclude_mark(row: int, col: int, num: int) -> bool:
+	return exclude[row][col][num - 1]
