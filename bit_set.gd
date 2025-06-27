@@ -11,21 +11,21 @@ func _init(bit_size: int = 81):
     for i in range(array_size):
         data[i] = 0
 
-func set(bit: int):
+func set_bit(bit: int):
     if bit < 0 or bit >= size:
         return
     var index = bit / 32
     var offset = bit % 32
     data[index] |= (1 << offset)
 
-func clear(bit: int):
+func clear_bit(bit: int):
     if bit < 0 or bit >= size:
         return
     var index = bit / 32
     var offset = bit % 32
     data[index] &= ~(1 << offset)
 
-func get(bit: int) -> bool:
+func get_bit(bit: int) -> bool:
     if bit < 0 or bit >= size:
         return false
     var index = bit / 32
@@ -90,14 +90,14 @@ func is_empty() -> bool:
 
 func next_set_bit(from_index: int = 0) -> int:
     for i in range(from_index, size):
-        if get(i):
+        if get_bit(i):
             return i
     return -1
 
-func to_string() -> String:
+func to_string_representation() -> String:
     var result = "BitSet["
     for i in range(size):
-        if get(i):
+        if get_bit(i):
             result += str(i) + ","
     if result.ends_with(","):
         result = result.substr(0, result.length() - 1)

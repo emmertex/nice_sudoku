@@ -207,7 +207,6 @@ func _on_cell_pressed(row: int, col: int):
 				selected_cell = Vector2(-1, -1)
 		else:
 			selected_num = sudoku.grid[row][col]
-		sudoku.generate_RnCnBn()
 
 	if mode == Mode.PENCIL:
 		if sudoku.grid[row][col] == 0:
@@ -227,15 +226,14 @@ func _update_pencil():
 		for col in range(9):
 			for num in range(9):
 				var pencil_button = grid_container.get_child(row * 9 + col).get_child(0).get_child(num)
-				if (sudoku.pencil[row][col][num]):
+				var pencil = sudoku.has_pencil_mark(row, col, num+1)
+				var exclude = sudoku.has_exclude_mark(row, col, num+1)
+				if exclude:
+					pencil_button.text = str(Cardinals.PencilN[num])
+					pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
+				elif pencil:
 					pencil_button.text = str(Cardinals.PencilN[num])
 					pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
-				elif (sudoku.exclude[row][col][num]):
-					if highlight_mode == HighlightMode.ALLC && mode != Mode.PENCIL_EXCLUDE:
-						pencil_button.text = ""
-					else:
-						pencil_button.text = str(Cardinals.PencilN[num])
-						pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
 				else:
 					pencil_button.text = ""
 
@@ -245,18 +243,14 @@ func _on_number_button_pressed(number: int):
 			mode = Mode.NUMBER
 			selected_num = number
 			selected_cell = Vector2(-1,-1)
-			sudoku.generate_RnCnBn()
 			queue_update("buttons")
 			return
 	if selected_num == number:
-		selected_num = 0
-		queue_update("buttons")
-		return
+		if mode == Mode.NUMBER:
+			mode = Mode.PENCIL
 	selected_num = number
 	if selected_cell.x >= 0 and selected_cell.y >= 0:
 		if mode == Mode.NUMBER:
-			if sudoku.set_number(selected_cell.x, selected_cell.y, number):
-				sudoku.generate_RnCnBn()
 			selected_cell = Vector2(-1,-1)
 		selected_num = 0
 	queue_update("grid")
@@ -308,6 +302,9 @@ func _update_buttons():
 		button.add_theme_stylebox_override("hover", style)
 
 func _update_grid_highlights():
+	var row_data = sudoku.sbrc_grid.row_data
+	var col_data = sudoku.sbrc_grid.col_data
+	var box_data = sudoku.sbrc_grid.box_data
 	# 1. Clear all highlights
 	for row in range(9):
 		for col in range(9):
@@ -704,10 +701,8 @@ func _input(event):
 	if event.is_action_pressed("undo"):
 		_on_UndoButton_pressed()
 
-func _on_auto_pencil_pressed():
+func _on_AutoP_pressed():
 	sudoku.auto_fill_pencil_marks()
-	selected_cell = Vector2(-1,-1)
-	selected_num = 0
 	queue_update("pencil")
 	queue_update("highlights")
 
@@ -757,10 +752,10 @@ func _on_paste_puzzle_button_pressed():
 	p891 = puzzle
 	for i in range(81):
 		for j in range(9):
-			if (sudoku.pencil[i/9][i%9][j]):
-				p891 += "1"
-			elif (sudoku.exclude[i/9][i%9][j]):
+			if (sudoku.has_exclude_mark(i/9, i%9, j+1)):
 				p891 += "2"
+			elif (sudoku.has_pencil_mark(i/9, i%9, j+1)):
+				p891 += "1"
 			else:
 				p891 += "0"
 	_set_label_text(pastePanel, "Game81Given", given)

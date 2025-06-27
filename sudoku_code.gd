@@ -4,11 +4,8 @@ class_name Sudoku
 # Properties
 var grid: Array = []
 var original_grid: Array = []
-var Rn: Array = []
-var Cn: Array = []
-var Bn: Array = []
-var pencil: Array = []  # 9x9x9 array of booleans
-var exclude: Array = [] # 9x9x9 array of booleans
+var pencil_bits: Array = []  # 9x9 array of integers
+var exclude_bits: Array = [] # 9x9 array of integers
 var history: Array = []
 var number_history: Array = []
 var pencil_history: Array = []
@@ -33,18 +30,18 @@ var difficulty_index: Dictionary = {
 	"expert": 3
 }
 
-# Add validation caching
-var _validation_cache: Dictionary = {}
-var _cache_dirty: bool = true
-
-# Replace 3D arrays with bit-based storage
-var pencil_bits: Array = []  # 9x9 array of integers
-var exclude_bits: Array = [] # 9x9 array of integers
+var sbrc_grid: SBRCGrid
 
 # Initialization
 func _init():
 	_generate_empty_grid()
 	_generate_pencil_grid()
+	_initialize_sbrc_grid()
+
+func _initialize_sbrc_grid():
+	if grid == null or grid.is_empty():
+		_generate_empty_grid()
+	sbrc_grid = SBRCGrid.new(grid)
 
 # Grid Generation
 func _generate_empty_grid():
@@ -57,48 +54,20 @@ func _generate_empty_grid():
 	original_grid = grid.duplicate(true)
 
 func _generate_pencil_grid():
-	pencil = []
-	exclude = []
+	pencil_bits = []
+	exclude_bits = []
 	for _i in range(9):
 		var row = []
 		for _j in range(9):
-			var col = []
-			for _k in range(9):
-				col.append(false)
-			row.append(col)
-		pencil.append(row)
-		exclude.append(row)
-
-func generate_RnCnBn():
-	Rn = []
-	Cn = []
-	Bn = []	
-	for i in range(9):
-		Rn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
-		Cn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
-		Bn.append([0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF])
-	for cell in range(Cardinals.Length):
-		var row = Cardinals.Rx[cell]
-		var col = Cardinals.Cy[cell]
-		var value = grid[row][col]
-	   
-		if value != 0:
-			var mask = ~(1 << (value - 1))
-			var box = Cardinals.Bxy[cell]
-			for i in range(9):
-				Rn[row][i] &= mask
-				Cn[i][col] &= mask
-				var rc = Cardinals.box_to_rc(box, i)
-				Bn[rc.x][rc.y] &= mask
-	
-	_invalidate_cache()  # Invalidate cache when constraint masks change
+			row.append(0)
+		pencil_bits.append(row)
+		exclude_bits.append(row)
 
 func load_puzzle(puzzle_file: String, puzzle_index: int) -> bool:
 	var file = FileAccess.open(puzzle_file, FileAccess.READ)
 	if file == null:
 		print("Failed to open Puzzle File")
 		return false
-	_init()
 	var line_count = 0
 	while not file.eof_reached():
 		var line = file.get_line()
@@ -121,7 +90,7 @@ func load_puzzle_from_dictionary(puzzle_data: Dictionary, puzzle_index: int = 0)
 	current_puzzle_name = puzzle_data.get("name", "Puzzle " + str(puzzle_index + 1))
 	current_puzzle_difficulty = puzzle_data["difficulty"]
 	current_puzzle_index = puzzle_index
-	generate_RnCnBn()
+	sbrc_grid.update_grid(grid)
 	_clear_history()
 	return true
 
@@ -161,18 +130,18 @@ func load_puzzle_from_string(line: String) -> bool:
 			var col = ((i - 162) % 81) / 9
 			var num = (i - 162) % 9
 			if line[i] == "1":
-				pencil[row][col][num - 1] = true
-				exclude[row][col][num - 1] = false
+				pencil_bits[row][col] |= (1 << (num - 1))
+				exclude_bits[row][col] &= ~(1 << (num - 1))
 			elif line[i] == "2":
-				exclude[row][col][num - 1] = true
-				pencil[row][col][num - 1] = false
+				exclude_bits[row][col] |= (1 << (num - 1))
+				pencil_bits[row][col] &= ~(1 << (num - 1))
 			else:
-				pencil[row][col][num - 1] = false
-				exclude[row][col][num - 1] = false
+				pencil_bits[row][col] &= ~(1 << (num - 1))
+				exclude_bits[row][col] &= ~(1 << (num - 1))
 	else:
 		return false
 
-	generate_RnCnBn()
+	sbrc_grid.update_grid(grid)
 	_clear_history()
 	current_puzzle_index = 0
 	return true
@@ -215,138 +184,108 @@ func _set_grid(puzzle: Array):
 	grid = puzzle.duplicate(true)
 	original_grid = grid.duplicate(true)
 
-# Game Logic
 func is_valid_move(row: int, col: int, num: int) -> bool:
-	if _cache_dirty:
-		_validation_cache.clear()
-		_cache_dirty = false
+	return sbrc_grid.is_valid_placement(row, col, num)
+
+func get_candidates_for_cell(row: int, col: int) -> BitSet:
+	return sbrc_grid.get_candidates_for_cell(row, col)
 	
-	var cache_key = "%d_%d_%d" % [row, col, num]
-	if _validation_cache.has(cache_key):
-		return _validation_cache[cache_key]
-	
-	# Original validation logic
-	if (row < 0 || row > 8 || col < 0 || col > 8 || num < 1 || num > 9):
-		_validation_cache[cache_key] = false
-		return false
-	
-	var mask: int = 1 << (num - 1)
-	var row_mask: int = Rn[row][col] & mask
-	var col_mask: int = Cn[row][col] & mask
-	var box_mask: int = Bn[row][col] & mask
-	var result = row_mask == mask && col_mask == mask && box_mask == mask
-	
-	_validation_cache[cache_key] = result
-	return result
-
-func _invalidate_cache():
-	_cache_dirty = true
-
-func _get_valid_numbers(row: int, col: int) -> Array:
-	var valid_numbers = []
-	if grid[row][col] != 0:
-		return valid_numbers  # Cell is already filled
-
-	var intersection = Rn[row][col] & Cn[row][col] & Bn[row][col]
-	for num in range(1, 10):
-		if intersection & (1 << (num - 1)) != 0:
-			valid_numbers.append(num)
-
-	return valid_numbers
-
 func set_number(row: int, col: int, num: int) -> bool:
 	if is_valid_move(row, col, num) && !is_given_number(row, col):
 		store_number_history(row, col, grid[row][col])
 		grid[row][col] = num
-		_invalidate_cache()  # Invalidate cache when grid changes
+		
+		sbrc_grid.set_cell_value(row, col, num)
 	   
 		# Clear all pencil marks from the cell
 		for i in range(9):
-			if pencil[row][col][i]:
-				store_pencil(row, col, i+1, false)
-			if exclude[row][col][i]:
-				store_exclude(row, col, i+1, false)
+			if has_pencil_mark(row, col, i+1):
+				set_pencil_mark(row, col, i+1, false)
+			if has_exclude_mark(row, col, i+1):
+				set_exclude_mark(row, col, i+1, false)
 	   
 		# Clear pencil marks of the number from the block
 		var block_row = (row / 3) * 3
 		var block_col = (col / 3) * 3
 		for r in range(block_row, block_row + 3):
 			for c in range(block_col, block_col + 3):
-				if pencil[r][c][num-1]:
-					store_pencil(r, c, num, false)
-				if exclude[r][c][num-1]:
-					store_exclude(r, c, num, false)
+				if has_pencil_mark(r, c, num):
+					set_pencil_mark(r, c, num, false)
+				if has_exclude_mark(r, c, num):
+					set_exclude_mark(r, c, num, false)
 		# Clear pencil marks of the number from the row
 		for c in range(9):
-			if pencil[row][c][num-1]:
-				store_pencil(row, c, num, false)
-			if exclude[row][c][num-1]:
-				store_exclude(row, c, num, false)
+			if has_pencil_mark(row, c, num):
+				set_pencil_mark(row, c, num, false)
+			if has_exclude_mark(row, c, num):
+				set_exclude_mark(row, c, num, false)
 		# Clear pencil marks of the number from the column
 		for r in range(9):
-			if pencil[r][col][num-1]:
-				store_pencil(r, col, num, false)
-			if exclude[r][col][num-1]:
-				store_exclude(r, col, num, false)
+			if has_pencil_mark(r, col, num):
+				set_pencil_mark(r, col, num, false)
+			if has_exclude_mark(r, col, num):
+				set_exclude_mark(r, col, num, false)
 		return true
 	return false
 
 func clear_number(row: int, col: int):
 	store_number_history(row, col, grid[row][col])
 	grid[row][col] = 0
-	_invalidate_cache()  # Invalidate cache when grid changes
-	generate_RnCnBn()
+	
+	sbrc_grid.set_cell_value(row, col, 0)
+	
 
 func is_completed() -> bool:
-	for row in range(9):
-		for col in range(9):
-			if grid[row][col] == 0:
-				return false
-	print("Puzzle is completed")
-	return true
+		return sbrc_grid.is_complete()
+	
 
 # Pencil Marks and Exclude
 func auto_fill_pencil_marks():
-	generate_RnCnBn()
+	sbrc_grid.update_grid(grid)
+	clear_all_pencil_marks()
 	for row in range(9):
 		for col in range(9):
-			var valid_numbers = _get_valid_numbers(row, col)
-			for i in range(9):
-				if i+1 in valid_numbers:
-					pencil[row][col][i] = true
-				else:
-					pencil[row][col][i] = false
+			if grid[row][col] == 0:
+				var candidates = sbrc_grid.get_candidates_for_cell(row, col)
+				var mask = 0
+				for i in range(9):
+					if candidates.get_bit(i):
+						mask |= (1 << i)
+				
+				if pencil_bits[row][col] != mask:
+					pencil_history.append([row, col, pencil_bits[row][col]])
+					history.append(1) # Pencil mark history
+					pencil_bits[row][col] = mask
 
+func clear_all_pencil_marks():
+	for row in range(9):
+		for col in range(9):
+			if pencil_bits[row][col] != 0:
+				pencil_history.append([row, col, pencil_bits[row][col]])
+				history.append(1)
+				pencil_bits[row][col] = 0
+			if exclude_bits[row][col] != 0:
+				exclude_history.append([row, col, exclude_bits[row][col]])
+				history.append(2)
+				exclude_bits[row][col] = 0
 
 func swap_pencil(row: int, col: int, num: int) -> void:
-	store_pencil(row, col, num, !pencil[row][col][num-1], true)
-
-func store_pencil(row: int, col: int, num: int, state: bool, keep_history: bool = true, noreturn: bool = false) -> void:
-	pencil_history.append([row, col, num, pencil[row][col][num-1]])
-	pencil[row][col][num-1] = state
-	
-	if keep_history:
-		history.append(3)
+	pencil_history.append([row, col, pencil_bits[row][col]])
+	history.append(3)
+	if has_pencil_mark(row, col, num):
+		set_pencil_mark(row, col, num, false)
 	else:
-		history.append(1)
-	
-	if exclude[row][col][num-1] and not noreturn:
-		store_exclude(row, col, num, false, keep_history, true)
+		set_pencil_mark(row, col, num, true)
+		set_exclude_mark(row, col, num, false) # Always clear exclude
 
 func swap_exclude(row: int, col: int, num: int) -> void:
-	store_exclude(row, col, num, !exclude[row][col][num-1], true)
-
-func store_exclude(row: int, col: int, num: int, state: bool, keep_history: bool = true, noreturn: bool = false) -> void:
-	exclude_history.append([row, col, num, exclude[row][col][num-1]])
-	exclude[row][col][num-1] = state
-	
-	if keep_history:
-		history.append(4)
+	exclude_history.append([row, col, exclude_bits[row][col]])
+	history.append(4)
+	if has_exclude_mark(row, col, num):
+		set_exclude_mark(row, col, num, false)
 	else:
-		history.append(2)
-	
-	if pencil[row][col][num-1] and not noreturn:
-		store_pencil(row, col, num, false, keep_history, true)
+		set_exclude_mark(row, col, num, true)
+		set_pencil_mark(row, col, num, false) # Always clear pencil
 
 # History Management
 func store_number_history(row: int, col:int, num:int) -> void:
@@ -358,22 +297,6 @@ func _clear_history() -> void:
 	number_history = []
 	pencil_history = []
 	exclude_history = []
-
-func undo_number_history() -> void:
-	if number_history.size() > 0:
-		var last = number_history.pop_back()
-		grid[last[0]][last[1]] = last[2]
-		generate_RnCnBn()
-
-func undo_pencil_history() -> void:
-	if pencil_history.size() > 0:
-		var last = pencil_history.pop_back()
-		pencil[last[0]][last[1]][last[2]-1] = last[3]
-
-func undo_exclude_history() -> void:
-	if exclude_history.size() > 0:
-		var last = exclude_history.pop_back()
-		exclude[last[0]][last[1]][last[2]-1] = last[3]
 
 func undo_history() -> void:
 	if history.size() == 0:
@@ -401,8 +324,8 @@ func undo_history() -> void:
 func _create_snapshot() -> Dictionary:
 	return {
 		"grid": grid.duplicate(true),
-		"pencil": pencil.duplicate(true),
-		"exclude": exclude.duplicate(true),
+		"pencil_bits": pencil_bits.duplicate(true),
+		"exclude_bits": exclude_bits.duplicate(true),
 		"history": history.duplicate(true),
 		"number_history": number_history.duplicate(true),
 		"pencil_history": pencil_history.duplicate(true),
@@ -411,67 +334,111 @@ func _create_snapshot() -> Dictionary:
 
 func _restore_snapshot(snapshot: Dictionary):
 	grid = snapshot.grid
-	pencil = snapshot.pencil
-	exclude = snapshot.exclude
+	pencil_bits = snapshot.pencil_bits
+	exclude_bits = snapshot.exclude_bits
 	history = snapshot.history
 	number_history = snapshot.number_history
 	pencil_history = snapshot.pencil_history
 	exclude_history = snapshot.exclude_history
-	_invalidate_cache()
+	sbrc_grid = SBRCGrid.new(grid)
 
 func _validate_grid_state() -> bool:
-	# Basic validation - check for obvious conflicts
-	for row in range(9):
-		for col in range(9):
-			if grid[row][col] != 0:
-				# Check if this number conflicts with others in row/col/box
-				if not _is_valid_placement(row, col, grid[row][col]):
-					return false
-	return true
-
-func _is_valid_placement(row: int, col: int, num: int) -> bool:
-	# Check row
-	for c in range(9):
-		if c != col and grid[row][c] == num:
-			return false
+	return sbrc_grid.get_conflicts().size() == 0
 	
-	# Check column
-	for r in range(9):
-		if r != row and grid[r][col] == num:
-			return false
-	
-	# Check box
-	var box_row = (row / 3) * 3
-	var box_col = (col / 3) * 3
-	for r in range(box_row, box_row + 3):
-		for c in range(box_col, box_col + 3):
-			if (r != row or c != col) and grid[r][c] == num:
-				return false
-	
-	return true
-
 func _undo_number_safe() -> bool:
 	if number_history.size() > 0:
 		var last = number_history.pop_back()
 		grid[last[0]][last[1]] = last[2]
-		generate_RnCnBn()
-		_invalidate_cache()
+		sbrc_grid.set_cell_value(last[0], last[1], last[2])
 		return true
 	return false
 
 func _undo_pencil_safe() -> bool:
 	if pencil_history.size() > 0:
 		var last = pencil_history.pop_back()
-		pencil[last[0]][last[1]][last[2]-1] = last[3]
+		pencil_bits[last[0]][last[1]] = last[2]
 		return true
 	return false
 
 func _undo_exclude_safe() -> bool:
 	if exclude_history.size() > 0:
 		var last = exclude_history.pop_back()
-		exclude[last[0]][last[1]][last[2]-1] = last[3]
+		exclude_bits[last[0]][last[1]] = last[2]
 		return true
 	return false
+
+func find_naked_singles() -> Array:
+	var singles = []
+	for row in range(9):
+		for col in range(9):
+			if grid[row][col] == 0:
+				var candidates = sbrc_grid.get_candidates_for_cell(row, col)
+				if candidates.cardinality() == 1:
+					var digit = candidates.next_set_bit(0) + 1
+					singles.append({
+						"row": row,
+						"col": col,
+						"digit": digit
+					})
+	return singles
+
+func find_hidden_singles() -> Array:
+	var singles = []
+	
+	# Check rows
+	for row in range(9):
+		for digit in range(9):
+			var candidates = sbrc_grid.get_row_candidates(row, digit)
+			if candidates.cardinality() == 1:
+				var col = candidates.next_set_bit(0)
+				if grid[row][col] == 0:
+					singles.append({
+						"row": row,
+						"col": col,
+						"digit": digit + 1,
+						"type": "row"
+					})
+	
+	# Check columns
+	for col in range(9):
+		for digit in range(9):
+			var candidates = sbrc_grid.get_col_candidates(col, digit)
+			if candidates.cardinality() == 1:
+				var row = candidates.next_set_bit(0)
+				if grid[row][col] == 0:
+					singles.append({
+						"row": row,
+						"col": col,
+						"digit": digit + 1,
+						"type": "column"
+					})
+	
+	# Check boxes
+	for box in range(9):
+		for digit in range(9):
+			var candidates = sbrc_grid.get_box_candidates(box, digit)
+			if candidates.cardinality() == 1:
+				var pos = candidates.next_set_bit(0)
+				var box_row = (box / 3) * 3
+				var box_col = (box % 3) * 3
+				var row = box_row + (pos / 3)
+				var col = box_col + (pos % 3)
+				if grid[row][col] == 0:
+					singles.append({
+						"row": row,
+						"col": col,
+						"digit": digit + 1,
+						"type": "box"
+					})
+	
+	return singles
+
+func get_conflicts() -> Array:
+	return sbrc_grid.get_conflicts()
+
+
+func get_empty_cells() -> Array:
+	return sbrc_grid.get_empty_cells()
 
 # Utility Functions
 func int_to_binary_string(value: int) -> String:
@@ -534,8 +501,8 @@ func save_state(file_path: String) -> bool:
 	var save_data = {
 		"grid": grid,
 		"original_grid": original_grid,
-		"pencil": pencil,
-		"exclude": exclude,
+		"pencil_bits": pencil_bits,
+		"exclude_bits": exclude_bits,
 		"history": history,
 		"number_history": number_history,
 		"pencil_history": pencil_history,
@@ -590,9 +557,9 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	original_grid = save_to_load.original_grid
 	
 	# Handle backward compatibility for old save files
-	if save_to_load.has("pencil") and save_to_load.has("exclude"):
-		pencil = save_to_load.pencil
-		exclude = save_to_load.exclude
+	if save_to_load.has("pencil_bits") and save_to_load.has("exclude_bits"):
+		pencil_bits = save_to_load.pencil_bits
+		exclude_bits = save_to_load.exclude_bits
 	else:
 		# Initialize empty pencil/exclude arrays for old save files
 		_generate_pencil_grid()
@@ -606,7 +573,7 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	current_puzzle_index = save_to_load.current_puzzle_index
 	puzzle_selected = save_to_load.puzzle_selected
 	puzzle_time = save_to_load.puzzle_time
-	generate_RnCnBn()
+	sbrc_grid.update_grid(grid)
 	
 	return true
 
@@ -687,10 +654,22 @@ func puzzle_file(path: String) -> bool:
 	return load_puzzle_from_string(content)
 
 func has_pencil_mark(row: int, col: int, num: int) -> bool:
-	return pencil[row][col][num - 1]
+	return (pencil_bits[row][col] & (1 << (num - 1))) != 0
+
+func set_pencil_mark(row: int, col: int, num: int, value: bool):
+	if value:
+		pencil_bits[row][col] |= (1 << (num - 1))
+	else:
+		pencil_bits[row][col] &= ~(1 << (num - 1))
 
 func has_exclude_mark(row: int, col: int, num: int) -> bool:
-	return exclude[row][col][num - 1]
+	return (exclude_bits[row][col] & (1 << (num - 1))) != 0
+
+func set_exclude_mark(row: int, col: int, num: int, value: bool):
+	if value:
+		exclude_bits[row][col] |= (1 << (num - 1))
+	else:
+		exclude_bits[row][col] &= ~(1 << (num - 1))
 
 func get_grid_value(row: int, col: int) -> int:
 	return grid[row][col]
