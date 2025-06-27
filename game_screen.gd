@@ -15,9 +15,10 @@ const CLR_BACKGROUND = Color(0.1, 0.1, 0.1)
 const CLR_PENCIL = Color(0.95, 0.95, 0.95)
 const CLR_PENCIL_HIGHLIGHT = Color(0.3, 1.0, 0.3)
 const CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)
+const CLR_HINT_AFFECTED = Color.PALE_GREEN
 
 const SAVE_STATE_PATH = "user://save_state.cfg"
-
+const Hint = preload("res://hint.gd")
 
 # Enums
 enum HighlightMode { NUM, NRC, NRCB, ALL, ALLC }
@@ -40,6 +41,7 @@ var timer_running: bool = false
 var permissions_requested = false
 var _pending_updates: Array = []
 var _update_timer: Timer
+var current_hint: Hint = null
 
 # Onready variables
 @onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
@@ -70,6 +72,9 @@ func _setup_ui():
 	_create_grid()
 	_setup_number_buttons()
 	_update_highlight_button_text()
+	update_ui()
+
+func update_ui():
 	queue_update("grid")
 	queue_update("buttons")
 	queue_update("pencil")
@@ -224,15 +229,22 @@ func _on_cell_pressed(row: int, col: int):
 func _update_pencil():
 	for row in range(9):
 		for col in range(9):
-			for num in range(9):
-				var pencil_button = grid_container.get_child(row * 9 + col).get_child(0).get_child(num)
-				var pencil = sudoku.has_pencil_mark(row, col, num+1)
-				var exclude = sudoku.has_exclude_mark(row, col, num+1)
+			for num_idx in range(9):
+				var num = num_idx + 1
+				var pencil_button = grid_container.get_child(row * 9 + col).get_child(0).get_child(num_idx)
+				
+				# Skip updating colors if this pencil mark is part of a hint elimination
+				if current_hint and current_hint.elim_cells.has(Vector2i(row, col)) and current_hint.elim_numbers.has(num):
+					continue
+				
+				var pencil = sudoku.has_pencil_mark(row, col, num)
+				var exclude = sudoku.has_exclude_mark(row, col, num)
+				
 				if exclude:
-					pencil_button.text = str(Cardinals.PencilN[num])
+					pencil_button.text = str(Cardinals.PencilN[num_idx])
 					pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
 				elif pencil:
-					pencil_button.text = str(Cardinals.PencilN[num])
+					pencil_button.text = str(Cardinals.PencilN[num_idx])
 					pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
 				else:
 					pencil_button.text = ""
@@ -257,6 +269,7 @@ func _on_number_button_pressed(number: int):
 	queue_update("buttons")
 	queue_update("pencil")
 	queue_update("highlights")
+	update_ui()
 
 func _update_buttons():
 	var needed = sudoku.get_needed_numbers()
@@ -425,17 +438,52 @@ func _update_grid_highlights():
 				block_style.set_bg_color(CLR_BLOCK)
 				block_button.add_theme_stylebox_override("normal", block_style)
 
-func _on_HintButton_pressed():
-	var hints = hint_generator.get_hints()
-	if hints.size() > 0:
-		var hint = hints[0]
-		print("%s: %s" % [hint.technique, hint.description])
-	else:
-		print("No hints available")
+	if current_hint:
+		highlight_hint(current_hint)
 
-	for i in hints.size():
-		var hint = hints[i]
-		print("%s: %s" % [hint.technique, hint.description])
+func _on_HintButton_pressed():
+	current_hint = null # Clear previous hint
+	update_ui() # Update to clear old highlights
+	
+	var hints = hint_generator.get_hints()
+	var hint_popup = preload("res://hint_popup.tscn").instantiate()
+	add_child(hint_popup)
+	hint_popup.set_hints(hints)
+	hint_popup.popup_centered()
+	
+	hint_popup.connect("hint_selected", self._on_hint_selected)
+	hint_popup.connect("next_hint_requested", self._on_hint_selected)
+	hint_popup.connect("hint_dismissed", self._on_hint_dismissed)
+
+func _on_hint_selected(hint: Hint):
+	current_hint = hint
+	update_ui()
+
+func _on_hint_dismissed():
+	current_hint = null
+	update_ui()
+
+func highlight_hint(hint: Hint):
+	# Highlight primary cells
+	for cell in hint.cells:
+		var button = grid_container.get_child(cell.x * 9 + cell.y)
+		var style = button.get_theme_stylebox("normal").duplicate()
+		style.set_bg_color(Color.PALE_VIOLET_RED)
+		button.add_theme_stylebox_override("normal", style)
+	
+	# Highlight elimination cells and their specific pencil marks
+	for cell in hint.elim_cells:
+		var button = grid_container.get_child(cell.x * 9 + cell.y)
+		var style = button.get_theme_stylebox("normal").duplicate()
+		style.set_bg_color(CLR_HINT_AFFECTED)
+		button.add_theme_stylebox_override("normal", style)
+		
+		var pencil_container = button.get_child(0)
+		for num in hint.elim_numbers:
+			# Check if this pencil mark actually exists before highlighting
+			if sudoku.has_pencil_mark(cell.x, cell.y, num):
+				var pencil_label = pencil_container.get_child(num - 1)
+				pencil_label.add_theme_color_override("font_color", Color.ORANGE_RED)
 
 func _on_NewGameButton_pressed():
 	show_puzzle_selection_popup()
@@ -584,6 +632,7 @@ func _on_load_puzzle_pressed(difficulty: String, index: int):
 	selected_num = 0
 	timer_running = true
 	sudoku.puzzle_time = 0
+	current_hint = null
 	var popup = get_node_or_null("PuzzleSelectionPopup")
 	if popup:
 		popup.queue_free()
@@ -664,10 +713,8 @@ func _on_UndoButton_pressed():
 	selected_cell = Vector2(-1,-1)
 	selected_num = 0
 	sudoku.undo_history()
-	queue_update("grid")
-	queue_update("buttons")
-	queue_update("pencil")
-	queue_update("highlights")
+	current_hint = null
+	update_ui()
 
 func _on_timer_timeout():
 	if timer_running:

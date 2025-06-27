@@ -57,11 +57,13 @@ func _generate_pencil_grid():
 	pencil_bits = []
 	exclude_bits = []
 	for _i in range(9):
-		var row = []
+		var pencil_row = []
+		var exclude_row = []
 		for _j in range(9):
-			row.append(0)
-		pencil_bits.append(row)
-		exclude_bits.append(row)
+			pencil_row.append(0)
+			exclude_row.append(0)
+		pencil_bits.append(pencil_row)
+		exclude_bits.append(exclude_row)
 
 func load_puzzle(puzzle_file: String, puzzle_index: int) -> bool:
 	var file = FileAccess.open(puzzle_file, FileAccess.READ)
@@ -174,7 +176,10 @@ func string_to_grid(puzzle_string: String) -> Array:
 		var row = []
 		for j in range(9):
 			var index = i * 9 + j
-			var value = int(puzzle_string[index])
+			var char = puzzle_string[index]
+			var value = 0
+			if char != ".":
+				value = int(char)
 			row.append(value)
 		_grid.append(row)
 	return _grid
@@ -256,6 +261,7 @@ func auto_fill_pencil_marks():
 					pencil_history.append([row, col, pencil_bits[row][col]])
 					history.append(1) # Pencil mark history
 					pencil_bits[row][col] = mask
+					exclude_bits[row][col] = 0
 
 func clear_all_pencil_marks():
 	for row in range(9):
@@ -676,3 +682,44 @@ func get_grid_value(row: int, col: int) -> int:
 
 func get_grid_given(row: int, col: int) -> bool:
 	return original_grid[row][col] != 0
+
+func solve_with_backtracking(max_solutions: int = 1) -> Array:
+	var solutions = []
+	_solve_recursive(grid.duplicate(true), solutions, max_solutions)
+	return solutions
+
+func _solve_recursive(current_grid: Array, solutions: Array, max_solutions: int):
+	if solutions.size() >= max_solutions:
+		return
+
+	# Find empty cell with fewest candidates
+	var best_cell = Vector2i(-1, -1)
+	var min_candidates = 10
+	
+	var temp_sudoku = Sudoku.new()
+	temp_sudoku.load_puzzle_from_dictionary({"grid": current_grid, "difficulty": "temp"})
+	
+	for r in range(9):
+		for c in range(9):
+			if current_grid[r][c] == 0:
+				var candidates = temp_sudoku.sbrc_grid.get_candidates_for_cell(r, c)
+				var num_candidates = candidates.cardinality()
+				if num_candidates < min_candidates:
+					min_candidates = num_candidates
+					best_cell = Vector2i(r, c)
+
+	if best_cell == Vector2i(-1, -1):
+		# No empty cells, solution found
+		solutions.append(current_grid)
+		return
+
+	# Try candidates for the best cell
+	var candidates = temp_sudoku.sbrc_grid.get_candidates_for_cell(best_cell.x, best_cell.y)
+	for i in range(9):
+		if candidates.get_bit(i):
+			var num = i + 1
+			var next_grid = current_grid.duplicate(true)
+			next_grid[best_cell.x][best_cell.y] = num
+			_solve_recursive(next_grid, solutions, max_solutions)
+			if solutions.size() >= max_solutions:
+				return

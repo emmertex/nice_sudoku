@@ -2,6 +2,7 @@ class_name SBRCGrid
 extends RefCounted
 
 var basic_grid: Array  # 9x9 grid
+var candidates: Array # 9x9 grid of BitSets
 var sector_data: Array  # [sector][digit] -> BitSet
 var row_data: Array     # [row][digit] -> BitSet  
 var col_data: Array     # [col][digit] -> BitSet
@@ -9,8 +10,7 @@ var box_data: Array     # [box][digit] -> BitSet
 
 func _init(grid: Array):
 	basic_grid = grid.duplicate(true)
-	_build_sector_data()
-	_build_intersection_data()
+	update_grid(basic_grid)
 
 func _build_sector_data():
 	# Initialize arrays
@@ -63,26 +63,9 @@ func _build_intersection_data():
 	pass
 
 func get_candidates_for_cell(row: int, col: int) -> BitSet:
-	var result = BitSet.new(9)
-	result.set_all()
-
-	# Remove candidates present anywhere in the row
-	for digit in range(9):
-		if row_data[row][digit].cardinality() > 0:
-			result.clear_bit(digit)
-
-	# Remove candidates present anywhere in the column
-	for digit in range(9):
-		if col_data[col][digit].cardinality() > 0:
-			result.clear_bit(digit)
-
-	# Remove candidates present anywhere in the box
-	var box = Cardinals.Bxy[row * 9 + col]
-	for digit in range(9):
-		if box_data[box][digit].cardinality() > 0:
-			result.clear_bit(digit)
-
-	return result
+	if candidates.size() > row and candidates[row].size() > col:
+		return candidates[row][col]
+	return BitSet.new(9)
 
 func get_cell_value(row: int, col: int) -> int:
 	return basic_grid[row][col]
@@ -163,6 +146,8 @@ func get_grid_copy() -> Array:
 func update_grid(new_grid: Array):
 	basic_grid = new_grid.duplicate(true)
 	_build_sector_data()
+	_build_candidates()
+	_build_intersection_data()
 
 func is_complete() -> bool:
 	for row in range(9):
@@ -228,6 +213,19 @@ func get_conflicts() -> Array:
 						seen[value] = Vector2i(row, col)
 	
 	return conflicts
+
+func _build_candidates():
+	candidates = []
+	for r in range(9):
+		var row_cands = []
+		for c in range(9):
+			var cell_cands = BitSet.new(9)
+			if basic_grid[r][c] == 0:
+				for d in range(1, 10):
+					if is_valid_placement(r, c, d):
+						cell_cands.set_bit(d - 1)
+			row_cands.append(cell_cands)
+		candidates.append(row_cands)
 
 func to_string_representation() -> String:
 	var result = ""
