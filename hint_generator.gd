@@ -8,7 +8,7 @@ func _get_candidates(r: int, c: int) -> BitSet:
 	var cands = sudoku.sbrc_grid.get_candidates_for_cell(r, c).clone()
 	var bits_to_exclude = sudoku.exclude_bits[r][c]
 	if bits_to_exclude > 0:
-		cands.data &= ~bits_to_exclude
+		cands.data[0] &= ~bits_to_exclude
 	return cands
 
 func get_hints() -> Array[Hint]:
@@ -445,9 +445,9 @@ func get_hints() -> Array[Hint]:
 
 					if not hint.elim_cells.is_empty():
 						hint.elim_numbers.append(num)
-						var desc = "In this box, the only place for a %d is somewhere in row %d.\n\n" % [num, first_row + 1]
-						desc += "This forms a Pointing group. Because one of these cells must be %d, we can be sure that no other cell in row %d can be %d.\n\n" % [num, first_row + 1]
-						desc += "Therefore, we can eliminate %d as a candidate from cells: %s." % [num, _format_cell_list(hint.elim_cells)]
+						var desc = "In this box, the only place for a {num} is somewhere in row {row}.\n\n".format({"num": num, "row": first_row + 1})
+						desc += "This forms a Pointing group. Because one of these cells must be {num}, we can be sure that no other cell in row {row} can be {num}.\n\n".format({"num": num, "row": first_row + 1})
+						desc += "Therefore, we can eliminate {num} as a candidate from cells: {cells}.".format({"num": num, "cells": _format_cell_list(hint.elim_cells)})
 						hint.description = desc
 						hints.append(hint)
 
@@ -474,9 +474,9 @@ func get_hints() -> Array[Hint]:
 					
 					if not hint.elim_cells.is_empty():
 						hint.elim_numbers.append(num)
-						var desc = "In this box, the only place for a %d is somewhere in column %d.\n\n" % [num, first_col + 1]
-						desc += "This forms a Pointing group. Because one of these cells must be %d, we can be sure that no other cell in column %d can be %d.\n\n" % [num, first_col + 1]
-						desc += "Therefore, we can eliminate %d as a candidate from cells: %s." % [num, _format_cell_list(hint.elim_cells)]
+						var desc = "In this box, the only place for a {num} is somewhere in column {col}.\n\n".format({"num": num, "col": first_col + 1})
+						desc += "This forms a Pointing group. Because one of these cells must be {num}, we can be sure that no other cell in column {col} can be {num}.\n\n".format({"num": num, "col": first_col + 1})
+						desc += "Therefore, we can eliminate {num} as a candidate from cells: {cells}.".format({"num": num, "cells": _format_cell_list(hint.elim_cells)})
 						hint.description = desc
 						hints.append(hint)
 
