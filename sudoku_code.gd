@@ -390,52 +390,78 @@ func find_naked_singles() -> Array:
 
 func find_hidden_singles() -> Array:
 	var singles = []
-	
+	var found_cells = BitSet.new(81)
+
 	# Check rows
-	for row in range(9):
-		for digit in range(9):
-			var candidates = sbrc_grid.get_row_candidates(row, digit)
-			if candidates.cardinality() == 1:
-				var col = candidates.next_set_bit(0)
-				if grid[row][col] == 0:
+	for r in range(9):
+		for d in range(9):  # digit-1
+			var possible_cols = []
+			for c in range(9):
+				if grid[r][c] == 0:
+					var cell_candidates = sbrc_grid.get_candidates_for_cell(r, c)
+					if cell_candidates.get_bit(d):
+						possible_cols.append(c)
+			
+			if possible_cols.size() == 1:
+				var c = possible_cols[0]
+				var cell_index = r * 9 + c
+				if not found_cells.get_bit(cell_index):
 					singles.append({
-						"row": row,
-						"col": col,
-						"digit": digit + 1,
+						"row": r,
+						"col": c,
+						"digit": d + 1,
 						"type": "row"
 					})
-	
+					found_cells.set_bit(cell_index)
+
 	# Check columns
-	for col in range(9):
-		for digit in range(9):
-			var candidates = sbrc_grid.get_col_candidates(col, digit)
-			if candidates.cardinality() == 1:
-				var row = candidates.next_set_bit(0)
-				if grid[row][col] == 0:
+	for c in range(9):
+		for d in range(9):  # digit-1
+			var possible_rows = []
+			for r in range(9):
+				if grid[r][c] == 0:
+					var cell_candidates = sbrc_grid.get_candidates_for_cell(r, c)
+					if cell_candidates.get_bit(d):
+						possible_rows.append(r)
+
+			if possible_rows.size() == 1:
+				var r = possible_rows[0]
+				var cell_index = r * 9 + c
+				if not found_cells.get_bit(cell_index):
 					singles.append({
-						"row": row,
-						"col": col,
-						"digit": digit + 1,
+						"row": r,
+						"col": c,
+						"digit": d + 1,
 						"type": "column"
 					})
-	
+					found_cells.set_bit(cell_index)
+
 	# Check boxes
-	for box in range(9):
-		for digit in range(9):
-			var candidates = sbrc_grid.get_box_candidates(box, digit)
-			if candidates.cardinality() == 1:
-				var pos = candidates.next_set_bit(0)
-				var box_row = (box / 3) * 3
-				var box_col = (box % 3) * 3
-				var row = box_row + (pos / 3)
-				var col = box_col + (pos % 3)
-				if grid[row][col] == 0:
+	for b in range(9):
+		for d in range(9):  # digit-1
+			var possible_cells = []
+			for i in range(9):
+				var cell_pos = Cardinals.box_to_rc(b, i)
+				var r = cell_pos.x
+				var c = cell_pos.y
+				if grid[r][c] == 0:
+					var cell_candidates = sbrc_grid.get_candidates_for_cell(r, c)
+					if cell_candidates.get_bit(d):
+						possible_cells.append(cell_pos)
+
+			if possible_cells.size() == 1:
+				var cell_pos = possible_cells[0]
+				var r = cell_pos.x
+				var c = cell_pos.y
+				var cell_index = r * 9 + c
+				if not found_cells.get_bit(cell_index):
 					singles.append({
-						"row": row,
-						"col": col,
-						"digit": digit + 1,
+						"row": r,
+						"col": c,
+						"digit": d + 1,
 						"type": "box"
 					})
+					found_cells.set_bit(cell_index)
 	
 	return singles
 

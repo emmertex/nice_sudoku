@@ -98,6 +98,8 @@ func set_cell_value(row: int, col: int, value: int):
 		col_data[col][digit].set_bit(row)
 		sector_data[box + 18][digit].set_bit(Cardinals.BxyN[row * 9 + col])
 		box_data[box][digit].set_bit(Cardinals.BxyN[row * 9 + col])
+	
+	_build_candidates()
 
 func get_row_candidates(row: int, digit: int) -> BitSet:
 	return row_data[row][digit].clone()
@@ -114,21 +116,25 @@ func get_sector_candidates(sector: int, digit: int) -> BitSet:
 func is_valid_placement(row: int, col: int, value: int) -> bool:
 	if value == 0:
 		return true
+
+	# Check row
+	for c in range(9):
+		if c != col and basic_grid[row][c] == value:
+			return false
 	
-	var digit = value - 1
-	var box = Cardinals.Bxy[row * 9 + col]
-	
-	# Check if digit is already in row
-	if row_data[row][digit].cardinality() > 0:
-		return false
-	
-	# Check if digit is already in column
-	if col_data[col][digit].cardinality() > 0:
-		return false
-	
-	# Check if digit is already in box
-	if box_data[box][digit].cardinality() > 0:
-		return false
+	# Check column
+	for r in range(9):
+		if r != row and basic_grid[r][col] == value:
+			return false
+			
+	# Check box
+	var box_row = int(row / 3) * 3
+	var box_col = int(col / 3) * 3
+	for r in range(box_row, box_row + 3):
+		for c in range(box_col, box_col + 3):
+			if r != row or c != col:
+				if basic_grid[r][c] == value:
+					return false
 	
 	return true
 

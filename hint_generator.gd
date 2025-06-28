@@ -18,11 +18,26 @@ func get_hints() -> Array[Hint]:
 					if candidates.get_bit(i):
 						possible_numbers.append(i + 1)
 				if possible_numbers.size() == 1:
-					var desc = "There's only one possible number (%d) that can be placed in cell (%d, %d)." % [possible_numbers[0], row + 1, col + 1]
+					var desc = "Single Candidate: There's only one possible number (%d) that can be placed in cell (%d, %d)." % [possible_numbers[0], row + 1, col + 1]
 					var hint = Hint.new(Hint.HintTechnique.SINGLE_CANDIDATE, desc)
 					hint.cells.append(Vector2i(row, col))
 					hint.numbers.append(possible_numbers[0])
 					hints.append(hint)
+
+	# --- Hidden Singles ---
+	var hidden_singles = sudoku.find_hidden_singles()
+	for single in hidden_singles:
+		var r = single.row
+		var c = single.col
+		var num = single.digit
+		var type = single.type
+		
+		var unit_idx = r if type == "row" else (c if type == "column" else (int(r / 3) * 3 + int(c / 3)))
+		var desc = "Hidden Single: In %s %d, cell (%d, %d) is the only place the number %d can go." % [type, unit_idx + 1, r + 1, c + 1, num]
+		var hint = Hint.new(Hint.HintTechnique.HIDDEN_SINGLE, desc)
+		hint.cells.append(Vector2i(r, c))
+		hint.numbers.append(num)
+		hints.append(hint)
 
 	# --- Naked Pairs ---
 	# Rows
@@ -45,7 +60,7 @@ func get_hints() -> Array[Hint]:
 						for k in range(9):
 							if cand1.get_bit(k):
 								nums.append(k+1)
-						var desc = "Cells (%d, %d) and (%d, %d) in row %d form a Naked Pair with numbers %d and %d." % [r + 1, c1 + 1, r + 1, c2 + 1, r + 1, nums[0], nums[1]]
+						var desc = "Naked Pair: Cells (%d, %d) and (%d, %d) in row %d form a Naked Pair with numbers %d and %d." % [r + 1, c1 + 1, r + 1, c2 + 1, r + 1, nums[0], nums[1]]
 						var hint = Hint.new(Hint.HintTechnique.NAKED_PAIR_ROW, desc)
 						hint.cells.append_array([Vector2i(r, c1), Vector2i(r, c2)])
 						hint.numbers = nums
@@ -71,7 +86,7 @@ func get_hints() -> Array[Hint]:
 						for k in range(9):
 							if cand1.get_bit(k):
 								nums.append(k+1)
-						var desc = "Cells (%d, %d) and (%d, %d) in column %d form a Naked Pair with numbers %d and %d." % [r1 + 1, c + 1, r2 + 1, c + 1, c + 1, nums[0], nums[1]]
+						var desc = "Naked Pair: Cells (%d, %d) and (%d, %d) in column %d form a Naked Pair with numbers %d and %d." % [r1 + 1, c + 1, r2 + 1, c + 1, c + 1, nums[0], nums[1]]
 						var hint = Hint.new(Hint.HintTechnique.NAKED_PAIR_COL, desc)
 						hint.cells.append_array([Vector2i(r1, c), Vector2i(r2, c)])
 						hint.numbers = nums
@@ -98,7 +113,7 @@ func get_hints() -> Array[Hint]:
 						for k in range(9):
 							if cand1.get_bit(k):
 								nums.append(k+1)
-						var desc = "Cells (%d, %d) and (%d, %d) in the same box form a Naked Pair with numbers %d and %d." % [pos1.x + 1, pos1.y + 1, pos2.x + 1, pos2.y + 1, nums[0], nums[1]]
+						var desc = "Naked Pair: Cells (%d, %d) and (%d, %d) in the same box form a Naked Pair with numbers %d and %d." % [pos1.x + 1, pos1.y + 1, pos2.x + 1, pos2.y + 1, nums[0], nums[1]]
 						var hint = Hint.new(Hint.HintTechnique.NAKED_PAIR_BOX, desc)
 						hint.cells.append_array([pos1, pos2])
 						hint.numbers = nums
@@ -156,7 +171,7 @@ func get_hints() -> Array[Hint]:
 							if cands.get_bit(c):
 								cols.append(c)
 						
-						var desc = "X-Wing on digit %d in rows %d and %d, covering columns %d and %d." % [digit, r1+1, r2+1, cols[0]+1, cols[1]+1]
+						var desc = "X-Wing: on digit %d in rows %d and %d, covering columns %d and %d." % [digit, r1+1, r2+1, cols[0]+1, cols[1]+1]
 						var hint = Hint.new(Hint.HintTechnique.X_WING_ROW, desc)
 						hint.cells.append_array([Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
 						hint.numbers.append(digit)
@@ -186,7 +201,7 @@ func get_hints() -> Array[Hint]:
 							if cands.get_bit(r):
 								rows.append(r)
 						
-						var desc = "X-Wing on digit %d in columns %d and %d, covering rows %d and %d." % [digit, c1+1, c2+1, rows[0]+1, rows[1]+1]
+						var desc = "X-Wing: on digit %d in columns %d and %d, covering rows %d and %d." % [digit, c1+1, c2+1, rows[0]+1, rows[1]+1]
 						var hint = Hint.new(Hint.HintTechnique.X_WING_COL, desc)
 						hint.cells.append_array([Vector2i(rows[0], c1), Vector2i(rows[1], c1), Vector2i(rows[0], c2), Vector2i(rows[1], c2)])
 						hint.numbers.append(digit)
@@ -220,7 +235,7 @@ func get_hints() -> Array[Hint]:
 							for c in range(9):
 								if union_cols.get_bit(c):
 									cols.append(c)
-							var desc = "Swordfish on digit %d" % digit
+							var desc = "Swordfish: on digit %d" % digit
 							var hint = Hint.new(Hint.HintTechnique.SWORDFISH_ROW, desc)
 							for r in [r1, r2, r3]:
 								for c in cols:
@@ -254,7 +269,7 @@ func get_hints() -> Array[Hint]:
 							for r in range(9):
 								if union_rows.get_bit(r):
 									rows.append(r)
-							var desc = "Swordfish on digit %d" % digit
+							var desc = "Swordfish: on digit %d" % digit
 							var hint = Hint.new(Hint.HintTechnique.SWORDFISH_COL, desc)
 							for c in [c1, c2, c3]:
 								for r in rows:
@@ -292,7 +307,7 @@ func get_hints() -> Array[Hint]:
 								for c in range(9):
 									if union_cols.get_bit(c):
 										cols.append(c)
-								var desc = "Jellyfish on digit %d" % digit
+								var desc = "Jellyfish: on digit %d" % digit
 								var hint = Hint.new(Hint.HintTechnique.JELLYFISH_ROW, desc)
 								for r in [r1, r2, r3, r4]:
 									for c in cols:
@@ -328,7 +343,7 @@ func get_hints() -> Array[Hint]:
 								for r in range(9):
 									if union_rows.get_bit(r):
 										rows.append(r)
-								var desc = "Jellyfish on digit %d" % digit
+								var desc = "Jellyfish: on digit %d" % digit
 								var hint = Hint.new(Hint.HintTechnique.JELLYFISH_COL, desc)
 								for c in [c1, c2, c3, c4]:
 									for r in rows:
@@ -336,20 +351,6 @@ func get_hints() -> Array[Hint]:
 											hint.cells.append(Vector2i(r,c))
 								hint.numbers.append(digit)
 								hints.append(hint)
-
-	# Hidden Singles
-	for num in range(1, 10):
-		for row in range(9):
-			var positions = []
-			for col in range(9):
-				if sudoku.grid[row][col] == 0 and sudoku.is_valid_move(row, col, num):
-					positions.append([row, col])
-			if positions.size() == 1:
-				var desc = "The number %d can only be placed in cell (%d, %d) of row %d. It's the only cell in this row that can accommodate this number due to the constraints in other cells." % [num, positions[0][0] + 1, positions[0][1] + 1, row + 1]
-				var hint = Hint.new(Hint.HintTechnique.HIDDEN_SINGLE, desc)
-				hint.cells.append(Vector2i(positions[0][0], positions[0][1]))
-				hint.numbers.append(num)
-				hints.append(hint)
 
 	# Pointing Pairs
 	for num in range(1, 10):
@@ -362,13 +363,13 @@ func get_hints() -> Array[Hint]:
 							positions.append([row, col])
 				if len(positions) == 2:
 					if positions[0][0] == positions[1][0]:  # Same row
-						var desc = "The number %d can only be placed in cells (%d, %d) and (%d, %d) within the 3x3 box. This means %d can be eliminated from all other cells in row %d outside this box." % [num, positions[0][0] + 1, positions[0][1] + 1, positions[1][0] + 1, positions[1][1] + 1, num, positions[0][0] + 1]
+						var desc = "Pointing Pair: The number %d can only be placed in cells (%d, %d) and (%d, %d) within the 3x3 box. This means %d can be eliminated from all other cells in row %d outside this box." % [num, positions[0][0] + 1, positions[0][1] + 1, positions[1][0] + 1, positions[1][1] + 1, num, positions[0][0] + 1]
 						var hint = Hint.new(Hint.HintTechnique.POINTING_PAIR, desc)
 						hint.cells.append_array([Vector2i(positions[0][0], positions[0][1]), Vector2i(positions[1][0], positions[1][1])])
 						hint.numbers.append(num)
 						hints.append(hint)
 					elif positions[0][1] == positions[1][1]:  # Same column
-						var desc = "The number %d can only be placed in cells (%d, %d) and (%d, %d) within the 3x3 box. This means %d can be eliminated from all other cells in column %d outside this box." % [num, positions[0][0] + 1, positions[0][1] + 1, positions[1][0] + 1, positions[1][1] + 1, num, positions[0][1] + 1]
+						var desc = "Pointing Pair: The number %d can only be placed in cells (%d, %d) and (%d, %d) within the 3x3 box. This means %d can be eliminated from all other cells in column %d outside this box." % [num, positions[0][0] + 1, positions[0][1] + 1, positions[1][0] + 1, positions[1][1] + 1, num, positions[0][1] + 1]
 						var hint = Hint.new(Hint.HintTechnique.POINTING_PAIR, desc)
 						hint.cells.append_array([Vector2i(positions[0][0], positions[0][1]), Vector2i(positions[1][0], positions[1][1])])
 						hint.numbers.append(num)
@@ -388,7 +389,7 @@ func get_hints() -> Array[Hint]:
 						same_box = false
 						break
 				if same_box:
-					var desc = "In row %d, the number %d can only be placed in the 3x3 box containing column %d. This means %d can be eliminated from all other cells in this 3x3 box that are not in row %d." % [row + 1, num, (positions[0][1] / 3) * 3 + 1, num, row + 1]
+					var desc = "Box-Line Reduction: In row %d, the number %d can only be placed in the 3x3 box containing column %d. This means %d can be eliminated from all other cells in this 3x3 box that are not in row %d." % [row + 1, num, (positions[0][1] / 3) * 3 + 1, num, row + 1]
 					var hint = Hint.new(Hint.HintTechnique.BOX_LINE_REDUCTION, desc)
 					hint.cells.append(Vector2i(positions[0][0], positions[0][1]))
 					hint.numbers.append(num)
@@ -467,7 +468,7 @@ func _generate_naked_group_description(hint: Hint, unit_type: String, unit_index
 	
 	var unit_str = "%s %d" % [unit_type, unit_index + 1]
 
-	return "In %s, the cells %s form a Naked %s with the numbers %s. This means that these numbers can be eliminated as candidates from other cells in the same %s." % [unit_str, cells_str, group_type, numbers_str, unit_type]
+	return "Naked Group:In %s, the cells %s form a Naked %s with the numbers %s. This means that these numbers can be eliminated as candidates from other cells in the same %s." % [unit_str, cells_str, group_type, numbers_str, unit_type]
 
 # Godot has no built-in `combinations`, so here's one.
 func combinations(arr, k):
@@ -500,15 +501,9 @@ func _build_strong_links():
 		for c in range(9):
 			var candidates = sudoku.sbrc_grid.candidates[r][c]
 			if candidates.cardinality() == 2:
-				var d1 = candidates.next_set_bit()
+				var d1 = candidates.next_set_bit(0)
 				var d2 = candidates.next_set_bit(d1 + 1)
-				var cell_bitset = BitSet.new()
-				cell_bitset.set_bit(r * 9 + c)
-
-				# This isn't quite right. A bivalue cell links two digits in ONE cell.
-				# My StrongLink class assumes one digit and two cell sets.
-				# I need to rethink the data structure.
-				pass
+				strong_links.append(StrongLink.new_bivalue(r, c, d1, d2))
 	
 	# Bilocal units
 	for d in range(9):
@@ -519,14 +514,31 @@ func _build_strong_links():
 				if sudoku.sbrc_grid.candidates[r][c].get_bit(d):
 					positions.set_bit(c)
 			if positions.cardinality() == 2:
-				var c1 = positions.next_set_bit()
+				var c1 = positions.next_set_bit(0)
 				var c2 = positions.next_set_bit(c1 + 1)
-				
-				var node1 = BitSet.new(81)
-				node1.set_bit(r * 9 + c1)
-				var node2 = BitSet.new(81)
-				node2.set_bit(r * 9 + c2)
-				
-				strong_links.append(StrongLink.new(StrongLink.LinkType.BILOCAL_UNIT, d, node1, node2))
+				strong_links.append(StrongLink.new_bilocal(d, r, c1, r, c2))
 
-		# ... (add cols and boxes)
+		# Columns
+		for c in range(9):
+			var positions = BitSet.new(9)
+			for r in range(9):
+				if sudoku.sbrc_grid.candidates[r][c].get_bit(d):
+					positions.set_bit(r)
+			if positions.cardinality() == 2:
+				var r1 = positions.next_set_bit(0)
+				var r2 = positions.next_set_bit(r1 + 1)
+				strong_links.append(StrongLink.new_bilocal(d, r1, c, r2, c))
+
+		# Boxes
+		for b in range(9):
+			var positions = BitSet.new(9)
+			for i in range(9):
+				var cell = Cardinals.box_to_rc(b, i)
+				if sudoku.sbrc_grid.candidates[cell.x][cell.y].get_bit(d):
+					positions.set_bit(i)
+			if positions.cardinality() == 2:
+				var i1 = positions.next_set_bit(0)
+				var i2 = positions.next_set_bit(i1 + 1)
+				var cell1 = Cardinals.box_to_rc(b, i1)
+				var cell2 = Cardinals.box_to_rc(b, i2)
+				strong_links.append(StrongLink.new_bilocal(d, cell1.x, cell1.y, cell2.x, cell2.y))

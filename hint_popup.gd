@@ -1,4 +1,4 @@
-extends PopupPanel
+extends Panel
 
 signal hint_dismissed
 signal next_hint_requested
@@ -14,6 +14,20 @@ var current_hint_index: int = 0
 func _ready():
 	next_button.pressed.connect(_on_next_pressed)
 	dismiss_button.pressed.connect(_on_dismiss_pressed)
+
+func setup_ui(font_size: int):
+	description_label.add_theme_font_size_override("font_size", font_size)
+	next_button.add_theme_font_size_override("font_size", font_size)
+	dismiss_button.add_theme_font_size_override("font_size", font_size)
+	
+	var button_style = StyleBoxFlat.new()
+	button_style.bg_color = Color(0.25, 0.25, 0.3)
+	button_style.set_border_width_all(1)
+	button_style.border_color = Color(0.4, 0.4, 0.45)
+	button_style.set_corner_radius_all(3)
+
+	next_button.add_theme_stylebox_override("normal", button_style)
+	dismiss_button.add_theme_stylebox_override("normal", button_style)
 
 func set_hints(p_hints: Array[Hint]):
 	self.hints = p_hints

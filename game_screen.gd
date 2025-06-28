@@ -42,6 +42,7 @@ var permissions_requested = false
 var _pending_updates: Array = []
 var _update_timer: Timer
 var current_hint: Hint = null
+var hint_panel: Panel = null
 
 # Onready variables
 @onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
@@ -442,26 +443,54 @@ func _update_grid_highlights():
 		highlight_hint(current_hint)
 
 func _on_HintButton_pressed():
-	current_hint = null # Clear previous hint
-	update_ui() # Update to clear old highlights
-	
+	if hint_panel:
+		_on_hint_dismissed()
+		return
+
+	_update_timer.stop()
+
+	# Clear previous hint and update UI immediately
+	current_hint = null
+	_update_grid_highlights()
+	_update_pencil()
+
 	var hints = hint_generator.get_hints()
-	var hint_popup = preload("res://hint_popup.tscn").instantiate()
-	add_child(hint_popup)
-	hint_popup.set_hints(hints)
-	hint_popup.popup_centered()
+	hint_panel = preload("res://hint_popup.tscn").instantiate()
+	hint_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	
-	hint_popup.connect("hint_selected", self._on_hint_selected)
-	hint_popup.connect("next_hint_requested", self._on_hint_selected)
-	hint_popup.connect("hint_dismissed", self._on_hint_dismissed)
+	var container = menu_layer1.get_parent()
+	container.add_child(hint_panel)
+	container.move_child(hint_panel, menu_layer1.get_index())
+	
+	menu_layer1.hide()
+	menu_layer2.hide()
+	
+	# Connect signals BEFORE they can be emitted
+	hint_panel.connect("hint_selected", self._on_hint_selected)
+	hint_panel.connect("hint_dismissed", self._on_hint_dismissed)
+	
+	hint_panel.set_hints(hints)
+	
+	var font_size = int(button_size * 0.35)
+	hint_panel.setup_ui(font_size)
 
 func _on_hint_selected(hint: Hint):
 	current_hint = hint
-	update_ui()
+	_update_grid_highlights()
+	_update_pencil()
 
 func _on_hint_dismissed():
 	current_hint = null
-	update_ui()
+	if hint_panel:
+		hint_panel.queue_free()
+		hint_panel = null
+
+	menu_layer1.show()
+	menu_layer2.show()
+
+	_update_grid_highlights()
+	_update_pencil()
+	_update_timer.start() # Resume automatic updates
 
 func highlight_hint(hint: Hint):
 	# Highlight primary cells
@@ -967,7 +996,7 @@ func _connect_signals():
 
 func update_puzzle_info():
 	var info = sudoku.get_puzzle_info()
-	puzzle_info.text = "Puzzle: %s\nDifficulty: %s" % [info.name, info.difficulty]
+	puzzle_info.text = "Puzzle: %s    |    Difficulty: %s" % [info.name, info.difficulty]
 
 func load_puzzle(index: int, difficulty: String):
 	sudoku.puzzle_selected = difficulty
