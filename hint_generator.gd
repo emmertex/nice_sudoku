@@ -4,6 +4,13 @@ const Hint = preload("res://hint.gd")
 var sudoku: Sudoku
 var strong_links: Array
 
+func _get_candidates(r: int, c: int) -> BitSet:
+	var cands = sudoku.sbrc_grid.get_candidates_for_cell(r, c).clone()
+	var bits_to_exclude = sudoku.exclude_bits[r][c]
+	if bits_to_exclude > 0:
+		cands.data &= ~bits_to_exclude
+	return cands
+
 func get_hints() -> Array[Hint]:
 	var hints: Array[Hint] = []
 	_build_strong_links()
@@ -13,7 +20,7 @@ func get_hints() -> Array[Hint]:
 		for col in range(9):
 			if sudoku.grid[row][col] == 0:
 				var possible_numbers = []
-				var candidates = sudoku.sbrc_grid.get_candidates_for_cell(row, col)
+				var candidates = _get_candidates(row, col)
 				for i in range(9):
 					if candidates.get_bit(i):
 						possible_numbers.append(i + 1)
@@ -34,7 +41,7 @@ func get_hints() -> Array[Hint]:
 					hints.append(hint)
 
 	# --- Hidden Singles ---
-	var hidden_singles = sudoku.find_hidden_singles()
+	var hidden_singles = find_hidden_singles()
 	for single in hidden_singles:
 		var r = single.row
 		var c = single.col
@@ -100,7 +107,7 @@ func get_hints() -> Array[Hint]:
 		for r in range(9):
 			var positions = BitSet.new(9)
 			for c in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+				if _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(c)
 			if positions.cardinality() == 2:
 				row_candidates[r] = positions
@@ -131,7 +138,7 @@ func get_hints() -> Array[Hint]:
 								if r_check != r1 and r_check != r2:
 									var cell = Vector2i(r_check, c)
 									hint.secondary_cells.append(cell)
-									if sudoku.sbrc_grid.get_candidates_for_cell(r_check, c).get_bit(digit-1):
+									if _get_candidates(r_check, c).get_bit(digit-1):
 										hint.elim_cells.append(cell)
 						
 						if not hint.elim_cells.is_empty():
@@ -146,7 +153,7 @@ func get_hints() -> Array[Hint]:
 		for c in range(9):
 			var positions = BitSet.new(9)
 			for r in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+				if _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(r)
 			if positions.cardinality() == 2:
 				col_candidates[c] = positions
@@ -177,7 +184,7 @@ func get_hints() -> Array[Hint]:
 								if c_check != c1 and c_check != c2:
 									var cell = Vector2i(r, c_check)
 									hint.secondary_cells.append(cell)
-									if sudoku.sbrc_grid.get_candidates_for_cell(r, c_check).get_bit(digit-1):
+									if _get_candidates(r, c_check).get_bit(digit-1):
 										hint.elim_cells.append(cell)
 
 						if not hint.elim_cells.is_empty():
@@ -195,7 +202,7 @@ func get_hints() -> Array[Hint]:
 		for r in range(9):
 			var positions = BitSet.new(9)
 			for c in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+				if _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(c)
 			if positions.cardinality() > 1 and positions.cardinality() < 4:
 				row_candidates[r] = positions
@@ -220,7 +227,7 @@ func get_hints() -> Array[Hint]:
 							var hint = Hint.new(Hint.HintTechnique.SWORDFISH_ROW, desc)
 							for r in [r1, r2, r3]:
 								for c in cols:
-									if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+									if _get_candidates(r, c).get_bit(digit - 1):
 										hint.cells.append(Vector2i(r,c))
 							hint.numbers.append(digit)
 							
@@ -230,7 +237,7 @@ func get_hints() -> Array[Hint]:
 									if not r_check in [r1, r2, r3]:
 										var cell = Vector2i(r_check, c)
 										hint.secondary_cells.append(cell)
-										if sudoku.sbrc_grid.get_candidates_for_cell(r_check, c).get_bit(digit - 1):
+										if _get_candidates(r_check, c).get_bit(digit - 1):
 											hint.elim_cells.append(cell)
 						
 							if not hint.elim_cells.is_empty():
@@ -247,7 +254,7 @@ func get_hints() -> Array[Hint]:
 		for c in range(9):
 			var positions = BitSet.new(9)
 			for r in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+				if _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(r)
 			if positions.cardinality() > 1 and positions.cardinality() < 4:
 				col_candidates[c] = positions
@@ -271,7 +278,7 @@ func get_hints() -> Array[Hint]:
 							var hint = Hint.new(Hint.HintTechnique.SWORDFISH_COL, desc)
 							for c in [c1, c2, c3]:
 								for r in rows:
-									if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+									if _get_candidates(r, c).get_bit(digit - 1):
 										hint.cells.append(Vector2i(r,c))
 							hint.numbers.append(digit)
 							
@@ -281,7 +288,7 @@ func get_hints() -> Array[Hint]:
 									if not c_check in [c1, c2, c3]:
 										var cell = Vector2i(r, c_check)
 										hint.secondary_cells.append(cell)
-										if sudoku.sbrc_grid.get_candidates_for_cell(r, c_check).get_bit(digit - 1):
+										if _get_candidates(r, c_check).get_bit(digit - 1):
 											hint.elim_cells.append(cell)
 						
 							if not hint.elim_cells.is_empty():
@@ -300,7 +307,7 @@ func get_hints() -> Array[Hint]:
 		for r in range(9):
 			var positions = BitSet.new(9)
 			for c in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+				if _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(c)
 			if positions.cardinality() > 1 and positions.cardinality() < 5:
 				row_candidates[r] = positions
@@ -326,7 +333,7 @@ func get_hints() -> Array[Hint]:
 								var hint = Hint.new(Hint.HintTechnique.JELLYFISH_ROW, desc)
 								for r in [r1, r2, r3, r4]:
 									for c in cols:
-										if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+										if _get_candidates(r, c).get_bit(digit - 1):
 											hint.cells.append(Vector2i(r,c))
 								hint.numbers.append(digit)
 								
@@ -336,7 +343,7 @@ func get_hints() -> Array[Hint]:
 										if not r_check in [r1, r2, r3, r4]:
 											var cell = Vector2i(r_check, c)
 											hint.secondary_cells.append(cell)
-											if sudoku.sbrc_grid.get_candidates_for_cell(r_check, c).get_bit(digit-1):
+											if _get_candidates(r_check, c).get_bit(digit-1):
 												hint.elim_cells.append(cell)
 							
 								if not hint.elim_cells.is_empty():
@@ -355,7 +362,7 @@ func get_hints() -> Array[Hint]:
 		for c in range(9):
 			var positions = BitSet.new(9)
 			for r in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+				if _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(r)
 			if positions.cardinality() > 1 and positions.cardinality() < 5:
 				col_candidates[c] = positions
@@ -381,7 +388,7 @@ func get_hints() -> Array[Hint]:
 								var hint = Hint.new(Hint.HintTechnique.JELLYFISH_COL, desc)
 								for c in [c1, c2, c3, c4]:
 									for r in rows:
-										if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
+										if _get_candidates(r, c).get_bit(digit - 1):
 											hint.cells.append(Vector2i(r,c))
 								hint.numbers.append(digit)
 								
@@ -391,7 +398,7 @@ func get_hints() -> Array[Hint]:
 										if not c_check in [c1, c2, c3, c4]:
 											var cell = Vector2i(r, c_check)
 											hint.secondary_cells.append(cell)
-											if sudoku.sbrc_grid.get_candidates_for_cell(r, c_check).get_bit(digit-1):
+											if _get_candidates(r, c_check).get_bit(digit-1):
 												hint.elim_cells.append(cell)
 							
 								if not hint.elim_cells.is_empty():
@@ -411,7 +418,7 @@ func get_hints() -> Array[Hint]:
 			var box_cells_with_cand = []
 			for i in range(9):
 				var pos = Cardinals.box_to_rc(b, i)
-				if sudoku.grid[pos.x][pos.y] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(pos.x, pos.y).get_bit(num - 1):
+				if sudoku.grid[pos.x][pos.y] == 0 and _get_candidates(pos.x, pos.y).get_bit(num - 1):
 					box_cells_with_cand.append(pos)
 
 			if box_cells_with_cand.size() > 0:
@@ -433,7 +440,7 @@ func get_hints() -> Array[Hint]:
 						var current_cell = Vector2i(first_row, c)
 						if Cardinals.Bxy[first_row * 9 + c] != b:
 							hint.secondary_cells.append(current_cell)
-							if sudoku.sbrc_grid.get_candidates_for_cell(first_row, c).get_bit(num - 1):
+							if _get_candidates(first_row, c).get_bit(num - 1):
 								hint.elim_cells.append(current_cell)
 
 					if not hint.elim_cells.is_empty():
@@ -462,7 +469,7 @@ func get_hints() -> Array[Hint]:
 						var current_cell = Vector2i(r, first_col)
 						if Cardinals.Bxy[r * 9 + first_col] != b:
 							hint.secondary_cells.append(current_cell)
-							if sudoku.sbrc_grid.get_candidates_for_cell(r, first_col).get_bit(num - 1):
+							if _get_candidates(r, first_col).get_bit(num - 1):
 								hint.elim_cells.append(current_cell)
 					
 					if not hint.elim_cells.is_empty():
@@ -479,7 +486,7 @@ func get_hints() -> Array[Hint]:
 		for r in range(9):
 			var row_cells_with_cand = []
 			for c in range(9):
-				if sudoku.grid[r][c] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(r, c).get_bit(num - 1):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(num - 1):
 					row_cells_with_cand.append(Vector2i(r, c))
 
 			if row_cells_with_cand.size() > 0:
@@ -501,7 +508,7 @@ func get_hints() -> Array[Hint]:
 						var box_cell = Cardinals.box_to_rc(first_box, i)
 						if box_cell.x != r: # If not in the claiming row
 							hint.secondary_cells.append(box_cell)
-							if sudoku.grid[box_cell.x][box_cell.y] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(box_cell.x, box_cell.y).get_bit(num-1):
+							if sudoku.grid[box_cell.x][box_cell.y] == 0 and _get_candidates(box_cell.x, box_cell.y).get_bit(num-1):
 								hint.elim_cells.append(box_cell)
 
 					if not hint.elim_cells.is_empty():
@@ -516,7 +523,7 @@ func get_hints() -> Array[Hint]:
 		for c in range(9):
 			var col_cells_with_cand = []
 			for r in range(9):
-				if sudoku.grid[r][c] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(r, c).get_bit(num - 1):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(num - 1):
 					col_cells_with_cand.append(Vector2i(r, c))
 			
 			if col_cells_with_cand.size() > 0:
@@ -538,7 +545,7 @@ func get_hints() -> Array[Hint]:
 						var box_cell = Cardinals.box_to_rc(first_box, i)
 						if box_cell.y != c: # If not in the claiming col
 							hint.secondary_cells.append(box_cell)
-							if sudoku.grid[box_cell.x][box_cell.y] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(box_cell.x, box_cell.y).get_bit(num-1):
+							if sudoku.grid[box_cell.x][box_cell.y] == 0 and _get_candidates(box_cell.x, box_cell.y).get_bit(num-1):
 								hint.elim_cells.append(box_cell)
 
 					if not hint.elim_cells.is_empty():
@@ -562,7 +569,7 @@ func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: 
 
 	var potential_cells = []
 	for cell in unit_cells:
-		var cand_count = sudoku.sbrc_grid.candidates[cell.x][cell.y].cardinality()
+		var cand_count = _get_candidates(cell.x, cell.y).cardinality()
 		if cand_count > 1 && cand_count <= group_size:
 			potential_cells.append(cell)
 	
@@ -576,7 +583,7 @@ func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: 
 		
 		var union_cands = BitSet.new(9)
 		for cell in group_cells:
-			union_cands = union_cands.union(sudoku.sbrc_grid.candidates[cell.x][cell.y])
+			union_cands = union_cands.union(_get_candidates(cell.x, cell.y))
 			
 		if union_cands.cardinality() == group_size:
 			var elim_found = false
@@ -588,7 +595,7 @@ func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: 
 
 			for cell_to_check in unit_cells:
 				if not cell_to_check in group_cells:
-					var cands_to_check = sudoku.sbrc_grid.candidates[cell_to_check.x][cell_to_check.y]
+					var cands_to_check = _get_candidates(cell_to_check.x, cell_to_check.y)
 					var intersection = cands_to_check.intersection(union_cands)
 					
 					if intersection.cardinality() > 0:
@@ -666,7 +673,7 @@ func _build_strong_links():
 	# Bivalue cells
 	for r in range(9):
 		for c in range(9):
-			var candidates = sudoku.sbrc_grid.candidates[r][c]
+			var candidates = _get_candidates(r, c)
 			if candidates.cardinality() == 2:
 				var d1 = candidates.next_set_bit(0)
 				var d2 = candidates.next_set_bit(d1 + 1)
@@ -678,7 +685,7 @@ func _build_strong_links():
 		for r in range(9):
 			var positions = BitSet.new(9)
 			for c in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(d):
+				if _get_candidates(r, c).get_bit(d):
 					positions.set_bit(c)
 			if positions.cardinality() == 2:
 				var c1 = positions.next_set_bit(0)
@@ -689,7 +696,7 @@ func _build_strong_links():
 		for c in range(9):
 			var positions = BitSet.new(9)
 			for r in range(9):
-				if sudoku.sbrc_grid.candidates[r][c].get_bit(d):
+				if _get_candidates(r, c).get_bit(d):
 					positions.set_bit(r)
 			if positions.cardinality() == 2:
 				var r1 = positions.next_set_bit(0)
@@ -701,7 +708,7 @@ func _build_strong_links():
 			var positions = BitSet.new(9)
 			for i in range(9):
 				var cell = Cardinals.box_to_rc(b, i)
-				if sudoku.sbrc_grid.candidates[cell.x][cell.y].get_bit(d):
+				if _get_candidates(cell.x, cell.y).get_bit(d):
 					positions.set_bit(i)
 			if positions.cardinality() == 2:
 				var i1 = positions.next_set_bit(0)
@@ -738,3 +745,51 @@ func _get_peer_cells(row: int, col: int) -> Array[Vector2i]:
 				seen_coords[pos] = true
 				
 	return peers
+func find_hidden_singles() -> Array:
+	var singles = []
+
+	# Rows
+	for r in range(9):
+		for d in range(9):  # digit-1
+			var count = 0
+			var found_c = -1
+			for c in range(9):
+				if sudoku.grid[r][c] == 0:
+					var cell_candidates = _get_candidates(r, c)
+					if cell_candidates.get_bit(d):
+						count += 1
+						found_c = c
+			if count == 1:
+				singles.append({"row": r, "col": found_c, "digit": d + 1, "type": "row"})
+
+	# Columns
+	for c in range(9):
+		for d in range(9):  # digit-1
+			var count = 0
+			var found_r = -1
+			for r in range(9):
+				if sudoku.grid[r][c] == 0:
+					var cell_candidates = _get_candidates(r, c)
+					if cell_candidates.get_bit(d):
+						count += 1
+						found_r = r
+			if count == 1:
+				singles.append({"row": found_r, "col": c, "digit": d + 1, "type": "column"})
+
+	# Boxes
+	for b in range(9):
+		for d in range(9):  # digit-1
+			var count = 0
+			var found_i = -1
+			for i in range(9):
+				var cell = Cardinals.box_to_rc(b, i)
+				if sudoku.grid[cell.x][cell.y] == 0:
+					var cell_candidates = _get_candidates(cell.x, cell.y)
+					if cell_candidates.get_bit(d):
+						count += 1
+						found_i = i
+			if count == 1:
+				var cell = Cardinals.box_to_rc(b, found_i)
+				singles.append({"row": cell.x, "col": cell.y, "digit": d + 1, "type": "box"})
+	
+	return singles

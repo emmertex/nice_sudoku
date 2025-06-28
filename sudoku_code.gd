@@ -390,78 +390,62 @@ func find_naked_singles() -> Array:
 
 func find_hidden_singles() -> Array:
 	var singles = []
-	var found_cells = BitSet.new(81)
 
-	# Check rows
+	# We need to respect the exclude_bits here
+	var temp_candidates = []
+	for r in range(9):
+		var row_cands = []
+		for c in range(9):
+			var cands = sbrc_grid.get_candidates_for_cell(r, c).clone()
+			var bits_to_exclude = exclude_bits[r][c]
+			if bits_to_exclude > 0:
+				cands.data &= ~bits_to_exclude
+			row_cands.append(cands)
+		temp_candidates.append(row_cands)
+
+	# Rows
 	for r in range(9):
 		for d in range(9):  # digit-1
-			var possible_cols = []
+			var count = 0
+			var found_c = -1
 			for c in range(9):
 				if grid[r][c] == 0:
-					var cell_candidates = sbrc_grid.get_candidates_for_cell(r, c)
+					var cell_candidates = temp_candidates[r][c]
 					if cell_candidates.get_bit(d):
-						possible_cols.append(c)
-			
-			if possible_cols.size() == 1:
-				var c = possible_cols[0]
-				var cell_index = r * 9 + c
-				if not found_cells.get_bit(cell_index):
-					singles.append({
-						"row": r,
-						"col": c,
-						"digit": d + 1,
-						"type": "row"
-					})
-					found_cells.set_bit(cell_index)
+						count += 1
+						found_c = c
+			if count == 1:
+				singles.append({"row": r, "col": found_c, "digit": d + 1, "type": "row"})
 
-	# Check columns
+	# Columns
 	for c in range(9):
 		for d in range(9):  # digit-1
-			var possible_rows = []
+			var count = 0
+			var found_r = -1
 			for r in range(9):
 				if grid[r][c] == 0:
-					var cell_candidates = sbrc_grid.get_candidates_for_cell(r, c)
+					var cell_candidates = temp_candidates[r][c]
 					if cell_candidates.get_bit(d):
-						possible_rows.append(r)
+						count += 1
+						found_r = r
+			if count == 1:
+				singles.append({"row": found_r, "col": c, "digit": d + 1, "type": "column"})
 
-			if possible_rows.size() == 1:
-				var r = possible_rows[0]
-				var cell_index = r * 9 + c
-				if not found_cells.get_bit(cell_index):
-					singles.append({
-						"row": r,
-						"col": c,
-						"digit": d + 1,
-						"type": "column"
-					})
-					found_cells.set_bit(cell_index)
-
-	# Check boxes
+	# Boxes
 	for b in range(9):
 		for d in range(9):  # digit-1
-			var possible_cells = []
+			var count = 0
+			var found_i = -1
 			for i in range(9):
-				var cell_pos = Cardinals.box_to_rc(b, i)
-				var r = cell_pos.x
-				var c = cell_pos.y
-				if grid[r][c] == 0:
-					var cell_candidates = sbrc_grid.get_candidates_for_cell(r, c)
+				var cell = Cardinals.box_to_rc(b, i)
+				if grid[cell.x][cell.y] == 0:
+					var cell_candidates = temp_candidates[cell.x][cell.y]
 					if cell_candidates.get_bit(d):
-						possible_cells.append(cell_pos)
-
-			if possible_cells.size() == 1:
-				var cell_pos = possible_cells[0]
-				var r = cell_pos.x
-				var c = cell_pos.y
-				var cell_index = r * 9 + c
-				if not found_cells.get_bit(cell_index):
-					singles.append({
-						"row": r,
-						"col": c,
-						"digit": d + 1,
-						"type": "box"
-					})
-					found_cells.set_bit(cell_index)
+						count += 1
+						found_i = i
+			if count == 1:
+				var cell = Cardinals.box_to_rc(b, found_i)
+				singles.append({"row": cell.x, "col": cell.y, "digit": d + 1, "type": "box"})
 	
 	return singles
 
@@ -689,6 +673,7 @@ func has_pencil_mark(row: int, col: int, num: int) -> bool:
 	return (pencil_bits[row][col] & (1 << (num - 1))) != 0
 
 func set_pencil_mark(row: int, col: int, num: int, value: bool):
+	store_pencil_history(row, col, pencil_bits[row][col])
 	if value:
 		pencil_bits[row][col] |= (1 << (num - 1))
 	else:
@@ -698,6 +683,7 @@ func has_exclude_mark(row: int, col: int, num: int) -> bool:
 	return (exclude_bits[row][col] & (1 << (num - 1))) != 0
 
 func set_exclude_mark(row: int, col: int, num: int, value: bool):
+	store_exclude_history(row, col, exclude_bits[row][col])
 	if value:
 		exclude_bits[row][col] |= (1 << (num - 1))
 	else:
@@ -709,43 +695,69 @@ func get_grid_value(row: int, col: int) -> int:
 func get_grid_given(row: int, col: int) -> bool:
 	return original_grid[row][col] != 0
 
-func solve_with_backtracking(max_solutions: int = 1) -> Array:
+func store_pencil_history(row: int, col: int, old_bits: int):
+	pencil_history.append([row, col, old_bits])
+	history.append(1) # Pencil mark history
+
+func store_exclude_history(row: int, col: int, old_bits: int):
+	exclude_history.append([row, col, old_bits])
+	history.append(2) # Exclude mark history
+
+func solve_with_backtracking(num_solutions_to_find: int = 1) -> Array:
 	var solutions = []
-	_solve_recursive(grid.duplicate(true), solutions, max_solutions)
+	var empty_cells = sbrc_grid.get_empty_cells()
+
+	_solve_recursive(0, empty_cells, solutions, num_solutions_to_find)
+
 	return solutions
 
-func _solve_recursive(current_grid: Array, solutions: Array, max_solutions: int):
-	if solutions.size() >= max_solutions:
+func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num_solutions_to_find: int):
+	if solutions.size() >= num_solutions_to_find:
 		return
 
-	# Find empty cell with fewest candidates
-	var best_cell = Vector2i(-1, -1)
-	var min_candidates = 10
-	
-	var temp_sudoku = Sudoku.new()
-	temp_sudoku.load_puzzle_from_dictionary({"grid": current_grid, "difficulty": "temp"})
-	
+	if cell_index >= empty_cells.size():
+		solutions.append(grid.duplicate(true))
+		return
+
+	var cell = empty_cells[cell_index]
+	var r = cell.x
+	var c = cell.y
+
+	for num in range(1, 10):
+		if sbrc_grid.is_valid_placement(r, c, num):
+			grid[r][c] = num
+			_solve_recursive(cell_index + 1, empty_cells, solutions, num_solutions_to_find)
+			grid[r][c] = 0 # backtrack
+
+			if solutions.size() >= num_solutions_to_find:
+				return
+
+func get_grid_as_string() -> String:
+	var s = ""
 	for r in range(9):
 		for c in range(9):
-			if current_grid[r][c] == 0:
-				var candidates = temp_sudoku.sbrc_grid.get_candidates_for_cell(r, c)
-				var num_candidates = candidates.cardinality()
-				if num_candidates < min_candidates:
-					min_candidates = num_candidates
-					best_cell = Vector2i(r, c)
+			s += str(grid[r][c])
+	return s
 
-	if best_cell == Vector2i(-1, -1):
-		# No empty cells, solution found
-		solutions.append(current_grid)
-		return
+func apply_hint(hint: Hint) -> bool:
+	# Placement hints
+	if hint.cells.size() == 1 and hint.numbers.size() == 1 and hint.elim_cells.is_empty():
+		var cell = hint.cells[0]
+		var num = hint.numbers[0]
+		if grid[cell.x][cell.y] == 0:
+			set_number(cell.x, cell.y, num)
+			return true
 
-	# Try candidates for the best cell
-	var candidates = temp_sudoku.sbrc_grid.get_candidates_for_cell(best_cell.x, best_cell.y)
-	for i in range(9):
-		if candidates.get_bit(i):
-			var num = i + 1
-			var next_grid = current_grid.duplicate(true)
-			next_grid[best_cell.x][best_cell.y] = num
-			_solve_recursive(next_grid, solutions, max_solutions)
-			if solutions.size() >= max_solutions:
-				return
+	# Elimination hints
+	if not hint.elim_cells.is_empty() and not hint.elim_numbers.is_empty():
+		var changed = false
+		for cell in hint.elim_cells:
+			for num in hint.elim_numbers:
+				if not has_exclude_mark(cell.x, cell.y, num):
+					set_exclude_mark(cell.x, cell.y, num, true)
+					changed = true
+		if changed:
+			sbrc_grid.update_grid(grid) # Re-evaluate candidates
+			return true
+			
+	return false
