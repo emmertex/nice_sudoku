@@ -18,10 +18,19 @@ func get_hints() -> Array[Hint]:
 					if candidates.get_bit(i):
 						possible_numbers.append(i + 1)
 				if possible_numbers.size() == 1:
-					var desc = "Single Candidate: There's only one possible number (%d) that can be placed in cell (%d, %d)." % [possible_numbers[0], row + 1, col + 1]
+					var num = possible_numbers[0]
+					var desc = "This cell can only be %d. All other numbers from 1 to 9 are present in this cell's row, column, or box." % num
 					var hint = Hint.new(Hint.HintTechnique.SINGLE_CANDIDATE, desc)
 					hint.cells.append(Vector2i(row, col))
-					hint.numbers.append(possible_numbers[0])
+					hint.numbers.append(num)
+					
+					# Populate highlighting data
+					var peers = _get_peer_cells(row, col)
+					hint.secondary_cells.append_array(peers)
+					for peer in peers:
+						if sudoku.grid[peer.x][peer.y] != 0:
+							hint.cause_cells.append(peer)
+					
 					hints.append(hint)
 
 	# --- Hidden Singles ---
@@ -33,115 +42,55 @@ func get_hints() -> Array[Hint]:
 		var type = single.type
 		
 		var unit_idx = r if type == "row" else (c if type == "column" else (int(r / 3) * 3 + int(c / 3)))
-		var desc = "Hidden Single: In %s %d, cell (%d, %d) is the only place the number %d can go." % [type, unit_idx + 1, r + 1, c + 1, num]
+		var desc = "In this %s, the number %d can only be placed in this single cell. All other empty cells in the %s are blocked by existing %d's in their corresponding rows, columns, or boxes." % [type, num, type, num]
 		var hint = Hint.new(Hint.HintTechnique.HIDDEN_SINGLE, desc)
 		hint.cells.append(Vector2i(r, c))
 		hint.numbers.append(num)
+		
+		# Populate highlighting data
+		if type == "row":
+			for c_other in range(9):
+				if c_other != c:
+					hint.secondary_cells.append(Vector2i(r, c_other))
+		elif type == "column":
+			for r_other in range(9):
+				if r_other != r:
+					hint.secondary_cells.append(Vector2i(r_other, c))
+		else: # box
+			var box_idx = Cardinals.Bxy[r * 9 + c]
+			for i in range(9):
+				var pos = Cardinals.box_to_rc(box_idx, i)
+				if pos.x != r or pos.y != c:
+					hint.secondary_cells.append(pos)
+		
+		# Find the cause cells
+		for cell_to_check in hint.secondary_cells:
+			if sudoku.grid[cell_to_check.x][cell_to_check.y] == 0:
+				var peers = _get_peer_cells(cell_to_check.x, cell_to_check.y)
+				for peer in peers:
+					if sudoku.grid[peer.x][peer.y] == num:
+						if not peer in hint.cause_cells:
+							hint.cause_cells.append(peer)
+		
 		hints.append(hint)
 
-	# --- Naked Pairs ---
+	# --- Naked Groups (Pairs, Triples, Quads) ---
 	# Rows
 	for r in range(9):
-		var cells_with_2_candidates = []
-		for c in range(9):
-			if sudoku.sbrc_grid.candidates[r][c].cardinality() == 2:
-				cells_with_2_candidates.append(c)
-		
-		if cells_with_2_candidates.size() >= 2:
-			for i in range(cells_with_2_candidates.size()):
-				for j in range(i + 1, cells_with_2_candidates.size()):
-					var c1 = cells_with_2_candidates[i]
-					var c2 = cells_with_2_candidates[j]
-					var cand1 = sudoku.sbrc_grid.candidates[r][c1]
-					var cand2 = sudoku.sbrc_grid.candidates[r][c2]
-					
-					if cand1.data == cand2.data: # Direct bitmask comparison
-						var nums: Array[int] = []
-						for k in range(9):
-							if cand1.get_bit(k):
-								nums.append(k+1)
-						var desc = "Naked Pair: Cells (%d, %d) and (%d, %d) in row %d form a Naked Pair with numbers %d and %d." % [r + 1, c1 + 1, r + 1, c2 + 1, r + 1, nums[0], nums[1]]
-						var hint = Hint.new(Hint.HintTechnique.NAKED_PAIR_ROW, desc)
-						hint.cells.append_array([Vector2i(r, c1), Vector2i(r, c2)])
-						hint.numbers = nums
-						hints.append(hint)
+		_find_naked_groups_in_unit(hints, r, "row", 2) # Naked Pairs
+		_find_naked_groups_in_unit(hints, r, "row", 3) # Naked Triples
+		_find_naked_groups_in_unit(hints, r, "row", 4) # Naked Quads
 
 	# Columns
 	for c in range(9):
-		var cells_with_2_candidates = []
-		for r in range(9):
-			if sudoku.sbrc_grid.candidates[r][c].cardinality() == 2:
-				cells_with_2_candidates.append(r)
-
-		if cells_with_2_candidates.size() >= 2:
-			for i in range(cells_with_2_candidates.size()):
-				for j in range(i + 1, cells_with_2_candidates.size()):
-					var r1 = cells_with_2_candidates[i]
-					var r2 = cells_with_2_candidates[j]
-					var cand1 = sudoku.sbrc_grid.candidates[r1][c]
-					var cand2 = sudoku.sbrc_grid.candidates[r2][c]
-
-					if cand1.data == cand2.data:
-						var nums: Array[int] = []
-						for k in range(9):
-							if cand1.get_bit(k):
-								nums.append(k+1)
-						var desc = "Naked Pair: Cells (%d, %d) and (%d, %d) in column %d form a Naked Pair with numbers %d and %d." % [r1 + 1, c + 1, r2 + 1, c + 1, c + 1, nums[0], nums[1]]
-						var hint = Hint.new(Hint.HintTechnique.NAKED_PAIR_COL, desc)
-						hint.cells.append_array([Vector2i(r1, c), Vector2i(r2, c)])
-						hint.numbers = nums
-						hints.append(hint)
-
-	# Boxes
-	for b in range(9):
-		var cells_with_2_candidates = []
-		for i in range(9):
-			var pos = Cardinals.box_to_rc(b, i)
-			if sudoku.sbrc_grid.candidates[pos.x][pos.y].cardinality() == 2:
-				cells_with_2_candidates.append(pos)
-		
-		if cells_with_2_candidates.size() >= 2:
-			for i in range(cells_with_2_candidates.size()):
-				for j in range(i + 1, cells_with_2_candidates.size()):
-					var pos1 = cells_with_2_candidates[i]
-					var pos2 = cells_with_2_candidates[j]
-					var cand1 = sudoku.sbrc_grid.candidates[pos1.x][pos1.y]
-					var cand2 = sudoku.sbrc_grid.candidates[pos2.x][pos2.y]
-					
-					if cand1.data == cand2.data:
-						var nums: Array[int] = []
-						for k in range(9):
-							if cand1.get_bit(k):
-								nums.append(k+1)
-						var desc = "Naked Pair: Cells (%d, %d) and (%d, %d) in the same box form a Naked Pair with numbers %d and %d." % [pos1.x + 1, pos1.y + 1, pos2.x + 1, pos2.y + 1, nums[0], nums[1]]
-						var hint = Hint.new(Hint.HintTechnique.NAKED_PAIR_BOX, desc)
-						hint.cells.append_array([pos1, pos2])
-						hint.numbers = nums
-						hints.append(hint)
-
-	# --- Naked Triples ---
-	# Rows
-	for r in range(9):
-		_find_naked_groups_in_unit(hints, r, "row", 3)
-
-	# Columns
-	for c in range(9):
+		_find_naked_groups_in_unit(hints, c, "col", 2)
 		_find_naked_groups_in_unit(hints, c, "col", 3)
-
-	# Boxes
-	for b in range(9):
-		_find_naked_groups_in_unit(hints, b, "box", 3)
-
-	# --- Naked Quads ---
-	# Rows
-	for r in range(9):
-		_find_naked_groups_in_unit(hints, r, "row", 4)
-	# Columns
-	for c in range(9):
 		_find_naked_groups_in_unit(hints, c, "col", 4)
 
 	# Boxes
 	for b in range(9):
+		_find_naked_groups_in_unit(hints, b, "box", 2)
+		_find_naked_groups_in_unit(hints, b, "box", 3)
 		_find_naked_groups_in_unit(hints, b, "box", 4)
 
 	# --- X-Wing ---
@@ -175,7 +124,23 @@ func get_hints() -> Array[Hint]:
 						var hint = Hint.new(Hint.HintTechnique.X_WING_ROW, desc)
 						hint.cells.append_array([Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
 						hint.numbers.append(digit)
-						hints.append(hint)
+						
+						# Add elimination & highlighting info
+						for c in cols:
+							for r_check in range(9):
+								if r_check != r1 and r_check != r2:
+									var cell = Vector2i(r_check, c)
+									hint.secondary_cells.append(cell)
+									if sudoku.sbrc_grid.get_candidates_for_cell(r_check, c).get_bit(digit-1):
+										hint.elim_cells.append(cell)
+						
+						if not hint.elim_cells.is_empty():
+							hint.elim_numbers.append(digit)
+							desc = "Look at the rows %s and %s. The only places for a %d are in columns %d and %d.\n\n" % [r1+1, r2+1, digit, cols[0]+1, cols[1]+1]
+							desc += "This forms an X-Wing. Since the %d in these rows must be in one of those two columns, we can eliminate %d as a candidate from all other cells in columns %d and %d.\n\n" % [digit, digit, cols[0]+1, cols[1]+1]
+							desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+							hint.description = desc
+							hints.append(hint)
 		# Column-based X-Wing
 		var col_candidates = {}
 		for c in range(9):
@@ -205,7 +170,23 @@ func get_hints() -> Array[Hint]:
 						var hint = Hint.new(Hint.HintTechnique.X_WING_COL, desc)
 						hint.cells.append_array([Vector2i(rows[0], c1), Vector2i(rows[1], c1), Vector2i(rows[0], c2), Vector2i(rows[1], c2)])
 						hint.numbers.append(digit)
-						hints.append(hint)
+
+						# Add elimination & highlighting info
+						for r in rows:
+							for c_check in range(9):
+								if c_check != c1 and c_check != c2:
+									var cell = Vector2i(r, c_check)
+									hint.secondary_cells.append(cell)
+									if sudoku.sbrc_grid.get_candidates_for_cell(r, c_check).get_bit(digit-1):
+										hint.elim_cells.append(cell)
+
+						if not hint.elim_cells.is_empty():
+							hint.elim_numbers.append(digit)
+							desc = "Look at the columns %s and %s. The only places for a %d are in rows %d and %d.\n\n" % [c1+1, c2+1, digit, rows[0]+1, rows[1]+1]
+							desc += "This forms an X-Wing. Since the %d in these columns must be in one of those two rows, we can eliminate %d as a candidate from all other cells in rows %d and %d.\n\n" % [digit, digit, rows[0]+1, rows[1]+1]
+							desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+							hint.description = desc
+							hints.append(hint)
 
 	# --- Swordfish ---
 	for digit in range(1, 10):
@@ -242,7 +223,24 @@ func get_hints() -> Array[Hint]:
 									if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
 										hint.cells.append(Vector2i(r,c))
 							hint.numbers.append(digit)
-							hints.append(hint)
+							
+							# Add elimination & highlighting info
+							for c in cols:
+								for r_check in range(9):
+									if not r_check in [r1, r2, r3]:
+										var cell = Vector2i(r_check, c)
+										hint.secondary_cells.append(cell)
+										if sudoku.sbrc_grid.get_candidates_for_cell(r_check, c).get_bit(digit - 1):
+											hint.elim_cells.append(cell)
+						
+							if not hint.elim_cells.is_empty():
+								hint.elim_numbers.append(digit)
+								desc = "A Swordfish pattern exists for the number %d.\n\n" % digit
+								desc += "In rows %s, %s, and %s, the only places for a %d are in columns %s, %s, and %s. " % [r1+1, r2+1, r3+1, digit, cols[0]+1, cols[1]+1, cols[2]+1]
+								desc += "This means that in these three columns, the %d must be in one of the three rows.\n\n" % digit
+								desc += "Therefore, we can eliminate %d from other cells in these columns: %s" % [digit, _format_cell_list(hint.elim_cells)]
+								hint.description = desc
+								hints.append(hint)
 
 		# Column-based Swordfish
 		var col_candidates = {}
@@ -276,7 +274,24 @@ func get_hints() -> Array[Hint]:
 									if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
 										hint.cells.append(Vector2i(r,c))
 							hint.numbers.append(digit)
-							hints.append(hint)
+							
+							# Add elimination & highlighting info
+							for r in rows:
+								for c_check in range(9):
+									if not c_check in [c1, c2, c3]:
+										var cell = Vector2i(r, c_check)
+										hint.secondary_cells.append(cell)
+										if sudoku.sbrc_grid.get_candidates_for_cell(r, c_check).get_bit(digit - 1):
+											hint.elim_cells.append(cell)
+						
+							if not hint.elim_cells.is_empty():
+								hint.elim_numbers.append(digit)
+								desc = "A Swordfish pattern exists for the number %d.\n\n" % digit
+								desc += "In columns %s, %s, and %s, the only places for a %d are in rows %s, %s, and %s. " % [c1+1, c2+1, c3+1, digit, rows[0]+1, rows[1]+1, rows[2]+1]
+								desc += "This means that in these three rows, the %d must be in one of the three columns.\n\n" % digit
+								desc += "Therefore, we can eliminate %d from other cells in these rows: %s" % [digit, _format_cell_list(hint.elim_cells)]
+								hint.description = desc
+								hints.append(hint)
 
 	# --- Jellyfish ---
 	for digit in range(1, 10):
@@ -314,7 +329,26 @@ func get_hints() -> Array[Hint]:
 										if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
 											hint.cells.append(Vector2i(r,c))
 								hint.numbers.append(digit)
-								hints.append(hint)
+								
+								# Add elimination & highlighting info
+								for c in cols:
+									for r_check in range(9):
+										if not r_check in [r1, r2, r3, r4]:
+											var cell = Vector2i(r_check, c)
+											hint.secondary_cells.append(cell)
+											if sudoku.sbrc_grid.get_candidates_for_cell(r_check, c).get_bit(digit-1):
+												hint.elim_cells.append(cell)
+							
+								if not hint.elim_cells.is_empty():
+									hint.elim_numbers.append(digit)
+									var r_str = ", ".join([str(r1+1), str(r2+1), str(r3+1), str(r4+1)])
+									var c_str = ", ".join([str(cols[0]+1), str(cols[1]+1), str(cols[2]+1), str(cols[3]+1)])
+									desc = "A Jellyfish pattern exists for the number %d.\n\n" % digit
+									desc += "In rows %s, the only places for a %d are in columns %s. " % [r_str, digit, c_str]
+									desc += "This means that in these four columns, the %d must be in one of the four rows.\n\n" % digit
+									desc += "Therefore, we can eliminate %d from other cells in these columns: %s" % [digit, _format_cell_list(hint.elim_cells)]
+									hint.description = desc
+									hints.append(hint)
 
 		# Column-based Jellyfish
 		var col_candidates = {}
@@ -350,50 +384,170 @@ func get_hints() -> Array[Hint]:
 										if sudoku.sbrc_grid.candidates[r][c].get_bit(digit - 1):
 											hint.cells.append(Vector2i(r,c))
 								hint.numbers.append(digit)
-								hints.append(hint)
+								
+								# Add elimination & highlighting info
+								for r in rows:
+									for c_check in range(9):
+										if not c_check in [c1, c2, c3, c4]:
+											var cell = Vector2i(r, c_check)
+											hint.secondary_cells.append(cell)
+											if sudoku.sbrc_grid.get_candidates_for_cell(r, c_check).get_bit(digit-1):
+												hint.elim_cells.append(cell)
+							
+								if not hint.elim_cells.is_empty():
+									hint.elim_numbers.append(digit)
+									var c_str = ", ".join([str(c1+1), str(c2+1), str(c3+1), str(c4+1)])
+									var r_str = ", ".join([str(rows[0]+1), str(rows[1]+1), str(rows[2]+1), str(rows[3]+1)])
+									desc = "A Jellyfish pattern exists for the number %d.\n\n" % digit
+									desc += "In columns %s, the only places for a %d are in rows %s. " % [c_str, digit, r_str]
+									desc += "This means that in these four rows, the %d must be in one of the four columns.\n\n" % digit
+									desc += "Therefore, we can eliminate %d from other cells in these rows: %s" % [digit, _format_cell_list(hint.elim_cells)]
+									hint.description = desc
+									hints.append(hint)
 
-	# Pointing Pairs
+	# --- Pointing Pairs / Triples ---
 	for num in range(1, 10):
-		for box_row in range(3):
-			for box_col in range(3):
-				var positions = []
-				for row in range(box_row * 3, box_row * 3 + 3):
-					for col in range(box_col * 3, box_col * 3 + 3):
-						if sudoku.grid[row][col] == 0 and sudoku.is_valid_move(row, col, num):
-							positions.append([row, col])
-				if len(positions) == 2:
-					if positions[0][0] == positions[1][0]:  # Same row
-						var desc = "Pointing Pair: The number %d can only be placed in cells (%d, %d) and (%d, %d) within the 3x3 box. This means %d can be eliminated from all other cells in row %d outside this box." % [num, positions[0][0] + 1, positions[0][1] + 1, positions[1][0] + 1, positions[1][1] + 1, num, positions[0][0] + 1]
-						var hint = Hint.new(Hint.HintTechnique.POINTING_PAIR, desc)
-						hint.cells.append_array([Vector2i(positions[0][0], positions[0][1]), Vector2i(positions[1][0], positions[1][1])])
-						hint.numbers.append(num)
-						hints.append(hint)
-					elif positions[0][1] == positions[1][1]:  # Same column
-						var desc = "Pointing Pair: The number %d can only be placed in cells (%d, %d) and (%d, %d) within the 3x3 box. This means %d can be eliminated from all other cells in column %d outside this box." % [num, positions[0][0] + 1, positions[0][1] + 1, positions[1][0] + 1, positions[1][1] + 1, num, positions[0][1] + 1]
-						var hint = Hint.new(Hint.HintTechnique.POINTING_PAIR, desc)
-						hint.cells.append_array([Vector2i(positions[0][0], positions[0][1]), Vector2i(positions[1][0], positions[1][1])])
-						hint.numbers.append(num)
-						hints.append(hint)
+		for b in range(9): # Iterate through each box
+			var box_cells_with_cand = []
+			for i in range(9):
+				var pos = Cardinals.box_to_rc(b, i)
+				if sudoku.grid[pos.x][pos.y] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(pos.x, pos.y).get_bit(num - 1):
+					box_cells_with_cand.append(pos)
 
-	# Box-Line Reduction
-	for num in range(1, 10):
-		for row in range(9):
-			var positions = []
-			for col in range(9):
-				if sudoku.grid[row][col] == 0 and sudoku.is_valid_move(row, col, num):
-					positions.append([row, col])
-			if len(positions) > 0 and len(positions) < 3:
-				var same_box = true
-				for pos in positions:
-					if pos[1] / 3 != positions[0][1] / 3:
-						same_box = false
+			if box_cells_with_cand.size() > 0:
+				# Check if all candidates for 'num' in this box fall on the same row
+				var all_in_same_row = true
+				var first_row = box_cells_with_cand[0].x
+				for i in range(1, box_cells_with_cand.size()):
+					if box_cells_with_cand[i].x != first_row:
+						all_in_same_row = false
 						break
-				if same_box:
-					var desc = "Box-Line Reduction: In row %d, the number %d can only be placed in the 3x3 box containing column %d. This means %d can be eliminated from all other cells in this 3x3 box that are not in row %d." % [row + 1, num, (positions[0][1] / 3) * 3 + 1, num, row + 1]
-					var hint = Hint.new(Hint.HintTechnique.BOX_LINE_REDUCTION, desc)
-					hint.cells.append(Vector2i(positions[0][0], positions[0][1]))
+				
+				if all_in_same_row:
+					var hint = Hint.new(Hint.HintTechnique.POINTING_PAIR, "")
 					hint.numbers.append(num)
-					hints.append(hint)
+					hint.cells.append_array(box_cells_with_cand)
+					
+					# Find eliminations and secondary cells
+					for c in range(9):
+						var current_cell = Vector2i(first_row, c)
+						if Cardinals.Bxy[first_row * 9 + c] != b:
+							hint.secondary_cells.append(current_cell)
+							if sudoku.sbrc_grid.get_candidates_for_cell(first_row, c).get_bit(num - 1):
+								hint.elim_cells.append(current_cell)
+
+					if not hint.elim_cells.is_empty():
+						hint.elim_numbers.append(num)
+						var desc = "In this box, the only place for a %d is somewhere in row %d.\n\n" % [num, first_row + 1]
+						desc += "This forms a Pointing group. Because one of these cells must be %d, we can be sure that no other cell in row %d can be %d.\n\n" % [num, first_row + 1]
+						desc += "Therefore, we can eliminate %d as a candidate from cells: %s." % [num, _format_cell_list(hint.elim_cells)]
+						hint.description = desc
+						hints.append(hint)
+
+				# Check if all candidates for 'num' in this box fall on the same column
+				var all_in_same_col = true
+				var first_col = box_cells_with_cand[0].y
+				for i in range(1, box_cells_with_cand.size()):
+					if box_cells_with_cand[i].y != first_col:
+						all_in_same_col = false
+						break
+
+				if all_in_same_col:
+					var hint = Hint.new(Hint.HintTechnique.POINTING_PAIR, "")
+					hint.numbers.append(num)
+					hint.cells.append_array(box_cells_with_cand)
+
+					# Find eliminations and secondary cells
+					for r in range(9):
+						var current_cell = Vector2i(r, first_col)
+						if Cardinals.Bxy[r * 9 + first_col] != b:
+							hint.secondary_cells.append(current_cell)
+							if sudoku.sbrc_grid.get_candidates_for_cell(r, first_col).get_bit(num - 1):
+								hint.elim_cells.append(current_cell)
+					
+					if not hint.elim_cells.is_empty():
+						hint.elim_numbers.append(num)
+						var desc = "In this box, the only place for a %d is somewhere in column %d.\n\n" % [num, first_col + 1]
+						desc += "This forms a Pointing group. Because one of these cells must be %d, we can be sure that no other cell in column %d can be %d.\n\n" % [num, first_col + 1]
+						desc += "Therefore, we can eliminate %d as a candidate from cells: %s." % [num, _format_cell_list(hint.elim_cells)]
+						hint.description = desc
+						hints.append(hint)
+
+	# --- Box-Line Reduction (Claiming) ---
+	for num in range(1, 10):
+		# Row-based reduction
+		for r in range(9):
+			var row_cells_with_cand = []
+			for c in range(9):
+				if sudoku.grid[r][c] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(r, c).get_bit(num - 1):
+					row_cells_with_cand.append(Vector2i(r, c))
+
+			if row_cells_with_cand.size() > 0:
+				var all_in_same_box = true
+				var first_box = Cardinals.Bxy[row_cells_with_cand[0].x * 9 + row_cells_with_cand[0].y]
+				for i in range(1, row_cells_with_cand.size()):
+					var pos = row_cells_with_cand[i]
+					if Cardinals.Bxy[pos.x * 9 + pos.y] != first_box:
+						all_in_same_box = false
+						break
+				
+				if all_in_same_box:
+					var hint = Hint.new(Hint.HintTechnique.BOX_LINE_REDUCTION, "")
+					hint.numbers.append(num)
+					hint.cells.append_array(row_cells_with_cand)
+
+					# Find eliminations and secondary cells
+					for i in range(9):
+						var box_cell = Cardinals.box_to_rc(first_box, i)
+						if box_cell.x != r: # If not in the claiming row
+							hint.secondary_cells.append(box_cell)
+							if sudoku.grid[box_cell.x][box_cell.y] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(box_cell.x, box_cell.y).get_bit(num-1):
+								hint.elim_cells.append(box_cell)
+
+					if not hint.elim_cells.is_empty():
+						hint.elim_numbers.append(num)
+						var desc = "In row %d, the only cells that can be a %d are all in the same box.\n\n" % [r + 1, num]
+						desc += "This is a Box/Line Reduction. Since %d must be in this row, and all possibilities for it are in this box, the %d for this box must be in this row.\n\n" % [num, num]
+						desc += "Therefore, we can eliminate %d as a candidate from other cells in this box: %s." % [num, _format_cell_list(hint.elim_cells)]
+						hint.description = desc
+						hints.append(hint)
+
+		# Column-based reduction
+		for c in range(9):
+			var col_cells_with_cand = []
+			for r in range(9):
+				if sudoku.grid[r][c] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(r, c).get_bit(num - 1):
+					col_cells_with_cand.append(Vector2i(r, c))
+			
+			if col_cells_with_cand.size() > 0:
+				var all_in_same_box = true
+				var first_box = Cardinals.Bxy[col_cells_with_cand[0].x * 9 + col_cells_with_cand[0].y]
+				for i in range(1, col_cells_with_cand.size()):
+					var pos = col_cells_with_cand[i]
+					if Cardinals.Bxy[pos.x * 9 + pos.y] != first_box:
+						all_in_same_box = false
+						break
+				
+				if all_in_same_box:
+					var hint = Hint.new(Hint.HintTechnique.BOX_LINE_REDUCTION, "")
+					hint.numbers.append(num)
+					hint.cells.append_array(col_cells_with_cand)
+					
+					# Find eliminations and secondary cells
+					for i in range(9):
+						var box_cell = Cardinals.box_to_rc(first_box, i)
+						if box_cell.y != c: # If not in the claiming col
+							hint.secondary_cells.append(box_cell)
+							if sudoku.grid[box_cell.x][box_cell.y] == 0 and sudoku.sbrc_grid.get_candidates_for_cell(box_cell.x, box_cell.y).get_bit(num-1):
+								hint.elim_cells.append(box_cell)
+
+					if not hint.elim_cells.is_empty():
+						hint.elim_numbers.append(num)
+						var desc = "In column %d, the only cells that can be a %d are all in the same box.\n\n" % [c + 1, num]
+						desc += "This is a Box/Line Reduction. Since %d must be in this column, and all possibilities for it are in this box, the %d for this box must be in this column.\n\n" % [num, num]
+						desc += "Therefore, we can eliminate %d as a candidate from other cells in this box: %s." % [num, _format_cell_list(hint.elim_cells)]
+						hint.description = desc
+						hints.append(hint)
 
 	return hints
 
@@ -452,9 +606,17 @@ func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: 
 				elif group_size == 4: technique_name += "QUAD_"
 				technique_name += unit_type.to_upper()
 				
-				hint.technique = Hint.HintTechnique.get(technique_name)
+				var technique_enum = Hint.HintTechnique.get(technique_name)
+				if technique_enum == null:
+					push_error("Invalid technique name generated: " + technique_name)
+					continue
+				
+				hint.technique = technique_enum
 				hint.description = _generate_naked_group_description(hint, unit_type, unit_index)
 				hints.append(hint)
+
+func _format_cell_list(cells: Array[Vector2i]) -> String:
+	return ", ".join(cells.map(func(c): return "(%d, %d)" % [c.x + 1, c.y + 1]))
 
 func _generate_naked_group_description(hint: Hint, unit_type: String, unit_index: int) -> String:
 	var group_type = ""
@@ -463,12 +625,17 @@ func _generate_naked_group_description(hint: Hint, unit_type: String, unit_index
 	elif hint.cells.size() == 4: group_type = "Quad"
 
 	var numbers_str = ", ".join(hint.numbers.map(func(n): return str(n)))
-	var cells_str = ", ".join(hint.cells.map(func(c): return "(%d, %d)" % [c.x + 1, c.y + 1]))
+	var cells_str = _format_cell_list(hint.cells)
 	var elim_numbers_str = ", ".join(hint.elim_numbers.map(func(n): return str(n)))
+	var elim_cells_str = _format_cell_list(hint.elim_cells)
 	
-	var unit_str = "%s %d" % [unit_type, unit_index + 1]
+	var unit_str = "%s %d" % [unit_type.capitalize(), unit_index + 1]
 
-	return "Naked Group:In %s, the cells %s form a Naked %s with the numbers %s. This means that these numbers can be eliminated as candidates from other cells in the same %s." % [unit_str, cells_str, group_type, numbers_str, unit_type]
+	var desc = "In %s, these %d cells (%s) are the only ones that can contain the numbers %s.\n\n" % [unit_str, hint.cells.size(), cells_str, numbers_str]
+	desc += "This is a Naked %s. Because these %d numbers must be placed in these %d cells, they cannot appear anywhere else in the same %s.\n\n" % [group_type, hint.cells.size(), hint.cells.size(), unit_type.capitalize()]
+	desc += "Therefore, we can eliminate the number(s) %s from the following cell(s): %s." % [elim_numbers_str, elim_cells_str]
+	
+	return desc
 
 # Godot has no built-in `combinations`, so here's one.
 func combinations(arr, k):
@@ -542,3 +709,32 @@ func _build_strong_links():
 				var cell1 = Cardinals.box_to_rc(b, i1)
 				var cell2 = Cardinals.box_to_rc(b, i2)
 				strong_links.append(StrongLink.new_bilocal(d, cell1.x, cell1.y, cell2.x, cell2.y))
+
+func _get_peer_cells(row: int, col: int) -> Array[Vector2i]:
+	var peers: Array[Vector2i] = []
+	var seen_coords = {}
+	
+	# Add row peers
+	for c in range(9):
+		if c != col:
+			peers.append(Vector2i(row, c))
+			seen_coords[Vector2i(row, c)] = true
+			
+	# Add col peers
+	for r in range(9):
+		if r != row:
+			var coord = Vector2i(r, col)
+			if not seen_coords.has(coord):
+				peers.append(coord)
+				seen_coords[coord] = true
+
+	# Add box peers
+	var box_idx = Cardinals.Bxy[row * 9 + col]
+	for i in range(9):
+		var pos = Cardinals.box_to_rc(box_idx, i)
+		if pos.x != row or pos.y != col:
+			if not seen_coords.has(pos):
+				peers.append(pos)
+				seen_coords[pos] = true
+				
+	return peers

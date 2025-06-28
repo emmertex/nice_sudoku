@@ -7,6 +7,7 @@ signal hint_selected(hint)
 var hints: Array[Hint] = []
 var current_hint_index: int = 0
 
+@onready var title_label = $VBoxContainer/TitleLabel
 @onready var description_label = $VBoxContainer/DescriptionLabel
 @onready var next_button = $VBoxContainer/HBoxContainer/NextButton
 @onready var dismiss_button = $VBoxContainer/HBoxContainer/DismissButton
@@ -40,6 +41,7 @@ func set_hints(p_hints: Array[Hint]):
 
 func _show_hint(index: int):
 	var hint = hints[index]
+	title_label.text = hint.title
 	description_label.text = hint.description
 	next_button.disabled = (hints.size() <= 1)
 	emit_signal("hint_selected", hint)
