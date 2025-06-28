@@ -556,7 +556,148 @@ func get_hints() -> Array[Hint]:
 						hint.description = desc
 						hints.append(hint)
 
+	# --- Coloring ---
+	_find_coloring_hints(hints)
+
 	return hints
+
+func _find_coloring_hints(hints: Array[Hint]):
+	for d in range(9): # digit-1
+		var digit = d + 1
+		
+		var relevant_links = []
+		for link in strong_links:
+			if link.type == StrongLink.LinkType.BILOCAL_UNIT and link.digit1 == d:
+				relevant_links.append(link)
+
+		if relevant_links.is_empty():
+			continue
+
+		var nodes = {} # cell_idx -> node
+		for link in relevant_links:
+			var n1_idx = link.node1_cells.next_set_bit()
+			var n2_idx = link.node2_cells.next_set_bit()
+			if not nodes.has(n1_idx): nodes[n1_idx] = {"links": [], "color": -1}
+			if not nodes.has(n2_idx): nodes[n2_idx] = {"links": [], "color": -1}
+			nodes[n1_idx].links.append(n2_idx)
+			nodes[n2_idx].links.append(n1_idx)
+
+		var all_node_indices = nodes.keys()
+		
+		while not all_node_indices.is_empty():
+			var chain_root = all_node_indices.pop_front()
+			if nodes[chain_root].color != -1: continue
+
+			var current_chain = {} # cell_idx -> color
+			var queue = [[chain_root, 0]] # [cell_idx, color]
+			nodes[chain_root].color = 0
+			current_chain[chain_root] = 0
+			
+			var head = 0
+			while head < queue.size():
+				var item = queue[head]
+				head += 1
+				var u_idx = item[0]
+				var u_color = item[1]
+				
+				for v_idx in nodes[u_idx].links:
+					if nodes[v_idx].color == -1:
+						var v_color = 1 - u_color
+						nodes[v_idx].color = v_color
+						current_chain[v_idx] = v_color
+						queue.append([v_idx, v_color])
+
+			# Rule 2: Same color sees each other
+			var color0_cells = []
+			var color1_cells = []
+			for cell_idx in current_chain:
+				if current_chain[cell_idx] == 0: color0_cells.append(Cardinals.rc_to_vec(cell_idx))
+				else: color1_cells.append(Cardinals.rc_to_vec(cell_idx))
+			
+			var contradiction_found = false
+			for i in range(color0_cells.size()):
+				for j in range(i + 1, color0_cells.size()):
+					if _are_peers(color0_cells[i], color0_cells[j]):
+						# Contradiction: eliminate all of color 0
+						var hint = _create_coloring_hint(digit, current_chain, 0, color0_cells[i], color0_cells[j])
+						hints.append(hint)
+						contradiction_found = true
+						break
+				if contradiction_found: break
+			if contradiction_found: continue
+
+			for i in range(color1_cells.size()):
+				for j in range(i + 1, color1_cells.size()):
+					if _are_peers(color1_cells[i], color1_cells[j]):
+						# Contradiction: eliminate all of color 1
+						var hint = _create_coloring_hint(digit, current_chain, 1, color1_cells[i], color1_cells[j])
+						hints.append(hint)
+						contradiction_found = true
+						break
+				if contradiction_found: break
+			if contradiction_found: continue
+			
+			# Rule 1: A candidate sees two different colors
+			var elims_found = {} # cell_idx -> {colors_seen, hint}
+			for r in range(9):
+				for c in range(9):
+					var cell_vec = Vector2i(r,c)
+					var cell_idx = Cardinals.vec_to_rc(cell_vec)
+					if sudoku.grid[r][c] != 0 or not _get_candidates(r, c).get_bit(d) or current_chain.has(cell_idx):
+						continue
+					
+					var colors_seen = BitSet.new(2)
+					for node_idx in current_chain:
+						var node_vec = Cardinals.rc_to_vec(node_idx)
+						if _are_peers(cell_vec, node_vec):
+							colors_seen.set_bit(current_chain[node_idx])
+					
+					if colors_seen.cardinality() == 2:
+						var hint = _create_coloring_hint(digit, current_chain, -1, cell_vec) # -1 for non-contradiction
+						hint.elim_cells.append(cell_vec)
+						hint.elim_numbers.append(digit)
+						if not hints.has(hint): # Avoid duplicates
+							hints.append(hint)
+
+func _are_peers(c1: Vector2i, c2: Vector2i) -> bool:
+	if c1.x == c2.x: return true
+	if c1.y == c2.y: return true
+	if Cardinals.Bxy[c1.x * 9 + c1.y] == Cardinals.Bxy[c2.x * 9 + c2.y]: return true
+	return false
+
+func _create_coloring_hint(digit: int, chain: Dictionary, contra_color: int, cause1: Vector2i, cause2: Vector2i = Vector2i(-1,-1)) -> Hint:
+	var hint = Hint.new(Hint.HintTechnique.SIMPLE_COLORING, "PLACEHOLDER")
+	hint.numbers.append(digit)
+	
+	var color0_cells_str = []
+	var color1_cells_str = []
+	for cell_idx in chain:
+		var cell_vec = Cardinals.rc_to_vec(cell_idx)
+		if chain[cell_idx] == 0:
+			hint.cause_cells.append(cell_vec)
+			color0_cells_str.append(_format_cell_list([cell_vec]))
+		else:
+			hint.secondary_cells.append(cell_vec)
+			color1_cells_str.append(_format_cell_list([cell_vec]))
+
+	var desc = "For digit {d}, we can form a chain of strong links.\n".format({"d": digit})
+	desc += "Coloring nodes alternately (Green and Blue):\n"
+	desc += "Green nodes: {green_nodes}\n".format({"green_nodes": ", ".join(color0_cells_str)})
+	desc += "Blue nodes: {blue_nodes}\n\n".format({"blue_nodes": ", ".join(color1_cells_str)})
+
+	if contra_color != -1:
+		var bad_color = "Green" if contra_color == 0 else "Blue"
+		desc += "Two {color} nodes at {c1} and {c2} can see each other, which is a contradiction.\n".format({"color": bad_color, "c1": _format_cell_list([cause1]), "c2": _format_cell_list([cause2])})
+		desc += "Therefore, all {color} nodes are invalid and the digit {d} can be eliminated from them.".format({"color": bad_color, "d": digit})
+		if contra_color == 0: hint.elim_cells = hint.cause_cells
+		else: hint.elim_cells = hint.secondary_cells
+		hint.elim_numbers.append(digit)
+	else: # rule 1
+		desc += "The cell at {cell} can see both a Green and a Blue node.\n".format({"cell": _format_cell_list([cause1])})
+		desc += "Therefore, it cannot contain the digit {d}.".format({"d": digit})
+
+	hint.description = desc
+	return hint
 
 func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: String, group_size: int):
 	var unit_cells: Array[Vector2i] = []
@@ -620,6 +761,7 @@ func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: 
 				
 				hint.technique = technique_enum
 				hint.description = _generate_naked_group_description(hint, unit_type, unit_index)
+				hint.title = hint._get_technique_title_from_enum(technique_enum)
 				hints.append(hint)
 
 func _format_cell_list(cells: Array[Vector2i]) -> String:

@@ -157,3 +157,15 @@ static func box_to_rc(box: int, index: int) -> Vector2i:
 		box_row * 3 + cell_row,
 		box_col * 3 + cell_col
 	)
+
+static func rc_to_vec(rc_idx: int) -> Vector2i:
+	return Vector2i(rc_idx / 9, rc_idx % 9)
+
+static func vec_to_rc(vec: Vector2i) -> int:
+	return vec.x * 9 + vec.y
+
+static func rc_to_idx(r: int, c: int) -> int:
+	return r * 9 + c
+
+static func idx_to_rc(idx: int) -> Vector2i:
+	return Vector2i(idx / 9, idx % 9)

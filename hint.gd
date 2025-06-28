@@ -20,7 +20,8 @@ enum HintTechnique {
 	SWORDFISH_ROW,
 	SWORDFISH_COL,
 	JELLYFISH_ROW,
-	JELLYFISH_COL
+	JELLYFISH_COL,
+	SIMPLE_COLORING
 }
 
 var technique: HintTechnique
