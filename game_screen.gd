@@ -238,15 +238,13 @@ func _update_pencil():
 				var num = num_idx + 1
 				var pencil_button = grid_container.get_child(row * 9 + col).get_child(0).get_child(num_idx)
 				
+				# Skip updating colors if this pencil mark is part of a hint elimination
+				if current_hint and current_hint.elim_cells.has(Vector2i(row, col)) and current_hint.elim_numbers.has(num):
+					continue
+				
 				var pencil = sudoku.has_pencil_mark(row, col, num)
 				var exclude = sudoku.has_exclude_mark(row, col, num)
 				
-				# Highlight pencil marks for elimination
-				if current_hint and current_hint.elim_cells.has(Vector2i(row, col)) and current_hint.elim_numbers.has(num):
-					pencil_button.text = str(Cardinals.PencilN[num_idx])
-					pencil_button.add_theme_color_override("font_color", CLR_HINT_CAUSE)
-					continue
-
 				if exclude:
 					pencil_button.text = str(Cardinals.PencilN[num_idx])
 					pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
@@ -322,50 +320,132 @@ func _update_buttons():
 		button.add_theme_stylebox_override("hover", style)
 
 func _update_grid_highlights():
-	# 1. Clear all highlights to their base state (board, given, blocked)
+	var row_data = sudoku.sbrc_grid.row_data
+	var col_data = sudoku.sbrc_grid.col_data
+	var box_data = sudoku.sbrc_grid.box_data
+	# 1. Clear all highlights
 	for row in range(9):
 		for col in range(9):
 			var button = grid_container.get_child(row * 9 + col)
 			var style = button.get_theme_stylebox("normal").duplicate()
 			if sudoku.is_given_number(row, col):
 				style.set_bg_color(CLR_GIVEN)
-			elif sudoku.grid[row][col] != 0:
-				style.set_bg_color(CLR_BLOCKED)
-			else: # Empty cell
+			elif sudoku.grid[row][col] == 0:
 				if ((col * 9) + row) % 2 == 0:
 					style.set_bg_color(CLR_BOARD)
 				else:
 					style.set_bg_color(CLR_BOARD2)
+			else:
+				style.set_bg_color(CLR_BLOCKED)
 			button.add_theme_stylebox_override("normal", style)
 
-	# 2. Apply standard user selection highlights
-	var highlight_number = selected_num
-	if highlight_number == 0 and selected_cell.x >= 0 and selected_cell.y >= 0:
-		highlight_number = sudoku.grid[selected_cell.x][selected_cell.y]
-
-	if highlight_number != 0:
-		# Standard highlight logic here...
-		pass # Note: Current logic is complex, keeping as is but layering is key.
-
-	# 3. If a hint is active, layer its highlights on top
-	if current_hint:
-		highlight_hint(current_hint)
-
-	# 4. Draw the main selected cell highlight on top of everything
+	# 2. Highlight selected cell
 	if selected_cell.x >= 0 and selected_cell.y >= 0:
 		var button = grid_container.get_child(selected_cell.x * 9 + selected_cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
 		style.set_bg_color(CLR_SELECT)
 		button.add_theme_stylebox_override("normal", style)
 
+	# 3. Highlight logic by mode
+	var highlight_number = selected_num
+	if highlight_number == 0 and selected_cell.x >= 0 and selected_cell.y >= 0:
+		highlight_number = sudoku.grid[selected_cell.x][selected_cell.y]
+
+	if (highlight_mode == HighlightMode.ALL or highlight_mode == HighlightMode.ALLC) and highlight_number != 0:
+		for row in range(9):
+			for col in range(9):
+				if sudoku.grid[row][col] == highlight_number:
+					# Highlight Block
+					var block_row = int(row / 3) * 3
+					var block_col = int(col / 3) * 3
+					for r in range(block_row, block_row + 3):
+						for c in range(block_col, block_col + 3):
+							var block_button = grid_container.get_child(r * 9 + c)
+							var block_style = block_button.get_theme_stylebox("normal").duplicate()
+							block_style.set_bg_color(CLR_BLOCK)
+							block_button.add_theme_stylebox_override("normal", block_style)
+		for row in range(9):
+			for col in range(9):
+				if sudoku.grid[row][col] == highlight_number:
+					# Highlight Row
+					for c in range(9):
+						var row_button = grid_container.get_child(row * 9 + c)
+						var row_style = row_button.get_theme_stylebox("normal").duplicate()
+						row_style.set_bg_color(CLR_PLUS)
+						row_button.add_theme_stylebox_override("normal", row_style)
+					# Highlight Column
+					for r in range(9):
+						var col_button = grid_container.get_child(r * 9 + col)
+						var col_style = col_button.get_theme_stylebox("normal").duplicate()
+						col_style.set_bg_color(CLR_PLUS)
+						col_button.add_theme_stylebox_override("normal", col_style)
+				if sudoku.has_exclude_mark(row, col, highlight_number):
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(CLR_BLOCK)
+					button.add_theme_stylebox_override("normal", style)
+				if sudoku.grid[row][col] == highlight_number:
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(CLR_SAME)
+					button.add_theme_stylebox_override("normal", style)
+
+	# Restore NUM, NRC, NRCB highlight logic
+	elif highlight_mode == HighlightMode.NUM and highlight_number != 0:
+		# Highlight all cells with the same number as selected cell
+		for row in range(9):
+			for col in range(9):
+				if sudoku.grid[row][col] == highlight_number:
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(CLR_SAME)
+					button.add_theme_stylebox_override("normal", style)
+	elif highlight_mode == HighlightMode.NRC and selected_cell.x >= 0 and selected_cell.y >= 0:
+		# Highlight row and column of selected cell
+		for i in range(9):
+			var row_button = grid_container.get_child(selected_cell.x * 9 + i)
+			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
+			var row_style = row_button.get_theme_stylebox("normal").duplicate()
+			var col_style = col_button.get_theme_stylebox("normal").duplicate()
+			row_style.set_bg_color(CLR_PLUS)
+			col_style.set_bg_color(CLR_PLUS)
+			row_button.add_theme_stylebox_override("normal", row_style)
+			col_button.add_theme_stylebox_override("normal", col_style)
+	elif highlight_mode == HighlightMode.NRCB and selected_cell.x >= 0 and selected_cell.y >= 0:
+		# Highlight row, column, and block of selected cell
+		for i in range(9):
+			var row_button = grid_container.get_child(selected_cell.x * 9 + i)
+			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
+			var row_style = row_button.get_theme_stylebox("normal").duplicate()
+			var col_style = col_button.get_theme_stylebox("normal").duplicate()
+			row_style.set_bg_color(CLR_PLUS)
+			col_style.set_bg_color(CLR_PLUS)
+			row_button.add_theme_stylebox_override("normal", row_style)
+			col_button.add_theme_stylebox_override("normal", col_style)
+		# Highlight block
+		var block_row = int(selected_cell.x / 3) * 3
+		var block_col = int(selected_cell.y / 3) * 3
+		for r in range(block_row, block_row + 3):
+			for c in range(block_col, block_col + 3):
+				var block_button = grid_container.get_child(r * 9 + c)
+				var block_style = block_button.get_theme_stylebox("normal").duplicate()
+				block_style.set_bg_color(CLR_BLOCK)
+				block_button.add_theme_stylebox_override("normal", block_style)
+
+	if current_hint:
+		highlight_hint(current_hint)
+
 func _on_HintButton_pressed():
 	if hint_panel:
 		_on_hint_dismissed()
 		return
 
+	_update_timer.stop()
+
 	# Clear previous hint and update UI immediately
 	current_hint = null
-	update_ui()
+	_update_grid_highlights()
+	_update_pencil()
 
 	var hints = hint_generator.get_hints()
 	hint_panel = preload("res://hint_popup.tscn").instantiate()
@@ -389,7 +469,8 @@ func _on_HintButton_pressed():
 
 func _on_hint_selected(hint: Hint):
 	current_hint = hint
-	update_ui()
+	_update_grid_highlights()
+	_update_pencil()
 
 func _on_hint_dismissed():
 	current_hint = null
@@ -400,36 +481,31 @@ func _on_hint_dismissed():
 	menu_layer1.show()
 	menu_layer2.show()
 
-	update_ui()
+	_update_grid_highlights()
+	_update_pencil()
+	_update_timer.start() # Resume automatic updates
 
 func highlight_hint(hint: Hint):
-	# Highlight cause cells (RED)
-	for cell in hint.cause_cells:
-		var button = grid_container.get_child(cell.x * 9 + cell.y)
-		var style = button.get_theme_stylebox("normal").duplicate()
-		style.set_bg_color(CLR_HINT_CAUSE)
-		button.add_theme_stylebox_override("normal", style)
-		
-	# Highlight secondary cells (PINK)
-	for cell in hint.secondary_cells:
-		var button = grid_container.get_child(cell.x * 9 + cell.y)
-		var style = button.get_theme_stylebox("normal").duplicate()
-		style.set_bg_color(CLR_HINT_SECONDARY)
-		button.add_theme_stylebox_override("normal", style)
-		
-	# Highlight primary cells (GREEN)
+	# Highlight primary cells
 	for cell in hint.cells:
 		var button = grid_container.get_child(cell.x * 9 + cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
-		style.set_bg_color(CLR_HINT_PRIMARY)
+		style.set_bg_color(Color.PALE_VIOLET_RED)
+		button.add_theme_stylebox_override("normal", style)
+	
+	# Highlight elimination cells and their specific pencil marks
+	for cell in hint.elim_cells:
+		var button = grid_container.get_child(cell.x * 9 + cell.y)
+		var style = button.get_theme_stylebox("normal").duplicate()
+		style.set_bg_color(CLR_HINT_AFFECTED)
 		button.add_theme_stylebox_override("normal", style)
 		
-	# Highlight the numbers in the primary cells themselves
-	for num in hint.numbers:
-		for cell in hint.cells:
+		var pencil_container = button.get_child(0)
+		for num in hint.elim_numbers:
+			# Check if this pencil mark actually exists before highlighting
 			if sudoku.has_pencil_mark(cell.x, cell.y, num):
-				var pencil_button = grid_container.get_child(cell.x * 9 + cell.y).get_child(0).get_child(num - 1)
-				pencil_button.add_theme_color_override("font_color", CLR_HINT_PRIMARY)
+				var pencil_label = pencil_container.get_child(num - 1)
+				pencil_label.add_theme_color_override("font_color", Color.ORANGE_RED)
 
 func _on_NewGameButton_pressed():
 	show_puzzle_selection_popup()
