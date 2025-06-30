@@ -10,8 +10,8 @@ var selected_num: int
 var highlight_mode: int
 
 # Color Constants
-const CLR_HINT_CELL = Color.PALE_VIOLET_RED
-const CLR_HINT_ELIM_CAND = Color.PALE_GREEN
+const CLR_HINT_CELL = Color.DARK_VIOLET
+const CLR_HINT_ELIM_CAND = Color.DARK_GREEN
 
 func _init(p_grid_container: GridContainer, p_sudoku: Sudoku):
 	self.grid_container = p_grid_container
