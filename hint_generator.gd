@@ -1,6 +1,5 @@
 extends RefCounted
 class_name SudokuHintGenerator
-const Hint = preload("res://hint.gd")
 var sudoku: Sudoku
 var strong_links: Array
 
@@ -48,7 +47,6 @@ func get_hints() -> Array[Hint]:
 		var num = single.digit
 		var type = single.type
 		
-		var unit_idx = r if type == "row" else (c if type == "column" else (int(r / 3) * 3 + int(c / 3)))
 		var desc = "In this %s, the number %d can only be placed in this single cell. All other empty cells in the %s are blocked by existing %d's in their corresponding rows, columns, or boxes." % [type, num, type, num]
 		var hint = Hint.new(Hint.HintTechnique.HIDDEN_SINGLE, desc)
 		hint.cells.append(Vector2i(r, c))
@@ -638,7 +636,6 @@ func _find_coloring_hints(hints: Array[Hint]):
 			if contradiction_found: continue
 			
 			# Rule 1: A candidate sees two different colors
-			var elims_found = {} # cell_idx -> {colors_seen, hint}
 			for r in range(9):
 				for c in range(9):
 					var cell_vec = Vector2i(r,c)

@@ -114,7 +114,9 @@ func is_valid_placement(row: int, col: int, value: int) -> bool:
 			return false
 			
 	# Check box
+	@warning_ignore("integer_division")
 	var box_row = int(row / 3) * 3
+	@warning_ignore("integer_division")
 	var box_col = int(col / 3) * 3
 	for r in range(box_row, box_row + 3):
 		for c in range(box_col, box_col + 3):
@@ -185,6 +187,7 @@ func get_conflicts() -> Array:
 	# Check boxes
 	for box in range(9):
 		var seen = {}
+		@warning_ignore("integer_division")
 		var box_row = (box / 3) * 3
 		var box_col = (box % 3) * 3
 		for r in range(3):

@@ -35,6 +35,7 @@ func _to_string() -> String:
 	if type == LinkType.BIVALUE_CELL:
 		var cell_idx = node1_cells.next_set_bit()
 		if cell_idx == -1: return "Invalid BIVALUE_CELL link (no cell)"
+		@warning_ignore("integer_division")
 		var r = int(cell_idx / 9)
 		var c = cell_idx % 9
 		return "Link (BIVALUE_CELL at (%d, %d)): %d <=> %d" % [r+1, c+1, digit1+1, digit2+1]
@@ -42,8 +43,10 @@ func _to_string() -> String:
 		var c1_idx = node1_cells.next_set_bit()
 		var c2_idx = node2_cells.next_set_bit()
 		if c1_idx == -1 or c2_idx == -1: return "Invalid BILOCAL_UNIT link (missing cells)"
+		@warning_ignore("integer_division")
 		var r1 = int(c1_idx / 9)
 		var c1 = c1_idx % 9
+		@warning_ignore("integer_division")
 		var r2 = int(c2_idx / 9)
 		var c2 = c2_idx % 9
 		return "Link (BILOCAL_UNIT for %d): (%d, %d) <=> (%d, %d)" % [digit1+1, r1+1, c1+1, r2+1, c2+1]

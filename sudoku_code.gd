@@ -65,8 +65,8 @@ func _generate_pencil_grid():
 		pencil_bits.append(pencil_row)
 		exclude_bits.append(exclude_row)
 
-func load_puzzle(puzzle_file: String, puzzle_index: int) -> bool:
-	var file = FileAccess.open(puzzle_file, FileAccess.READ)
+func load_puzzle(_puzzle_file: String, puzzle_index: int) -> bool:
+	var file = FileAccess.open(_puzzle_file, FileAccess.READ)
 	if file == null:
 		print("Failed to open Puzzle File")
 		return false
@@ -74,23 +74,23 @@ func load_puzzle(puzzle_file: String, puzzle_index: int) -> bool:
 	while not file.eof_reached():
 		var line = file.get_line()
 		if line_count == puzzle_index:
-			var puzzle_data = parse_puzzle_line(line)
-			return load_puzzle_from_dictionary(puzzle_data, puzzle_index)
+			var _puzzle_data = parse_puzzle_line(line)
+			return load_puzzle_from_dictionary(_puzzle_data, puzzle_index)
 	   
 		line_count += 1
    
 	print("Puzzle index out of range")
 	return false
 
-func load_puzzle_from_dictionary(puzzle_data: Dictionary, puzzle_index: int = 0) -> bool:
+func load_puzzle_from_dictionary(_puzzle_data: Dictionary, puzzle_index: int = 0) -> bool:
 	if puzzle_data.is_empty():
 		print("Invalid puzzle data")
 		return false
 	_init()
-	grid = puzzle_data["grid"]
+	grid = _puzzle_data["grid"]
 	original_grid = grid.duplicate(true)
-	current_puzzle_name = puzzle_data.get("name", "Puzzle " + str(puzzle_index + 1))
-	current_puzzle_difficulty = puzzle_data["difficulty"]
+	current_puzzle_name = _puzzle_data.get("name", "Puzzle " + str(puzzle_index + 1))
+	current_puzzle_difficulty = _puzzle_data["difficulty"]
 	current_puzzle_index = puzzle_index
 	sbrc_grid.update_grid(grid)
 	_clear_history()
@@ -128,7 +128,9 @@ func load_puzzle_from_string(line: String) -> bool:
 		current_puzzle_name = "Custom Resume"
 		# Iterate over every character from 162 to 891
 		for i in range(162, 891):
+			@warning_ignore("integer_division")
 			var row = (i - 162) / 81
+			@warning_ignore("integer_division")
 			var col = ((i - 162) % 81) / 9
 			var num = (i - 162) % 9
 			if line[i] == "1":
@@ -176,10 +178,10 @@ func string_to_grid(puzzle_string: String) -> Array:
 		var row = []
 		for j in range(9):
 			var index = i * 9 + j
-			var char = puzzle_string[index]
+			var cell = puzzle_string[index]
 			var value = 0
-			if char != ".":
-				value = int(char)
+			if cell != ".":
+				value = int(cell)
 			row.append(value)
 		_grid.append(row)
 	return _grid
@@ -205,7 +207,9 @@ func set_number(row: int, col: int, num: int) -> bool:
 				set_exclude_mark(row, col, i+1, false)
 	   
 		# Clear pencil marks of the number from the block
+		@warning_ignore("integer_division")
 		var block_row = (row / 3) * 3
+		@warning_ignore("integer_division")
 		var block_col = (col / 3) * 3
 		for r in range(block_row, block_row + 3):
 			for c in range(block_col, block_col + 3):
@@ -598,7 +602,6 @@ func load_puzzle_data(difficulty: String):
 		print("Failed to open Puzzle File")
 		return {}
 	puzzle_data = []
-	var line_count = 0
 	while not file.eof_reached():
 		puzzle_data.append(fast_parse_puzzle_line(file.get_line()))
 	

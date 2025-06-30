@@ -6,6 +6,7 @@ var size: int
 
 func _init(bit_size: int = 81):
 	size = bit_size
+	@warning_ignore("integer_division")
 	var array_size = (size + 31) / 32
 	data.resize(array_size)
 	for i in range(array_size):
@@ -14,6 +15,7 @@ func _init(bit_size: int = 81):
 func set_bit(bit: int):
 	if bit < 0 or bit >= size:
 		return
+	@warning_ignore("integer_division")
 	var index = bit / 32
 	var offset = bit % 32
 	data[index] |= (1 << offset)
@@ -21,6 +23,7 @@ func set_bit(bit: int):
 func clear_bit(bit: int):
 	if bit < 0 or bit >= size:
 		return
+	@warning_ignore("integer_division")
 	var index = bit / 32
 	var offset = bit % 32
 	data[index] &= ~(1 << offset)
@@ -28,6 +31,7 @@ func clear_bit(bit: int):
 func get_bit(bit: int) -> bool:
 	if bit < 0 or bit >= size:
 		return false
+	@warning_ignore("integer_division")
 	var index = bit / 32
 	var offset = bit % 32
 	return (data[index] & (1 << offset)) != 0

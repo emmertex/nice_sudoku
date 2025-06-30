@@ -32,16 +32,19 @@ const BxyN: Array[int] = [
 const PencilN: Array[int] = [1,2,3,4,5,6,7,8,9]
 
 static func box_to_rc(box: int, index: int) -> Vector2i:
-	var box_row = box / 3
-	var box_col = box % 3
-	var cell_row = index / 3
-	var cell_col = index % 3
+	@warning_ignore("integer_division")
+	var box_row = int(box / 3)
+	var box_col = int(box % 3)
+	@warning_ignore("integer_division")
+	var cell_row = int(index / 3)
+	var cell_col = int(index % 3)
 	return Vector2i(
 		box_row * 3 + cell_row,
 		box_col * 3 + cell_col
 	)
 
 static func rc_to_vec(rc_idx: int) -> Vector2i:
+	@warning_ignore("integer_division")
 	return Vector2i(rc_idx / 9, rc_idx % 9)
 
 static func vec_to_rc(vec: Vector2i) -> int:

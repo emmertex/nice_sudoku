@@ -24,7 +24,6 @@ const CLR_GRID_BORDER = Color(0, 0, 0, 1)
 const CLR_HEADER_FONT = Color(1, 1, 0, 1)
 
 const SAVE_STATE_PATH = "user://save_state.cfg"
-const Hint = preload("res://hint.gd")
 
 # Enums
 enum HighlightMode { NUM, NRC, NRCB, ALL, ALLC }
@@ -136,7 +135,9 @@ func _create_pencil_marks(container: Control):
 	for i in range(3):
 		for j in range(3):
 			var label = Label.new()
+			@warning_ignore("integer_division")
 			label.position = Vector2(i * (button_size / 3), j * (button_size / 3))  # Position the label
+			@warning_ignore("integer_division")
 			label.size = Vector2(button_size / 3, button_size / 3)
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -159,6 +160,7 @@ func _create_grid():
 			_create_pencil_marks(pencil_marks_container)
 		   
 			button.set_custom_minimum_size(Vector2(button_size, button_size))
+			@warning_ignore("narrowing_conversion")
 			button.add_theme_font_size_override("font_size", button_size * 0.5)
 			var hover_style = StyleBoxFlat.new()
 			hover_style.set_bg_color(CLR_HOVER)
@@ -297,6 +299,7 @@ func _update_buttons():
 			button.add_theme_stylebox_override("normal", style)
 			continue
 		else:
+			@warning_ignore("narrowing_conversion")
 			if (sudoku.is_valid_move(selected_cell.x, selected_cell.y, i+1) || \
 					selected_cell.x < 0 || selected_cell.y < 0) && \
 					!sudoku.is_given_number(selected_cell.x, selected_cell.y):
@@ -322,9 +325,6 @@ func _update_buttons():
 		button.add_theme_stylebox_override("hover", style)
 
 func _update_grid_highlights():
-	var row_data = sudoku.sbrc_grid.row_data
-	var col_data = sudoku.sbrc_grid.col_data
-	var box_data = sudoku.sbrc_grid.box_data
 	# 1. Clear all highlights
 	for row in range(9):
 		for col in range(9):
@@ -343,6 +343,7 @@ func _update_grid_highlights():
 
 	# 2. Highlight selected cell
 	if selected_cell.x >= 0 and selected_cell.y >= 0:
+		@warning_ignore("narrowing_conversion")
 		var button = grid_container.get_child(selected_cell.x * 9 + selected_cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
 		style.set_bg_color(CLR_SELECT)
@@ -358,7 +359,9 @@ func _update_grid_highlights():
 			for col in range(9):
 				if sudoku.grid[row][col] == highlight_number:
 					# Highlight Block
+					@warning_ignore("integer_division")
 					var block_row = int(row / 3) * 3
+					@warning_ignore("integer_division")
 					var block_col = int(col / 3) * 3
 					for r in range(block_row, block_row + 3):
 						for c in range(block_col, block_col + 3):
@@ -405,7 +408,9 @@ func _update_grid_highlights():
 	elif highlight_mode == HighlightMode.NRC and selected_cell.x >= 0 and selected_cell.y >= 0:
 		# Highlight row and column of selected cell
 		for i in range(9):
+			@warning_ignore("narrowing_conversion")
 			var row_button = grid_container.get_child(selected_cell.x * 9 + i)
+			@warning_ignore("narrowing_conversion")
 			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
 			var row_style = row_button.get_theme_stylebox("normal").duplicate()
 			var col_style = col_button.get_theme_stylebox("normal").duplicate()
@@ -416,7 +421,9 @@ func _update_grid_highlights():
 	elif highlight_mode == HighlightMode.NRCB and selected_cell.x >= 0 and selected_cell.y >= 0:
 		# Highlight row, column, and block of selected cell
 		for i in range(9):
+			@warning_ignore("narrowing_conversion")
 			var row_button = grid_container.get_child(selected_cell.x * 9 + i)
+			@warning_ignore("narrowing_conversion")
 			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
 			var row_style = row_button.get_theme_stylebox("normal").duplicate()
 			var col_style = col_button.get_theme_stylebox("normal").duplicate()
@@ -466,8 +473,8 @@ func _on_HintButton_pressed():
 	
 	hint_panel.set_hints(hints)
 	
-	var font_size = int(button_size * 0.35)
-	hint_panel.setup_ui(font_size)
+	var hint_font_size = int(button_size * 0.35)
+	hint_panel.setup_ui(hint_font_size)
 
 func _on_hint_selected(hint: Hint):
 	current_hint = hint
@@ -526,7 +533,9 @@ func show_puzzle_selection_popup():
 	var difficulty_options = OptionButton.new()
 	for difficulty in sudoku.puzzles.keys():
 		difficulty_options.add_item(difficulty.capitalize())
+	@warning_ignore("narrowing_conversion")
 	difficulty_options.add_theme_font_size_override("font_size", button_size * 0.6)
+	@warning_ignore("narrowing_conversion")
 	difficulty_options.get_popup().add_theme_font_size_override("font_size", button_size * 0.6)
 	difficulty_options.selected = sudoku.difficulty_index[sudoku.puzzle_selected]
 	vbox.add_child(difficulty_options)
@@ -632,6 +641,7 @@ func _load_completed_puzzles(difficulty: String) -> Dictionary:
 	return {}
 
 func _format_time(seconds: int) -> String:
+	@warning_ignore("integer_division")
 	var minutes = seconds / 60
 	seconds = seconds % 60
 	return "%d:%02d" % [minutes, seconds]
@@ -699,13 +709,17 @@ func _on_paste_puzzle_button_pressed():
 	var puzzle = ""
 	var p891 = ""
 	for i in range(81):
+		@warning_ignore("integer_division")
 		given += str(sudoku.original_grid[i/9][i%9])
+		@warning_ignore("integer_division")
 		puzzle += str(sudoku.grid[i/9][i%9])
 	p891 = puzzle
 	for i in range(81):
 		for j in range(9):
+			@warning_ignore("integer_division")
 			if (sudoku.has_exclude_mark(i/9, i%9, j+1)):
 				p891 += "2"
+				@warning_ignore("integer_division")
 			elif (sudoku.has_pencil_mark(i/9, i%9, j+1)):
 				p891 += "1"
 			else:
@@ -824,7 +838,9 @@ func _resize_grid_buttons():
 func _resize_pencil_cells(pencil_container):
 	for pencil in range(9):
 		var pencil_cell = pencil_container.get_child(pencil)
+		@warning_ignore("integer_division")
 		pencil_cell.position = Vector2((pencil%3) * (button_size / 3), (pencil/3) * (button_size / 3))
+		@warning_ignore("integer_division")
 		pencil_cell.size = Vector2(button_size / 3, button_size / 3)
 		pencil_cell.add_theme_font_size_override("font_size", button_size * (0.7 / 3))
 
@@ -935,6 +951,7 @@ func _on_UndoButton_pressed():
 func _on_timer_timeout():
 	if timer_running:
 		sudoku.puzzle_time += 1
+		@warning_ignore("integer_division")
 		var minimum = int(sudoku.puzzle_time / 60)
 		var sec = sudoku.puzzle_time % 60
 		var str_sec = "00"
