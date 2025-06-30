@@ -57,11 +57,6 @@ func _build_sector_data():
 				sector_data[box + 18][digit].set_bit(Cardinals.BxyN[row * 9 + col])
 				box_data[box][digit].set_bit(Cardinals.BxyN[row * 9 + col])
 
-func _build_intersection_data():
-	# Build intersection data for advanced techniques
-	# This will be expanded in future phases for advanced solving techniques
-	pass
-
 func get_candidates_for_cell(row: int, col: int) -> BitSet:
 	if candidates.size() > row and candidates[row].size() > col:
 		return candidates[row][col]
@@ -100,15 +95,6 @@ func set_cell_value(row: int, col: int, value: int):
 		box_data[box][digit].set_bit(Cardinals.BxyN[row * 9 + col])
 	
 	_build_candidates()
-
-func get_row_candidates(row: int, digit: int) -> BitSet:
-	return row_data[row][digit].clone()
-
-func get_col_candidates(col: int, digit: int) -> BitSet:
-	return col_data[col][digit].clone()
-
-func get_box_candidates(box: int, digit: int) -> BitSet:
-	return box_data[box][digit].clone()
 
 func get_sector_candidates(sector: int, digit: int) -> BitSet:
 	return sector_data[sector][digit].clone()
@@ -153,7 +139,6 @@ func update_grid(new_grid: Array):
 	basic_grid = new_grid.duplicate(true)
 	_build_sector_data()
 	_build_candidates()
-	_build_intersection_data()
 
 func is_complete() -> bool:
 	for row in range(9):

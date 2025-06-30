@@ -184,11 +184,6 @@ func string_to_grid(puzzle_string: String) -> Array:
 		_grid.append(row)
 	return _grid
 
-func _set_grid(puzzle: Array):
-	assert(len(puzzle) == 9 and len(puzzle[0]) == 9, "Invalid puzzle dimensions")
-	grid = puzzle.duplicate(true)
-	original_grid = grid.duplicate(true)
-
 func is_valid_move(row: int, col: int, num: int) -> bool:
 	return sbrc_grid.is_valid_placement(row, col, num)
 
@@ -373,21 +368,6 @@ func _undo_exclude_safe() -> bool:
 		return true
 	return false
 
-func find_naked_singles() -> Array:
-	var singles = []
-	for row in range(9):
-		for col in range(9):
-			if grid[row][col] == 0:
-				var candidates = sbrc_grid.get_candidates_for_cell(row, col)
-				if candidates.cardinality() == 1:
-					var digit = candidates.next_set_bit(0) + 1
-					singles.append({
-						"row": row,
-						"col": col,
-						"digit": digit
-					})
-	return singles
-
 func find_hidden_singles() -> Array:
 	var singles = []
 
@@ -457,21 +437,10 @@ func get_empty_cells() -> Array:
 	return sbrc_grid.get_empty_cells()
 
 # Utility Functions
-func int_to_binary_string(value: int) -> String:
-	var binary = ""
-	var temp = value
-	while temp > 0:
-		binary = str(temp % 2) + binary
-		temp = temp / 2
-	return binary if binary != "" else "0"
-
 func is_given_number(row: int, col: int) -> bool:
 	return original_grid[row][col] != 0
 
 # Puzzle Information
-func get_puzzle_index() -> int:
-	return current_puzzle_index
-
 func get_puzzle_count() -> int:
 	var file = FileAccess.open(puzzles[puzzle_selected], FileAccess.READ)
 	if file == null:
@@ -688,12 +657,6 @@ func set_exclude_mark(row: int, col: int, num: int, value: bool):
 		exclude_bits[row][col] |= (1 << (num - 1))
 	else:
 		exclude_bits[row][col] &= ~(1 << (num - 1))
-
-func get_grid_value(row: int, col: int) -> int:
-	return grid[row][col]
-
-func get_grid_given(row: int, col: int) -> bool:
-	return original_grid[row][col] != 0
 
 func store_pencil_history(row: int, col: int, old_bits: int):
 	pencil_history.append([row, col, old_bits])

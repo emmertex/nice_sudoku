@@ -49,21 +49,6 @@ func clear_all():
 	for i in range(data.size()):
 		data[i] = 0
 
-func set_all():
-	for i in range(data.size()):
-		data[i] = 0xFFFFFFFF
-	# Clear bits beyond size
-	var last_index = size / 32
-	var last_offset = size % 32
-	if last_offset > 0:
-		data[last_index] &= (1 << last_offset) - 1
-
-func intersects(other: BitSet) -> bool:
-	for i in range(min(data.size(), other.data.size())):
-		if (data[i] & other.data[i]) != 0:
-			return true
-	return false
-
 func union(other: BitSet) -> BitSet:
 	var result = BitSet.new(size)
 	for i in range(data.size()):
@@ -93,16 +78,6 @@ func next_set_bit(from_index: int = 0) -> int:
 		if get_bit(i):
 			return i
 	return -1
-
-func to_string_representation() -> String:
-	var result = "BitSet["
-	for i in range(size):
-		if get_bit(i):
-			result += str(i) + ","
-	if result.ends_with(","):
-		result = result.substr(0, result.length() - 1)
-	result += "]"
-	return result
 
 func clone() -> BitSet:
 	var result = BitSet.new(size)

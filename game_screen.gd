@@ -619,19 +619,6 @@ func _connect_button(parent: Node, button_name: String, callback: Callable, inde
 	if (not sudoku.has_save_state(difficulty, index)) && button_name == "Res":
 		button.disabled = true
 
-func _create_label(text: String, is_header: bool = false) -> Label:
-	var font_size = button_size * 0.375
-	var label = Label.new()
-	label.text = text
-	label.set_h_size_flags(Control.SIZE_EXPAND_FILL)
-	label.set_custom_minimum_size(Vector2(100, 30))
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", font_size)
-	if is_header:
-		label.add_theme_color_override("font_color", CLR_HEADER_FONT)
-	return label
-
 func _load_completed_puzzles(difficulty: String) -> Dictionary:
 	print("Loading completed puzzles for difficulty:", difficulty)
 	var config = ConfigFile.new()
@@ -688,112 +675,6 @@ func _on_LoadPuzzleButton_pressed():
 	queue_update("pencil")
 	queue_update("highlights")
 	queue_update("info")
-
-func _on_puzzle_file_selected(path):
-	if sudoku.puzzle_file(path):
-		selected_cell = Vector2(-1, -1)
-		selected_num = 0
-		timer_running = true
-		sudoku.puzzle_time = 0
-		queue_update("grid")
-		queue_update("buttons")
-		queue_update("pencil")
-		queue_update("highlights")
-		queue_update("info")
-	else:
-		print("Failed to load puzzle from file")
-
-func _request_permissions():
-	if OS.get_name() == "Android" and not permissions_requested:
-		permissions_requested = true
-		var permissions = OS.get_granted_permissions()
-		if not "android.permission.READ_EXTERNAL_STORAGE" in permissions or not "android.permission.WRITE_EXTERNAL_STORAGE" in permissions:
-			OS.request_permissions()
-
-func _on_button_c_pressed():
-	if mode == Mode.NUMBER_CLR:
-		mode = Mode.NUMBER
-	else:
-		mode = Mode.NUMBER_CLR
-	selected_cell = Vector2(-1,-1)
-	selected_num = 0
-	queue_update("buttons")
-
-func _on_button_p_pressed():
-	if mode == Mode.PENCIL:
-		mode = Mode.NUMBER
-	else:
-		mode = Mode.PENCIL
-	queue_update("buttons")
-
-func _on_button_pc_pressed():
-	if mode == Mode.PENCIL_EXCLUDE:
-		mode = Mode.NUMBER
-	else:
-		mode = Mode.PENCIL_EXCLUDE
-	queue_update("buttons")
-	
-func _on_UndoButton_pressed():
-	selected_cell = Vector2(-1,-1)
-	selected_num = 0
-	sudoku.undo_history()
-	current_hint = null
-	update_ui()
-
-func _on_timer_timeout():
-	if timer_running:
-		sudoku.puzzle_time += 1
-		var minimum = int(sudoku.puzzle_time / 60)
-		var sec = sudoku.puzzle_time % 60
-		var str_sec = "00"
-		if sec < 10:
-			str_sec = "0" + str(sec)
-		else:
-			str_sec = str(sec)
-		game_timer_text.text = str(minimum) + ":" + str_sec + "s"
-
-		# Auto-save every minute
-		if sudoku.puzzle_time % 10 == 0:
-			save_game_state()
-
-func _input(event):
-	if event is InputEventKey and event.pressed:
-		var key = event.as_text()
-		if key >= "1" and key <= "9":
-			_on_number_button_pressed(int(key))
-	if event.is_action_pressed("0"):
-		_on_number_button_pressed(0)
-	if event.is_action_pressed("clear"):
-		_on_button_c_pressed()
-	if event.is_action_pressed("pencil"):
-		_on_button_p_pressed()
-	if event.is_action_pressed("clearpencil"):
-		_on_button_pc_pressed()
-	if event.is_action_pressed("undo"):
-		_on_UndoButton_pressed()
-
-func _on_AutoP_pressed():
-	sudoku.auto_fill_pencil_marks()
-	queue_update("pencil")
-	queue_update("highlights")
-
-func _on_highlight_button_pressed():
-	highlight_mode = HighlightMode.values()[(int(highlight_mode) + 1) % HighlightMode.size()]
-	_update_highlight_button_text()
-	queue_update("highlights")
-
-func _update_highlight_button_text():
-	match highlight_mode:
-		HighlightMode.NUM:
-			highlight_button.text = "Num"
-		HighlightMode.NRC:
-			highlight_button.text = "RC"
-		HighlightMode.NRCB:
-			highlight_button.text = "RCB"
-		HighlightMode.ALL:
-			highlight_button.text = "ALL"
-		HighlightMode.ALLC:
-			highlight_button.text = "ALLC"
 
 func _on_window_focus_in():
 	timer_running = true
@@ -1013,3 +894,95 @@ func show_puzzle_done_popup():
 	popupDone.size = Vector2(dimensions.x * 0.5, dimensions.y * 0.5)
 	add_child(popupDone)
 	popupDone.popup_centered()
+
+func _request_permissions():
+	if OS.get_name() == "Android" and not permissions_requested:
+		permissions_requested = true
+		var permissions = OS.get_granted_permissions()
+		if not "android.permission.READ_EXTERNAL_STORAGE" in permissions or not "android.permission.WRITE_EXTERNAL_STORAGE" in permissions:
+			OS.request_permissions()
+
+func _on_button_c_pressed():
+	if mode == Mode.NUMBER_CLR:
+		mode = Mode.NUMBER
+	else:
+		mode = Mode.NUMBER_CLR
+	selected_cell = Vector2(-1,-1)
+	selected_num = 0
+	queue_update("buttons")
+
+func _on_button_p_pressed():
+	if mode == Mode.PENCIL:
+		mode = Mode.NUMBER
+	else:
+		mode = Mode.PENCIL
+	queue_update("buttons")
+
+func _on_button_pc_pressed():
+	if mode == Mode.PENCIL_EXCLUDE:
+		mode = Mode.NUMBER
+	else:
+		mode = Mode.PENCIL_EXCLUDE
+	queue_update("buttons")
+	
+func _on_UndoButton_pressed():
+	selected_cell = Vector2(-1,-1)
+	selected_num = 0
+	sudoku.undo_history()
+	current_hint = null
+	update_ui()
+
+func _on_timer_timeout():
+	if timer_running:
+		sudoku.puzzle_time += 1
+		var minimum = int(sudoku.puzzle_time / 60)
+		var sec = sudoku.puzzle_time % 60
+		var str_sec = "00"
+		if sec < 10:
+			str_sec = "0" + str(sec)
+		else:
+			str_sec = str(sec)
+		game_timer_text.text = str(minimum) + ":" + str_sec + "s"
+
+		# Auto-save every minute
+		if sudoku.puzzle_time % 10 == 0:
+			save_game_state()
+
+func _input(event):
+	if event is InputEventKey and event.pressed:
+		var key = event.as_text()
+		if key >= "1" and key <= "9":
+			_on_number_button_pressed(int(key))
+	if event.is_action_pressed("0"):
+		_on_number_button_pressed(0)
+	if event.is_action_pressed("clear"):
+		_on_button_c_pressed()
+	if event.is_action_pressed("pencil"):
+		_on_button_p_pressed()
+	if event.is_action_pressed("clearpencil"):
+		_on_button_pc_pressed()
+	if event.is_action_pressed("undo"):
+		_on_UndoButton_pressed()
+
+func _on_AutoP_pressed():
+	sudoku.auto_fill_pencil_marks()
+	queue_update("pencil")
+	queue_update("highlights")
+
+func _on_highlight_button_pressed():
+	highlight_mode = HighlightMode.values()[(int(highlight_mode) + 1) % HighlightMode.size()]
+	_update_highlight_button_text()
+	queue_update("highlights")
+
+func _update_highlight_button_text():
+	match highlight_mode:
+		HighlightMode.NUM:
+			highlight_button.text = "Num"
+		HighlightMode.NRC:
+			highlight_button.text = "RC"
+		HighlightMode.NRCB:
+			highlight_button.text = "RCB"
+		HighlightMode.ALL:
+			highlight_button.text = "ALL"
+		HighlightMode.ALLC:
+			highlight_button.text = "ALLC"
