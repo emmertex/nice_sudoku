@@ -3,33 +3,33 @@ extends SceneTree
 var _failed: int = 0
 
 func _init():
-    var exit_code := 0
-    var args = OS.get_cmdline_args()
-    if args.has("--test_func"):
-        var func_name = args[args.find("--test_func") + 1]
-        if has_method(func_name):
-            var passed = call(func_name)
-            exit_code = 0 if passed else 1
-        else:
-            push_error("Test function not found: %s" % func_name)
-            exit_code = 1
-    else:
-        exit_code = run_all_tests()
+	var exit_code := 0
+	var args = OS.get_cmdline_args()
+	if args.has("--test_func"):
+		var func_name = args[args.find("--test_func") + 1]
+		if has_method(func_name):
+			var passed = call(func_name)
+			exit_code = 0 if passed else 1
+		else:
+			push_error("Test function not found: %s" % func_name)
+			exit_code = 1
+	else:
+		exit_code = run_all_tests()
 
-    quit(exit_code)
+	quit(exit_code)
 
 func run_all_tests() -> int:
-    _failed = 0
-    if not test_naked_pair_row(): _failed += 1
-    if not test_naked_pair_column(): _failed += 1
-    if not test_naked_pair_box(): _failed += 1
-    if not test_naked_triple_row(): _failed += 1
-    if not test_naked_triple_column(): _failed += 1
-    if not test_naked_triple_box(): _failed += 1
-    if not test_x_wing_row(): _failed += 1
-    if not test_x_wing_column(): _failed += 1
-    if not test_backtracking_solver(): _failed += 1
-    return _failed
+	_failed = 0
+	if not test_naked_pair_row(): _failed += 1
+	if not test_naked_pair_column(): _failed += 1
+	if not test_naked_pair_box(): _failed += 1
+	if not test_naked_triple_row(): _failed += 1
+	if not test_naked_triple_column(): _failed += 1
+	if not test_naked_triple_box(): _failed += 1
+	if not test_x_wing_row(): _failed += 1
+	if not test_x_wing_column(): _failed += 1
+	if not test_backtracking_solver(): _failed += 1
+	return _failed
 
 func test_naked_pair_row() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -47,11 +47,11 @@ func test_naked_pair_row() -> bool:
 			if hint.cells.has(Vector2i(4, 3)) and hint.cells.has(Vector2i(4, 5)) and hint.numbers.has(4) and hint.numbers.has(5):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test Naked Pair (Row) FAILED")
-        return false
-    print("Test Naked Pair (Row) PASSED")
-    return true
+	if not found_hint:
+		print("Test Naked Pair (Row) FAILED")
+		return false
+	print("Test Naked Pair (Row) PASSED")
+	return true
 
 func test_naked_pair_column() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -69,11 +69,11 @@ func test_naked_pair_column() -> bool:
 			if hint.cells.has(Vector2i(1, 6)) and hint.cells.has(Vector2i(6, 6)) and hint.numbers.has(3) and hint.numbers.has(7):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test Naked Pair (Column) FAILED")
-        return false
-    print("Test Naked Pair (Column) PASSED")
-    return true
+	if not found_hint:
+		print("Test Naked Pair (Column) FAILED")
+		return false
+	print("Test Naked Pair (Column) PASSED")
+	return true
 
 func test_naked_pair_box() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -91,11 +91,11 @@ func test_naked_pair_box() -> bool:
 			if hint.cells.has(Vector2i(4, 3)) and hint.cells.has(Vector2i(4, 4)) and hint.numbers.has(3) and hint.numbers.has(6):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test Naked Pair (Box) FAILED")
-        return false
-    print("Test Naked Pair (Box) PASSED")
-    return true
+	if not found_hint:
+		print("Test Naked Pair (Box) FAILED")
+		return false
+	print("Test Naked Pair (Box) PASSED")
+	return true
 
 func test_naked_triple_row() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -113,11 +113,11 @@ func test_naked_triple_row() -> bool:
 			if hint.cells.has(Vector2i(0, 0)) and hint.cells.has(Vector2i(0, 1)) and hint.cells.has(Vector2i(0, 2)) and hint.numbers.has(3) and hint.numbers.has(4) and hint.numbers.has(5):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test Naked Triple (Row) FAILED")
-        return false
-    print("Test Naked Triple (Row) PASSED")
-    return true
+	if not found_hint:
+		print("Test Naked Triple (Row) FAILED")
+		return false
+	print("Test Naked Triple (Row) PASSED")
+	return true
 
 func test_naked_triple_column() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -135,11 +135,11 @@ func test_naked_triple_column() -> bool:
 			if hint.cells.has(Vector2i(0, 2)) and hint.cells.has(Vector2i(1, 2)) and hint.cells.has(Vector2i(2, 2)) and hint.numbers.has(3) and hint.numbers.has(5) and hint.numbers.has(7):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test Naked Triple (Column) FAILED")
-        return false
-    print("Test Naked Triple (Column) PASSED")
-    return true
+	if not found_hint:
+		print("Test Naked Triple (Column) FAILED")
+		return false
+	print("Test Naked Triple (Column) PASSED")
+	return true
 
 func test_naked_triple_box() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -157,11 +157,11 @@ func test_naked_triple_box() -> bool:
 			if hint.cells.has(Vector2i(0, 0)) and hint.cells.has(Vector2i(0, 1)) and hint.cells.has(Vector2i(0, 2)) and hint.numbers.has(3) and hint.numbers.has(4) and hint.numbers.has(5):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test Naked Triple (Box) FAILED")
-        return false
-    print("Test Naked Triple (Box) PASSED")
-    return true
+	if not found_hint:
+		print("Test Naked Triple (Box) FAILED")
+		return false
+	print("Test Naked Triple (Box) PASSED")
+	return true
 
 func test_x_wing_row() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -179,11 +179,11 @@ func test_x_wing_row() -> bool:
 			if hint.numbers.has(1) and hint.cells.has(Vector2i(6,2)) and hint.cells.has(Vector2i(7,6)):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test X-Wing (Row) FAILED")
-        return false
-    print("Test X-Wing (Row) PASSED")
-    return true
+	if not found_hint:
+		print("Test X-Wing (Row) FAILED")
+		return false
+	print("Test X-Wing (Row) PASSED")
+	return true
 
 func test_x_wing_column() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -201,11 +201,11 @@ func test_x_wing_column() -> bool:
 			if hint.numbers.has(1) and hint.cells.has(Vector2i(6,2)) and hint.cells.has(Vector2i(7,6)):
 				found_hint = true
 				break
-    if not found_hint:
-        print("Test X-Wing (Column) FAILED")
-        return false
-    print("Test X-Wing (Column) PASSED")
-    return true
+	if not found_hint:
+		print("Test X-Wing (Column) FAILED")
+		return false
+	print("Test X-Wing (Column) PASSED")
+	return true
 
 func test_backtracking_solver() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
@@ -213,19 +213,19 @@ func test_backtracking_solver() -> bool:
 	var puzzle_str = "000000000000000000000000000000000000000000000000000000000000000000000001"
 	sudoku.load_puzzle_from_string(puzzle_str)
 	var solutions = sudoku.solve_with_backtracking(1)
-    var passed = true
-    if solutions.size() != 1:
-        print("Backtracking solver failed to find a solution.")
-        passed = false
-    else:
-        var solved_grid = solutions[0]
-        var temp_sudoku = Sudoku.new()
-        temp_sudoku.load_puzzle_from_dictionary({"grid": solved_grid, "difficulty": "solved"})
-        if not temp_sudoku.sbrc_grid.is_complete():
-            print("Solver returned an incomplete grid.")
-            passed = false
-    if passed:
-        print("Test Backtracking Solver PASSED")
-    else:
-        print("Test Backtracking Solver FAILED")
-    return passed
+	var passed = true
+	if solutions.size() != 1:
+		print("Backtracking solver failed to find a solution.")
+		passed = false
+	else:
+		var solved_grid = solutions[0]
+		var temp_sudoku = Sudoku.new()
+		temp_sudoku.load_puzzle_from_dictionary({"grid": solved_grid, "difficulty": "solved"})
+		if not temp_sudoku.sbrc_grid.is_complete():
+			print("Solver returned an incomplete grid.")
+			passed = false
+	if passed:
+		print("Test Backtracking Solver PASSED")
+	else:
+		print("Test Backtracking Solver FAILED")
+	return passed
