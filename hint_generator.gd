@@ -502,6 +502,103 @@ func get_hints() -> Array[Hint]:
 						hints.append(hint)
 
 	# --- Box-Line Reduction (Claiming) ---
+	# --- Simple Coloring / Proto AIC ---
+	for digit in range(1, 10):
+		# Build strong-link graph per digit
+		var nodes: Array = [] # each: {pos: Vector2i, links: Array[int], color: int}
+		var pos_to_idx = {}
+		# Collect positions where candidate present
+		for r in range(9):
+			for c in range(9):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
+					var idx = nodes.size()
+					nodes.append({"pos": Vector2i(r,c), "links": [], "color": -1})
+					pos_to_idx[Vector2i(r,c)] = idx
+		# Add edges for bilocal strong links in row/col/box
+		# Rows
+		for r in range(9):
+			var cols := []
+			for c in range(9): if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1): cols.append(c)
+			if cols.size() == 2:
+				var a = pos_to_idx[Vector2i(r, cols[0])]
+				var b = pos_to_idx[Vector2i(r, cols[1])]
+				nodes[a].links.append(b)
+				nodes[b].links.append(a)
+		# Cols
+		for c in range(9):
+			var rows := []
+			for r in range(9): if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1): rows.append(r)
+			if rows.size() == 2:
+				var a = pos_to_idx[Vector2i(rows[0], c)]
+				var b = pos_to_idx[Vector2i(rows[1], c)]
+				nodes[a].links.append(b)
+				nodes[b].links.append(a)
+		# Boxes
+		for box_idx in range(9):
+			var idxs := []
+			for i in range(9):
+				var p = Cardinals.box_to_rc(box_idx, i)
+				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x, p.y).get_bit(digit - 1): idxs.append(p)
+			if idxs.size() == 2:
+				var a = pos_to_idx[idxs[0]]
+				var b2 = pos_to_idx[idxs[1]]
+				nodes[a].links.append(b2)
+				nodes[b2].links.append(a)
+
+		# BFS coloring on each connected component
+		var visited = BitSet.new(nodes.size())
+		for start in range(nodes.size()):
+			if visited.get_bit(start): continue
+			# start new component
+			nodes[start].color = 0
+			visited.set_bit(start)
+			var queue := [[start, 0]]
+			var chain := {}
+			chain[start] = 0
+			var head = 0
+			while head < queue.size():
+				var u = queue[head]
+				head += 1
+				var u_idx = u[0]
+				var u_col = u[1]
+				for v_idx in nodes[u_idx].links:
+					if not visited.get_bit(v_idx):
+						visited.set_bit(v_idx)
+						nodes[v_idx].color = 1 - u_col
+						queue.append([v_idx, 1 - u_col])
+						chain[v_idx] = 1 - u_col
+			# Evaluate rules for this component
+			# Rule 2: contradiction of same color in peer cells
+			var color_to_cells = [[], []]
+			for k in chain:
+				var pos = nodes[k].pos if nodes.has(k) else nodes[k]["pos"]
+				var col = chain[k]
+				color_to_cells[col].append(pos)
+			# Check contradictions
+			for col_id in [0,1]:
+				for i in range(color_to_cells[col_id].size()):
+					for j in range(i+1, color_to_cells[col_id].size()):
+						if _are_peers(color_to_cells[col_id][i], color_to_cells[col_id][j]):
+							var h = _create_coloring_hint(digit, chain, col_id, color_to_cells[col_id][i], color_to_cells[col_id][j])
+							hints.append(h)
+							break
+					if hints.size() > 0 and hints.back().technique == Hint.HintTechnique.SIMPLE_COLORING: # one per comp
+						break
+			# Rule 1: any outsider seeing both colors
+			for r in range(9):
+				for c in range(9):
+					if sudoku.grid[r][c] != 0 or not _get_candidates(r,c).get_bit(digit-1): continue
+					var pos = Vector2i(r,c)
+					var seen = BitSet.new(2)
+					for k in chain:
+						var node_pos = nodes[k].pos if nodes.has(k) else nodes[k]["pos"]
+						if _are_peers(pos, node_pos):
+							seen.set_bit(chain[k])
+					if seen.cardinality() == 2:
+						var h2 = _create_coloring_hint(digit, chain, -1, pos)
+						h2.elim_cells.append(pos)
+						h2.elim_numbers.append(digit)
+						hints.append(h2)
 	for num in range(1, 10):
 		# Row-based reduction
 		for r in range(9):
