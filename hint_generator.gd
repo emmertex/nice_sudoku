@@ -470,6 +470,11 @@ func get_hints() -> Array[Hint]:
 						desc += "This forms a Pointing group. Because one of these cells must be {num}, we can be sure that no other cell in row {row} can be {num}.\n\n".format({"num": num, "row": first_row + 1})
 						desc += "Therefore, we can eliminate {num} as a candidate from cells: {cells}.".format({"num": num, "cells": _format_cell_list(hint.elim_cells)})
 						hint.description = desc
+						# Steps for Pointing (row)
+						var s1p = "In box %d, all %d candidates lie in row %d." % [b + 1, num, first_row + 1]
+						hint.add_step(s1p, box_cells_with_cand.duplicate())
+						var s2p = "Therefore, in row %d outside this box, %d cannot appear." % [first_row + 1, num]
+						hint.add_step(s2p, [], [], [], hint.elim_cells.duplicate(), [num])
 						hints.append(hint)
 
 				# Check if all candidates for 'num' in this box fall on the same column
@@ -499,9 +504,17 @@ func get_hints() -> Array[Hint]:
 						desc += "This forms a Pointing group. Because one of these cells must be {num}, we can be sure that no other cell in column {col} can be {num}.\n\n".format({"num": num, "col": first_col + 1})
 						desc += "Therefore, we can eliminate {num} as a candidate from cells: {cells}.".format({"num": num, "cells": _format_cell_list(hint.elim_cells)})
 						hint.description = desc
+						# Steps for Pointing (column)
+						var s1pc = "In box %d, all %d candidates lie in column %d." % [b + 1, num, first_col + 1]
+						hint.add_step(s1pc, box_cells_with_cand.duplicate())
+						var s2pc = "Therefore, in column %d outside this box, %d cannot appear." % [first_col + 1, num]
+						hint.add_step(s2pc, [], [], [], hint.elim_cells.duplicate(), [num])
 						hints.append(hint)
 
 	# --- Box-Line Reduction (Claiming) ---
+	# --- XY-Chain and W-Wing ---
+	_find_xy_chains_and_wwings(hints)
+
 	# --- Simple Coloring / Proto AIC ---
 	for digit in range(1, 10):
 		# Build strong-link graph per digit
@@ -635,6 +648,11 @@ func get_hints() -> Array[Hint]:
 						desc += "This is a Box/Line Reduction. Since %d must be in this row, and all possibilities for it are in this box, the %d for this box must be in this row.\n\n" % [num, num]
 						desc += "Therefore, we can eliminate %d as a candidate from other cells in this box: %s." % [num, _format_cell_list(hint.elim_cells)]
 						hint.description = desc
+						# Steps for Box/Line (row)
+						var s1blr = "In row %d, all %d candidates are within box %d." % [r + 1, num, first_box + 1]
+						hint.add_step(s1blr, row_cells_with_cand.duplicate())
+						var s2blr = "Therefore, remove %d from other cells in that box outside row %d." % [num, r + 1]
+						hint.add_step(s2blr, [], [], [], hint.elim_cells.duplicate(), [num])
 						hints.append(hint)
 
 		# Column-based reduction
@@ -672,6 +690,11 @@ func get_hints() -> Array[Hint]:
 						desc += "This is a Box/Line Reduction. Since %d must be in this column, and all possibilities for it are in this box, the %d for this box must be in this column.\n\n" % [num, num]
 						desc += "Therefore, we can eliminate %d as a candidate from other cells in this box: %s." % [num, _format_cell_list(hint.elim_cells)]
 						hint.description = desc
+						# Steps for Box/Line (column)
+						var s1blc = "In column %d, all %d candidates are within box %d." % [c + 1, num, first_box + 1]
+						hint.add_step(s1blc, col_cells_with_cand.duplicate())
+						var s2blc = "Therefore, remove %d from other cells in that box outside column %d." % [num, c + 1]
+						hint.add_step(s2blc, [], [], [], hint.elim_cells.duplicate(), [num])
 						hints.append(hint)
 
 	# --- Coloring ---
@@ -815,6 +838,142 @@ func _create_coloring_hint(digit: int, chain: Dictionary, contra_color: int, cau
 
 	hint.description = desc
 	return hint
+
+func _find_xy_chains_and_wwings(hints: Array[Hint]):
+	# Collect bivalue cells
+	var nodes: Array = [] # {pos: Vector2i, pair: PackedInt32Array [a,b]}
+	var pos_to_idx = {}
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var cand = _get_candidates(r,c)
+			if cand.cardinality() == 2:
+				var d1 = cand.next_set_bit(0)
+				var d2 = cand.next_set_bit(d1 + 1)
+				var idx = nodes.size()
+				nodes.append({"pos": Vector2i(r,c), "pair": PackedInt32Array([d1, d2])})
+				pos_to_idx[Vector2i(r,c)] = idx
+	if nodes.size() < 2:
+		return
+
+	# Build edges labeled by digit using bilocal condition within each unit
+	var adj: Array = []
+	for _i in range(nodes.size()): adj.append([])
+
+	for d in range(9):
+		# Rows
+		for rr in range(9):
+			var positions: Array = []
+			for cc in range(9):
+				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d): positions.append(Vector2i(rr,cc))
+			if positions.size() == 2 and pos_to_idx.has(positions[0]) and pos_to_idx.has(positions[1]):
+				var a = pos_to_idx[positions[0]]
+				var b = pos_to_idx[positions[1]]
+				adj[a].append({"to": b, "digit": d})
+				adj[b].append({"to": a, "digit": d})
+		# Cols
+		for cc in range(9):
+			var positions2: Array = []
+			for rr in range(9):
+				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d): positions2.append(Vector2i(rr,cc))
+			if positions2.size() == 2 and pos_to_idx.has(positions2[0]) and pos_to_idx.has(positions2[1]):
+				var a2 = pos_to_idx[positions2[0]]
+				var b2 = pos_to_idx[positions2[1]]
+				adj[a2].append({"to": b2, "digit": d})
+				adj[b2].append({"to": a2, "digit": d})
+		# Boxes
+		for box_idx in range(9):
+			var positions3: Array = []
+			for i in range(9):
+				var p = Cardinals.box_to_rc(box_idx, i)
+				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x,p.y).get_bit(d): positions3.append(p)
+			if positions3.size() == 2 and pos_to_idx.has(positions3[0]) and pos_to_idx.has(positions3[1]):
+				var a3 = pos_to_idx[positions3[0]]
+				var b3 = pos_to_idx[positions3[1]]
+				adj[a3].append({"to": b3, "digit": d})
+				adj[b3].append({"to": a3, "digit": d})
+
+	# DFS search
+	var emitted = {}
+	for start_idx in range(nodes.size()):
+		var pair: PackedInt32Array = nodes[start_idx].pair
+		for s_digit in [pair[0], pair[1]]:
+			var visited: Dictionary = {}
+			var path: Array = [start_idx]
+			_xychain_dfs(nodes, adj, start_idx, s_digit, start_idx, s_digit, visited, path, hints, emitted)
+
+func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: int, start_idx: int, start_digit: int, visited: Dictionary, path: Array, hints: Array[Hint], emitted: Dictionary):
+	var visit_key = str(curr_idx) + ":" + str(curr_active_digit)
+	if visited.has(visit_key):
+		return
+	visited[visit_key] = true
+
+	for edge in adj[curr_idx]:
+		if edge.digit != curr_active_digit:
+			continue
+		var next_idx = edge.to
+		var pair: PackedInt32Array = nodes[next_idx].pair
+		if pair.find(curr_active_digit) == -1:
+			continue
+		var next_active = pair[0] if pair[1] == curr_active_digit else pair[1]
+		var new_path = path.duplicate()
+		new_path.append(next_idx)
+
+		if next_active == start_digit and new_path.size() >= 2:
+			var a = nodes[start_idx].pos
+			var b = nodes[next_idx].pos
+			var elim_cells: Array[Vector2i] = []
+			for r in range(9):
+				for c in range(9):
+					if sudoku.grid[r][c] != 0: continue
+					if not _get_candidates(r,c).get_bit(start_digit): continue
+					var v = Vector2i(r,c)
+					if _are_peers(v, a) and _are_peers(v, b) and v != a and v != b:
+						elim_cells.append(v)
+			if elim_cells.size() > 0:
+				var key = str(start_idx) + ":" + str(next_idx) + ":" + str(start_digit)
+				if not emitted.has(key):
+					var start_pair: PackedInt32Array = nodes[start_idx].pair
+					var end_pair: PackedInt32Array = nodes[next_idx].pair
+					var is_two_node = new_path.size() == 2
+					var same_pair = (start_pair[0] == end_pair[0] and start_pair[1] == end_pair[1]) or (start_pair[0] == end_pair[1] and start_pair[1] == end_pair[0])
+					var technique = Hint.HintTechnique.W_WING if is_two_node and same_pair else Hint.HintTechnique.XY_CHAIN
+					var hint = Hint.new(technique, "")
+					for idx in new_path:
+						hint.cells.append(nodes[idx].pos)
+					var elim_digit_display = start_digit + 1
+					if technique == Hint.HintTechnique.W_WING:
+						var pair0 = nodes[start_idx].pair
+						var other_digit = pair0[0] if pair0[1] == curr_active_digit else pair0[1]
+						elim_digit_display = other_digit + 1
+					for v in elim_cells:
+						hint.elim_cells.append(v)
+					hint.elim_numbers.append(elim_digit_display)
+					if technique == Hint.HintTechnique.XY_CHAIN:
+						var chain_text = []
+						for i in range(new_path.size()):
+							chain_text.append(_format_cell_list([nodes[new_path[i]].pos]) + " {" + str(nodes[new_path[i]].pair[0]+1) + "/" + str(nodes[new_path[i]].pair[1]+1) + "}")
+						var s1 = "XY-Chain on digit %d: %s" % [start_digit + 1, " -> ".join(chain_text)]
+						hint.add_step(s1, hint.cells.duplicate())
+						var s2 = "Endpoints both force %d. Any cell seeing both endpoints cannot be %d." % [start_digit + 1, start_digit + 1]
+						hint.add_step(s2, [nodes[start_idx].pos, nodes[next_idx].pos])
+						var s3 = "Eliminate %d from: %s" % [start_digit + 1, _format_cell_list(hint.elim_cells)]
+						hint.add_step(s3, [], [], [], hint.elim_cells.duplicate(), [start_digit + 1])
+						hint.description = s1 + "\n\n" + s2 + "\n\n" + s3
+					else:
+						var pair_disp = "{" + str(nodes[start_idx].pair[0]+1) + "/" + str(nodes[start_idx].pair[1]+1) + "}"
+						var s1w = "W-Wing: two bivalue cells %s at %s and %s, linked on one candidate forming a conjugate pair." % [pair_disp, _format_cell_list([nodes[start_idx].pos]), _format_cell_list([nodes[next_idx].pos])]
+						hint.add_step(s1w, [nodes[start_idx].pos, nodes[next_idx].pos])
+						var s2w = "Thus the other candidate (%d) is synchronized; any cell seeing both endpoints cannot be %d." % [elim_digit_display, elim_digit_display]
+						hint.add_step(s2w, [nodes[start_idx].pos, nodes[next_idx].pos])
+						var s3w = "Eliminate %d from: %s" % [elim_digit_display, _format_cell_list(hint.elim_cells)]
+						hint.add_step(s3w, [], [], [], hint.elim_cells.duplicate(), [elim_digit_display])
+						hint.description = s1w + "\n\n" + s2w + "\n\n" + s3w
+					hints.append(hint)
+					emitted[key] = true
+
+		_xychain_dfs(nodes, adj, next_idx, next_active, start_idx, start_digit, visited, new_path, hints, emitted)
 
 func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: String, group_size: int):
 	var unit_cells: Array[Vector2i] = []

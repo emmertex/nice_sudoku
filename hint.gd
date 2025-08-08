@@ -68,7 +68,7 @@ func _get_technique_title_from_enum(p_technique: HintTechnique) -> String:
 		
 	return title_str 
 
-func add_step(text: String, step_cells: Array[Vector2i] = [], secondary: Array[Vector2i] = [], cause: Array[Vector2i] = [], elim: Array[Vector2i] = [], elim_nums: Array[int] = []):
+func add_step(text: String, step_cells: Array = [], secondary: Array = [], cause: Array = [], elim: Array = [], elim_nums: Array[int] = []):
 	var step = {
 		"text": text,
 		"cells": step_cells.duplicate(true),
@@ -98,27 +98,27 @@ func get_active_description() -> String:
 		return steps[_active_step_index].text
 	return description
 
-func get_active_cells() -> Array[Vector2i]:
+func get_active_cells() -> Array:
 	if has_steps() and _active_step_index >= 0:
 		return steps[_active_step_index].cells
 	return cells
 
-func get_active_secondary_cells() -> Array[Vector2i]:
+func get_active_secondary_cells() -> Array:
 	if has_steps() and _active_step_index >= 0:
 		return steps[_active_step_index].secondary_cells
 	return secondary_cells
 
-func get_active_cause_cells() -> Array[Vector2i]:
+func get_active_cause_cells() -> Array:
 	if has_steps() and _active_step_index >= 0:
 		return steps[_active_step_index].cause_cells
 	return cause_cells
 
-func get_active_elim_cells() -> Array[Vector2i]:
+func get_active_elim_cells() -> Array:
 	if has_steps() and _active_step_index >= 0:
 		return steps[_active_step_index].elim_cells
 	return elim_cells
 
-func get_active_elim_numbers() -> Array[int]:
+func get_active_elim_numbers() -> Array:
 	if has_steps() and _active_step_index >= 0:
 		return steps[_active_step_index].elim_numbers
 	return elim_numbers
