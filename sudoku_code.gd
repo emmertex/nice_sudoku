@@ -380,10 +380,10 @@ func find_hidden_singles() -> Array:
 	for r in range(9):
 		var row_cands = []
 		for c in range(9):
-            var cands = sbrc_grid.get_candidates_for_cell(r, c).clone()
+			var cands = sbrc_grid.get_candidates_for_cell(r, c).clone()
 			var bits_to_exclude = exclude_bits[r][c]
 			if bits_to_exclude > 0:
-                cands.data[0] &= ~bits_to_exclude
+				cands.data[0] &= ~bits_to_exclude
 			row_cands.append(cands)
 		temp_candidates.append(row_cands)
 
@@ -728,8 +728,8 @@ func apply_hint(hint: Hint) -> bool:
 			for r in range(9):
 				for c in range(9):
 					var bits_to_exclude = exclude_bits[r][c]
-                    if bits_to_exclude > 0:
+					if bits_to_exclude > 0:
 						sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
-            return true
+			return true
 			
 	return false

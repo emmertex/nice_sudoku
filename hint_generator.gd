@@ -116,8 +116,8 @@ func get_hints() -> Array[Hint]:
 				for j in range(i + 1, rows.size()):
 					var r1 = rows[i]
 					var r2 = rows[j]
-					
-					if row_candidates[r1].data == row_candidates[r2].data:
+					# Compare bit patterns directly (BitSet stores only one int for size 9)
+					if row_candidates[r1].data[0] == row_candidates[r2].data[0]:
 						# X-Wing found
 						var cols = []
 						var cands = row_candidates[r1]
@@ -162,8 +162,8 @@ func get_hints() -> Array[Hint]:
 				for j in range(i + 1, cols.size()):
 					var c1 = cols[i]
 					var c2 = cols[j]
-					
-					if col_candidates[c1].data == col_candidates[c2].data:
+					# Compare bit patterns directly
+					if col_candidates[c1].data[0] == col_candidates[c2].data[0]:
 						# X-Wing found
 						var rows = []
 						var cands = col_candidates[c1]
