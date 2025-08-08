@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # A simple test runner for Godot
 
 TEST_SCRIPT="res://tests/test_solvers.gd"

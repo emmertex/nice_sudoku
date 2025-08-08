@@ -7,3 +7,4 @@
 *.uid
 /sudoku-java/
 .gitattributes
+/StormDoku/
