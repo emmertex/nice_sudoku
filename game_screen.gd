@@ -31,7 +31,7 @@ enum Mode { NUMBER, NUMBER_CLR, PENCIL, PENCIL_EXCLUDE }
 
 # Variables
 var sudoku: Sudoku
-var hint_generator: SudokuHintGenerator
+var hint_generator
 var selected_cell: Vector2 = Vector2(-1, -1)
 var selected_num = 0
 var highlight_mode: HighlightMode = HighlightMode.ALLC
@@ -70,7 +70,7 @@ func _ready():
 
 func _initialize():
 	sudoku = Sudoku.new()
-	hint_generator = SudokuHintGenerator.new()
+	hint_generator = load("res://hint_generator.gd").new()
 	hint_generator.sudoku = sudoku
 	$ColorRect.color = CLR_BACKGROUND
 	
@@ -470,6 +470,8 @@ func _on_HintButton_pressed():
 	# Connect signals BEFORE they can be emitted
 	hint_panel.connect("hint_selected", self._on_hint_selected)
 	hint_panel.connect("hint_dismissed", self._on_hint_dismissed)
+	hint_panel.connect("next_step_requested", self._on_hint_step_changed)
+	hint_panel.connect("prev_step_requested", self._on_hint_step_changed)
 	
 	hint_panel.set_hints(hints)
 	
@@ -477,6 +479,11 @@ func _on_HintButton_pressed():
 	hint_panel.setup_ui(hint_font_size)
 
 func _on_hint_selected(hint: Hint):
+	current_hint = hint
+	_update_grid_highlights()
+	_update_pencil()
+
+func _on_hint_step_changed(hint: Hint):
 	current_hint = hint
 	_update_grid_highlights()
 	_update_pencil()
@@ -495,22 +502,43 @@ func _on_hint_dismissed():
 	_update_timer.start() # Resume automatic updates
 
 func highlight_hint(hint: Hint):
+	# Resolve active step-aware data
+	var prim_cells = hint.get_active_cells()
+	var sec_cells = hint.get_active_secondary_cells()
+	var cause_cells = hint.get_active_cause_cells()
+	var elim_cells = hint.get_active_elim_cells()
+	var elim_numbers = hint.get_active_elim_numbers()
+
 	# Highlight primary cells
-	for cell in hint.cells:
+	for cell in prim_cells:
 		var button = grid_container.get_child(cell.x * 9 + cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
 		style.set_bg_color(CLR_HINT_SECONDARY)
 		button.add_theme_stylebox_override("normal", style)
 	
+	# Highlight secondary cells
+	for cell in sec_cells:
+		var s_button = grid_container.get_child(cell.x * 9 + cell.y)
+		var s_style = s_button.get_theme_stylebox("normal").duplicate()
+		s_style.set_bg_color(CLR_HINT_PRIMARY)
+		s_button.add_theme_stylebox_override("normal", s_style)
+
+	# Highlight cause cells
+	for cell in cause_cells:
+		var c_button = grid_container.get_child(cell.x * 9 + cell.y)
+		var c_style = c_button.get_theme_stylebox("normal").duplicate()
+		c_style.set_bg_color(CLR_HINT_CAUSE)
+		c_button.add_theme_stylebox_override("normal", c_style)
+
 	# Highlight elimination cells and their specific pencil marks
-	for cell in hint.elim_cells:
+	for cell in elim_cells:
 		var button = grid_container.get_child(cell.x * 9 + cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
 		style.set_bg_color(CLR_HINT_AFFECTED)
 		button.add_theme_stylebox_override("normal", style)
 		
 		var pencil_container = button.get_child(0)
-		for num in hint.elim_numbers:
+		for num in elim_numbers:
 			# Check if this pencil mark actually exists before highlighting
 			if sudoku.has_pencil_mark(cell.x, cell.y, num):
 				var pencil_label = pencil_container.get_child(num - 1)

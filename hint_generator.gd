@@ -36,6 +36,15 @@ func get_hints() -> Array[Hint]:
 					for peer in peers:
 						if sudoku.grid[peer.x][peer.y] != 0:
 							hint.cause_cells.append(peer)
+
+					# Build steps for teaching
+					var coord = "(%d,%d)" % [row+1, col+1]
+					var step1 = "Check cell %s: current candidates are {%s}." % [coord, ", ".join(possible_numbers.map(func(n): return str(n)))]
+					hint.add_step(step1, [Vector2i(row, col)], peers, [], [], [])
+					var step2 = "In its row/column/box, all numbers except %d already appear, leaving only %d." % [num, num]
+					hint.add_step(step2, [Vector2i(row, col)], [], hint.cause_cells)
+					var step3 = "Therefore set %d at %s." % [num, coord]
+					hint.add_step(step3, [Vector2i(row, col)])
 					
 					hints.append(hint)
 
@@ -145,6 +154,13 @@ func get_hints() -> Array[Hint]:
 							desc += "This forms an X-Wing. Since the %d in these rows must be in one of those two columns, we can eliminate %d as a candidate from all other cells in columns %d and %d.\n\n" % [digit, digit, cols[0]+1, cols[1]+1]
 							desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
 							hint.description = desc
+							# Steps for X-Wing (row-based)
+							var s1 = "Scan digit %d: rows %d and %d each have exactly two candidates in the same columns." % [digit, r1+1, r2+1]
+							hint.add_step(s1, [Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
+							var s2 = "These form the corners of an X-Wing. Thus, in columns %d and %d, %d cannot occur in any other row." % [cols[0]+1, cols[1]+1, digit]
+							hint.add_step(s2, [], [], [], hint.elim_cells, [digit])
+							var s3 = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+							hint.add_step(s3, [], [], [], hint.elim_cells, [digit])
 							hints.append(hint)
 		# Column-based X-Wing
 		var col_candidates = {}
@@ -191,6 +207,13 @@ func get_hints() -> Array[Hint]:
 							desc += "This forms an X-Wing. Since the %d in these columns must be in one of those two rows, we can eliminate %d as a candidate from all other cells in rows %d and %d.\n\n" % [digit, digit, rows[0]+1, rows[1]+1]
 							desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
 							hint.description = desc
+							# Steps for X-Wing (column-based)
+							var s1c = "Scan digit %d: columns %d and %d each have exactly two candidates in the same rows." % [digit, c1+1, c2+1]
+							hint.add_step(s1c, [Vector2i(rows[0], c1), Vector2i(rows[1], c1), Vector2i(rows[0], c2), Vector2i(rows[1], c2)])
+							var s2c = "These form the corners of an X-Wing. Thus, in rows %d and %d, %d cannot occur in any other column." % [rows[0]+1, rows[1]+1, digit]
+							hint.add_step(s2c, [], [], [], hint.elim_cells, [digit])
+							var s3c = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+							hint.add_step(s3c, [], [], [], hint.elim_cells, [digit])
 							hints.append(hint)
 
 	# --- Swordfish ---

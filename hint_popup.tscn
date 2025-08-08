@@ -59,7 +59,15 @@ size_flags_vertical = 4
 theme_override_constants/separation = 20
 alignment = 1
 
+[node name="PrevButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Prev Step"
+
 [node name="NextButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Next Step"
+
+[node name="NextHintButton" type="Button" parent="VBoxContainer/HBoxContainer"]
 layout_mode = 2
 text = "Next Hint"
 
