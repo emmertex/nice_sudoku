@@ -83,9 +83,9 @@ func load_puzzle(_puzzle_file: String, puzzle_index: int) -> bool:
 	return false
 
 func load_puzzle_from_dictionary(_puzzle_data: Dictionary, puzzle_index: int = 0) -> bool:
-    if _puzzle_data == null or not _puzzle_data.has("grid"):
-        print("Invalid puzzle data")
-        return false
+	if _puzzle_data == null or not _puzzle_data.has("grid"):
+		print("Invalid puzzle data")
+		return false
 	_init()
 	grid = _puzzle_data["grid"]
 	original_grid = grid.duplicate(true)
@@ -715,7 +715,7 @@ func apply_hint(hint: Hint) -> bool:
 			return true
 
 	# Elimination hints
-    if not hint.elim_cells.is_empty() and not hint.elim_numbers.is_empty():
+	if not hint.elim_cells.is_empty() and not hint.elim_numbers.is_empty():
 		var changed = false
 		for cell in hint.elim_cells:
 			for num in hint.elim_numbers:
@@ -723,13 +723,13 @@ func apply_hint(hint: Hint) -> bool:
 					set_exclude_mark(cell.x, cell.y, num, true)
 					changed = true
 		if changed:
-            sbrc_grid.update_grid(grid) # Re-evaluate candidates
-            # After updating, also apply current exclude_bits to candidate masks
-            for r in range(9):
-                for c in range(9):
-                    var bits_to_exclude = exclude_bits[r][c]
+			sbrc_grid.update_grid(grid) # Re-evaluate candidates
+			# After updating, also apply current exclude_bits to candidate masks
+			for r in range(9):
+				for c in range(9):
+					var bits_to_exclude = exclude_bits[r][c]
                     if bits_to_exclude > 0:
-                        sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
+						sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
             return true
 			
 	return false
