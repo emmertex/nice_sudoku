@@ -713,12 +713,14 @@ func _find_xy_chains_and_wwings(hints: Array[Hint]):
 	for _i in range(nodes.size()): adj.append([])
 
 	for d in range(9):
-		# Rows
+		# Rows: connect all bivalue cells in the row sharing digit d
 		for rr in range(9):
 			var positions: Array = []
 			for cc in range(9):
-				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d): positions.append(Vector2i(rr,cc))
-			if positions.size() == 2 and pos_to_idx.has(positions[0]) and pos_to_idx.has(positions[1]):
+				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
+					var pos = Vector2i(rr,cc)
+					if pos_to_idx.has(pos): positions.append(pos)
+			if positions.size() == 2:
 				var a = pos_to_idx[positions[0]]
 				var b = pos_to_idx[positions[1]]
 				adj[a].append({"to": b, "digit": d})
@@ -727,8 +729,10 @@ func _find_xy_chains_and_wwings(hints: Array[Hint]):
 		for cc in range(9):
 			var positions2: Array = []
 			for rr in range(9):
-				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d): positions2.append(Vector2i(rr,cc))
-			if positions2.size() == 2 and pos_to_idx.has(positions2[0]) and pos_to_idx.has(positions2[1]):
+				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
+					var pos2 = Vector2i(rr,cc)
+					if pos_to_idx.has(pos2): positions2.append(pos2)
+			if positions2.size() == 2:
 				var a2 = pos_to_idx[positions2[0]]
 				var b2 = pos_to_idx[positions2[1]]
 				adj[a2].append({"to": b2, "digit": d})
@@ -738,8 +742,9 @@ func _find_xy_chains_and_wwings(hints: Array[Hint]):
 			var positions3: Array = []
 			for i in range(9):
 				var p = Cardinals.box_to_rc(box_idx, i)
-				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x,p.y).get_bit(d): positions3.append(p)
-			if positions3.size() == 2 and pos_to_idx.has(positions3[0]) and pos_to_idx.has(positions3[1]):
+				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x,p.y).get_bit(d):
+					if pos_to_idx.has(p): positions3.append(p)
+			if positions3.size() == 2:
 				var a3 = pos_to_idx[positions3[0]]
 				var b3 = pos_to_idx[positions3[1]]
 				adj[a3].append({"to": b3, "digit": d})
@@ -761,68 +766,75 @@ func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: in
 	visited[visit_key] = true
 
 	for edge in adj[curr_idx]:
-		if edge.digit != curr_active_digit:
+		# On the very first hop (path.size()==1), allow using either digit from the start cell.
+		# Otherwise, the edge must match the current active digit.
+		if not (edge.digit == curr_active_digit or (path.size() == 1 and (edge.digit == nodes[start_idx].pair[0] or edge.digit == nodes[start_idx].pair[1]))):
 			continue
 		var next_idx = edge.to
 		var pair: PackedInt32Array = nodes[next_idx].pair
-		if pair.find(curr_active_digit) == -1:
+		var used_digit = edge.digit
+		if pair.find(used_digit) == -1:
 			continue
-		var next_active = pair[0] if pair[1] == curr_active_digit else pair[1]
+		var next_active = pair[0] if pair[1] == used_digit else pair[1]
 		var new_path = path.duplicate()
 		new_path.append(next_idx)
 
-		if next_active == start_digit and new_path.size() >= 2:
+		if next_active == start_digit and new_path.size() >= 3:
 			var a = nodes[start_idx].pos
 			var b = nodes[next_idx].pos
-			var elim_cells: Array[Vector2i] = []
-			for r in range(9):
-				for c in range(9):
-					if sudoku.grid[r][c] != 0: continue
-					if not _get_candidates(r,c).get_bit(start_digit): continue
-					var v = Vector2i(r,c)
-					if _are_peers(v, a) and _are_peers(v, b) and v != a and v != b:
-						elim_cells.append(v)
-			if elim_cells.size() > 0:
-				var key = str(start_idx) + ":" + str(next_idx) + ":" + str(start_digit)
-				if not emitted.has(key):
-					var start_pair: PackedInt32Array = nodes[start_idx].pair
-					var end_pair: PackedInt32Array = nodes[next_idx].pair
-					var is_two_node = new_path.size() == 2
-					var same_pair = (start_pair[0] == end_pair[0] and start_pair[1] == end_pair[1]) or (start_pair[0] == end_pair[1] and start_pair[1] == end_pair[0])
-					var technique = Hint.HintTechnique.W_WING if is_two_node and same_pair else Hint.HintTechnique.XY_CHAIN
+			var key = str(start_idx) + ":" + str(next_idx) + ":" + str(start_digit)
+			if not emitted.has(key):
+				var start_pair: PackedInt32Array = nodes[start_idx].pair
+				var end_pair: PackedInt32Array = nodes[next_idx].pair
+				var is_two_node = new_path.size() == 2
+				var same_pair = (start_pair[0] == end_pair[0] and start_pair[1] == end_pair[1]) or (start_pair[0] == end_pair[1] and start_pair[1] == end_pair[0])
+				var technique = Hint.HintTechnique.W_WING if is_two_node and same_pair else Hint.HintTechnique.XY_CHAIN
+				# Determine which digit is eliminated and collect correct targets
+				var elim_digit = start_digit
+				if technique == Hint.HintTechnique.W_WING:
+					var pair0 = nodes[start_idx].pair
+					var other_digit = pair0[0] if pair0[1] == used_digit else pair0[1]
+					elim_digit = other_digit
+				var elim_cells: Array[Vector2i] = []
+				for r in range(9):
+					for c in range(9):
+						if sudoku.grid[r][c] != 0: continue
+						if not _get_candidates(r,c).get_bit(elim_digit): continue
+						var v = Vector2i(r,c)
+						if _are_peers(v, a) and _are_peers(v, b) and v != a and v != b:
+							elim_cells.append(v)
+				if elim_cells.size() > 0:
 					var hint = Hint.new(technique, "")
 					for idx in new_path:
 						hint.cells.append(nodes[idx].pos)
-					var elim_digit_display = start_digit + 1
-					if technique == Hint.HintTechnique.W_WING:
-						var pair0 = nodes[start_idx].pair
-						var other_digit = pair0[0] if pair0[1] == curr_active_digit else pair0[1]
-						elim_digit_display = other_digit + 1
 					for v in elim_cells:
 						hint.elim_cells.append(v)
-					hint.elim_numbers.append(elim_digit_display)
+					hint.elim_numbers.append(elim_digit + 1)
 					if technique == Hint.HintTechnique.XY_CHAIN:
 						var chain_text = []
 						for i in range(new_path.size()):
 							chain_text.append(_format_cell_list([nodes[new_path[i]].pos]) + " {" + str(nodes[new_path[i]].pair[0]+1) + "/" + str(nodes[new_path[i]].pair[1]+1) + "}")
-						var s1 = "XY-Chain on digit %d: %s" % [start_digit + 1, " -> ".join(chain_text)]
+						var s1 = "XY-Chain on digit %d: %s" % [elim_digit + 1, " -> ".join(chain_text)]
 						hint.add_step(s1, hint.cells.duplicate())
-						var s2 = "Endpoints both force %d. Any cell seeing both endpoints cannot be %d." % [start_digit + 1, start_digit + 1]
+						var s2 = "Endpoints both force %d. Any cell seeing both endpoints cannot be %d." % [elim_digit + 1, elim_digit + 1]
 						hint.add_step(s2, [nodes[start_idx].pos, nodes[next_idx].pos])
-						var s3 = "Eliminate %d from: %s" % [start_digit + 1, _format_cell_list(hint.elim_cells)]
-						hint.add_step(s3, [], [], [], hint.elim_cells.duplicate(), [start_digit + 1])
+						var s3 = "Eliminate %d from: %s" % [elim_digit + 1, _format_cell_list(hint.elim_cells)]
+						hint.add_step(s3, [], [], [], hint.elim_cells.duplicate(), [elim_digit + 1])
 						hint.description = s1 + "\n\n" + s2 + "\n\n" + s3
+						hints.append(hint)
+						emitted[key] = true
 					else:
 						var pair_disp = "{" + str(nodes[start_idx].pair[0]+1) + "/" + str(nodes[start_idx].pair[1]+1) + "}"
 						var s1w = "W-Wing: two bivalue cells %s at %s and %s, linked on one candidate forming a conjugate pair." % [pair_disp, _format_cell_list([nodes[start_idx].pos]), _format_cell_list([nodes[next_idx].pos])]
 						hint.add_step(s1w, [nodes[start_idx].pos, nodes[next_idx].pos])
-						var s2w = "Thus the other candidate (%d) is synchronized; any cell seeing both endpoints cannot be %d." % [elim_digit_display, elim_digit_display]
+						var s2w = "Thus the other candidate (%d) is synchronized; any cell seeing both endpoints cannot be %d." % [elim_digit + 1, elim_digit + 1]
 						hint.add_step(s2w, [nodes[start_idx].pos, nodes[next_idx].pos])
-						var s3w = "Eliminate %d from: %s" % [elim_digit_display, _format_cell_list(hint.elim_cells)]
-						hint.add_step(s3w, [], [], [], hint.elim_cells.duplicate(), [elim_digit_display])
+						var s3w = "Eliminate %d from: %s" % [elim_digit + 1, _format_cell_list(hint.elim_cells)]
+						hint.add_step(s3w, [], [], [], hint.elim_cells.duplicate(), [elim_digit + 1])
 						hint.description = s1w + "\n\n" + s2w + "\n\n" + s3w
-					hints.append(hint)
-					emitted[key] = true
+						hints.append(hint)
+						emitted[key] = true
+		# No-op for other cases; continue exploring chain
 
 		_xychain_dfs(nodes, adj, next_idx, next_active, start_idx, start_digit, visited, new_path, hints, emitted)
 

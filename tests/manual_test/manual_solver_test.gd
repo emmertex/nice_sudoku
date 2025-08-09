@@ -140,7 +140,7 @@ func _difficulty_level(tech: int) -> int:
 			return 1
 		Hint.HintTechnique.NAKED_PAIR_ROW, Hint.HintTechnique.NAKED_PAIR_COL, Hint.HintTechnique.NAKED_PAIR_BOX, Hint.HintTechnique.POINTING_PAIR, Hint.HintTechnique.BOX_LINE_REDUCTION:
 			return 2
-		Hint.HintTechnique.NAKED_TRIPLE_ROW, Hint.HintTechnique.NAKED_TRIPLE_COL, Hint.HintTechnique.NAKED_TRIPLE_BOX, Hint.HintTechnique.NAKED_QUAD_ROW, Hint.HintTechnique.NAKED_QUAD_COL, Hint.HintTechnique.NAKED_QUAD_BOX, Hint.HintTechnique.SIMPLE_COLORING, Hint.HintTechnique.X_WING_ROW, Hint.HintTechnique.X_WING_COL:
+		Hint.HintTechnique.NAKED_TRIPLE_ROW, Hint.HintTechnique.NAKED_TRIPLE_COL, Hint.HintTechnique.NAKED_TRIPLE_BOX, Hint.HintTechnique.NAKED_QUAD_ROW, Hint.HintTechnique.NAKED_QUAD_COL, Hint.HintTechnique.NAKED_QUAD_BOX, Hint.HintTechnique.X_WING_ROW, Hint.HintTechnique.X_WING_COL:
 			return 3
 		Hint.HintTechnique.SWORDFISH_ROW, Hint.HintTechnique.SWORDFISH_COL, Hint.HintTechnique.XY_CHAIN, Hint.HintTechnique.W_WING:
 			return 4

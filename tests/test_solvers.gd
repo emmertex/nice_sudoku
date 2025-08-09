@@ -30,6 +30,7 @@ func run_all_tests() -> int:
 	if not test_naked_triple_box(): _failed += 1
 	if not test_x_wing_row(): _failed += 1
 	if not test_x_wing_column(): _failed += 1
+	if not test_xy_chain_type2(): _failed += 1
 	if not test_backtracking_solver(): _failed += 1
 	return _failed
 
@@ -207,6 +208,30 @@ func test_x_wing_column() -> bool:
 		print("Test X-Wing (Column) FAILED")
 		return false
 	print("Test X-Wing (Column) PASSED")
+	return true
+
+func test_xy_chain_type2() -> bool:
+	var Sudoku = load("res://sudoku_code.gd")
+	var SudokuHintGenerator = load("res://hint_generator.gd")
+	var Hint = load("res://hint.gd")
+	var sudoku = Sudoku.new()
+	var hint_generator = SudokuHintGenerator.new()
+	hint_generator.sudoku = sudoku
+	# Reported regression puzzle
+	var puzzle_str = "706005004300000090000000520000009430100007008000800001820090070609000000000003009"
+	sudoku.load_puzzle_from_string(puzzle_str)
+	var hints = hint_generator.get_hints()
+	var found_xy = false
+	for hint in hints:
+		if hint.technique == Hint.HintTechnique.XY_CHAIN:
+			# Expect elimination of 9 from (1,6) -> zero-based (0,5)
+			if hint.elim_numbers.has(9) and hint.elim_cells.has(Vector2i(0, 5)):
+				found_xy = true
+				break
+	if not found_xy:
+		print("Test XY-Chain Type2 Endpoint Elimination FAILED")
+		return false
+	print("Test XY-Chain Type2 Endpoint Elimination PASSED")
 	return true
 
 func test_backtracking_solver() -> bool:
