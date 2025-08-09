@@ -3,10 +3,13 @@ extends EditorScript
 
 func _run():
 	var script = load("res://tests/test_solvers.gd")
-	var tree := SceneTree.new()
-	Engine.set_main_loop(tree)
-	# Instantiate and run _init of the test SceneTree
 	var runner = script.new()
-	# runner will call quit() with exit code
-	return
+	if runner.has_method("run_all_tests"):
+		var failed: int = runner.run_all_tests()
+		if failed != 0:
+			push_error("Tests failed: %d" % failed)
+		else:
+			print("All tests passed.")
+	else:
+		push_error("run_all_tests() not found on test runner.")
 

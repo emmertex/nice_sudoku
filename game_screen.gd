@@ -451,8 +451,10 @@ func _on_HintButton_pressed():
 
 	_update_timer.stop()
 
-	# Clear previous hint and update UI immediately
+	# Clear previous hint and disabling number highlight for clarity during hints
 	current_hint = null
+	selected_num = 0
+	highlight_mode = HighlightMode.NRCB
 	_update_grid_highlights()
 	_update_pencil()
 
@@ -497,6 +499,8 @@ func _on_hint_dismissed():
 	menu_layer1.show()
 	menu_layer2.show()
 
+	# Restore previous highlight preference to ALLC after hinting session
+	highlight_mode = HighlightMode.ALLC
 	_update_grid_highlights()
 	_update_pencil()
 	_update_timer.start() # Resume automatic updates
@@ -953,7 +957,11 @@ func _on_button_c_pressed():
 		mode = Mode.NUMBER_CLR
 	selected_cell = Vector2(-1,-1)
 	selected_num = 0
+	queue_update("grid")
 	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	update_ui()
 
 func _on_button_p_pressed():
 	if mode == Mode.PENCIL:

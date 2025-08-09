@@ -85,7 +85,22 @@ func get_hints() -> Array[Hint]:
 					if sudoku.grid[peer.x][peer.y] == num:
 						if not peer in hint.cause_cells:
 							hint.cause_cells.append(peer)
-		
+
+		# Build two-step teaching flow
+		# Step 1: show all existing occurrences of this digit and how they block their rows/cols/boxes
+		var all_digit_cells: Array[Vector2i] = []
+		for rr in range(9):
+			for cc in range(9):
+				if sudoku.grid[rr][cc] == num:
+					all_digit_cells.append(Vector2i(rr, cc))
+		var s1 = "Scan digit %d across the grid. Each existing %d blocks its entire row, column, and box." % [num, num]
+		hint.add_step(s1, [], [], all_digit_cells)
+
+		# Step 2: focus on this %s and why other cells are blocked
+		var unit_label = type
+		var s2 = "In this %s, every other cell is blocked by existing %d's in intersecting rows, columns, or boxes; so only this cell works." % [unit_label, num]
+		hint.add_step(s2, [Vector2i(r, c)], hint.secondary_cells, hint.cause_cells)
+
 		hints.append(hint)
 
 	# --- Naked Groups (Pairs, Triples, Quads) ---
@@ -531,7 +546,7 @@ func get_hints() -> Array[Hint]:
 	# --- XY-Chain and W-Wing ---
 	_find_xy_chains_and_wwings(hints)
 
-	# --- Simple Coloring / Proto AIC ---
+	# --- Proto AIC ---
 	for digit in range(1, 10):
 		# Build strong-link graph per digit
 		var nodes: Array = [] # each: {pos: Vector2i, links: Array[int], color: int}
@@ -573,61 +588,6 @@ func get_hints() -> Array[Hint]:
 				var b2 = pos_to_idx[idxs[1]]
 				nodes[a].links.append(b2)
 				nodes[b2].links.append(a)
-
-		# BFS coloring on each connected component
-		var visited = BitSet.new(nodes.size())
-		for start in range(nodes.size()):
-			if visited.get_bit(start): continue
-			# start new component
-			nodes[start].color = 0
-			visited.set_bit(start)
-			var queue := [[start, 0]]
-			var chain := {}
-			chain[start] = 0
-			var head = 0
-			while head < queue.size():
-				var u = queue[head]
-				head += 1
-				var u_idx = u[0]
-				var u_col = u[1]
-				for v_idx in nodes[u_idx].links:
-					if not visited.get_bit(v_idx):
-						visited.set_bit(v_idx)
-						nodes[v_idx].color = 1 - u_col
-						queue.append([v_idx, 1 - u_col])
-						chain[v_idx] = 1 - u_col
-			# Evaluate rules for this component
-			# Rule 2: contradiction of same color in peer cells
-			var color_to_cells = [[], []]
-			for k in chain:
-				var pos = nodes[k].pos if nodes.has(k) else nodes[k]["pos"]
-				var col = chain[k]
-				color_to_cells[col].append(pos)
-			# Check contradictions
-			for col_id in [0,1]:
-				for i in range(color_to_cells[col_id].size()):
-					for j in range(i+1, color_to_cells[col_id].size()):
-						if _are_peers(color_to_cells[col_id][i], color_to_cells[col_id][j]):
-							var h = _create_coloring_hint(digit, chain, col_id, color_to_cells[col_id][i], color_to_cells[col_id][j])
-							hints.append(h)
-							break
-					if hints.size() > 0 and hints.back().technique == Hint.HintTechnique.SIMPLE_COLORING: # one per comp
-						break
-			# Rule 1: any outsider seeing both colors
-			for r in range(9):
-				for c in range(9):
-					if sudoku.grid[r][c] != 0 or not _get_candidates(r,c).get_bit(digit-1): continue
-					var pos = Vector2i(r,c)
-					var seen = BitSet.new(2)
-					for k in chain:
-						var node_pos = nodes[k].pos if nodes.has(k) else nodes[k]["pos"]
-						if _are_peers(pos, node_pos):
-							seen.set_bit(chain[k])
-					if seen.cardinality() == 2:
-						var h2 = _create_coloring_hint(digit, chain, -1, pos)
-						h2.elim_cells.append(pos)
-						h2.elim_numbers.append(digit)
-						hints.append(h2)
 	for num in range(1, 10):
 		# Row-based reduction
 		for r in range(9):
@@ -713,8 +673,6 @@ func get_hints() -> Array[Hint]:
 						hint.add_step(s2blc, [], [], [], hint.elim_cells.duplicate(), [num])
 						hints.append(hint)
 
-	# --- Coloring ---
-	_find_coloring_hints(hints)
 
 	# --- Nishio (trial contradiction) ---
 	# Expensive: only attempt if no other hints found
@@ -723,102 +681,6 @@ func get_hints() -> Array[Hint]:
 
 	return hints
 
-func _find_coloring_hints(hints: Array[Hint]):
-	for d in range(9): # digit-1
-		var digit = d + 1
-		
-		var relevant_links = []
-		for link in strong_links:
-			if link.type == StrongLink.LinkType.BILOCAL_UNIT and link.digit1 == d:
-				relevant_links.append(link)
-
-		if relevant_links.is_empty():
-			continue
-
-		var nodes = {} # cell_idx -> node
-		for link in relevant_links:
-			var n1_idx = link.node1_cells.next_set_bit()
-			var n2_idx = link.node2_cells.next_set_bit()
-			if not nodes.has(n1_idx): nodes[n1_idx] = {"links": [], "color": -1}
-			if not nodes.has(n2_idx): nodes[n2_idx] = {"links": [], "color": -1}
-			nodes[n1_idx].links.append(n2_idx)
-			nodes[n2_idx].links.append(n1_idx)
-
-		var all_node_indices = nodes.keys()
-		
-		while not all_node_indices.is_empty():
-			var chain_root = all_node_indices.pop_front()
-			if nodes[chain_root].color != -1: continue
-
-			var current_chain = {} # cell_idx -> color
-			var queue = [[chain_root, 0]] # [cell_idx, color]
-			nodes[chain_root].color = 0
-			current_chain[chain_root] = 0
-			
-			var head = 0
-			while head < queue.size():
-				var item = queue[head]
-				head += 1
-				var u_idx = item[0]
-				var u_color = item[1]
-				
-				for v_idx in nodes[u_idx].links:
-					if nodes[v_idx].color == -1:
-						var v_color = 1 - u_color
-						nodes[v_idx].color = v_color
-						current_chain[v_idx] = v_color
-						queue.append([v_idx, v_color])
-
-			# Rule 2: Same color sees each other
-			var color0_cells = []
-			var color1_cells = []
-			for cell_idx in current_chain:
-				if current_chain[cell_idx] == 0: color0_cells.append(Cardinals.rc_to_vec(cell_idx))
-				else: color1_cells.append(Cardinals.rc_to_vec(cell_idx))
-			
-			var contradiction_found = false
-			for i in range(color0_cells.size()):
-				for j in range(i + 1, color0_cells.size()):
-					if _are_peers(color0_cells[i], color0_cells[j]):
-						# Contradiction: eliminate all of color 0
-						var hint = _create_coloring_hint(digit, current_chain, 0, color0_cells[i], color0_cells[j])
-						hints.append(hint)
-						contradiction_found = true
-						break
-				if contradiction_found: break
-			if contradiction_found: continue
-
-			for i in range(color1_cells.size()):
-				for j in range(i + 1, color1_cells.size()):
-					if _are_peers(color1_cells[i], color1_cells[j]):
-						# Contradiction: eliminate all of color 1
-						var hint = _create_coloring_hint(digit, current_chain, 1, color1_cells[i], color1_cells[j])
-						hints.append(hint)
-						contradiction_found = true
-						break
-				if contradiction_found: break
-			if contradiction_found: continue
-			
-			# Rule 1: A candidate sees two different colors
-			for r in range(9):
-				for c in range(9):
-					var cell_vec = Vector2i(r,c)
-					var cell_idx = Cardinals.vec_to_rc(cell_vec)
-					if sudoku.grid[r][c] != 0 or not _get_candidates(r, c).get_bit(d) or current_chain.has(cell_idx):
-						continue
-					
-					var colors_seen = BitSet.new(2)
-					for node_idx in current_chain:
-						var node_vec = Cardinals.rc_to_vec(node_idx)
-						if _are_peers(cell_vec, node_vec):
-							colors_seen.set_bit(current_chain[node_idx])
-					
-					if colors_seen.cardinality() == 2:
-						var hint = _create_coloring_hint(digit, current_chain, -1, cell_vec) # -1 for non-contradiction
-						hint.elim_cells.append(cell_vec)
-						hint.elim_numbers.append(digit)
-						if not hints.has(hint): # Avoid duplicates
-							hints.append(hint)
 
 func _are_peers(c1: Vector2i, c2: Vector2i) -> bool:
 	if c1.x == c2.x: return true
@@ -826,39 +688,7 @@ func _are_peers(c1: Vector2i, c2: Vector2i) -> bool:
 	if Cardinals.Bxy[c1.x * 9 + c1.y] == Cardinals.Bxy[c2.x * 9 + c2.y]: return true
 	return false
 
-func _create_coloring_hint(digit: int, chain: Dictionary, contra_color: int, cause1: Vector2i, cause2: Vector2i = Vector2i(-1,-1)) -> Hint:
-	var hint = Hint.new(Hint.HintTechnique.SIMPLE_COLORING, "PLACEHOLDER")
-	hint.numbers.append(digit)
-	
-	var color0_cells_str = []
-	var color1_cells_str = []
-	for cell_idx in chain:
-		var cell_vec = Cardinals.rc_to_vec(cell_idx)
-		if chain[cell_idx] == 0:
-			hint.cause_cells.append(cell_vec)
-			color0_cells_str.append(_format_cell_list([cell_vec]))
-		else:
-			hint.secondary_cells.append(cell_vec)
-			color1_cells_str.append(_format_cell_list([cell_vec]))
 
-	var desc = "For digit {d}, we can form a chain of strong links.\n".format({"d": digit})
-	desc += "Coloring nodes alternately (Green and Blue):\n"
-	desc += "Green nodes: {green_nodes}\n".format({"green_nodes": ", ".join(color0_cells_str)})
-	desc += "Blue nodes: {blue_nodes}\n\n".format({"blue_nodes": ", ".join(color1_cells_str)})
-
-	if contra_color != -1:
-		var bad_color = "Green" if contra_color == 0 else "Blue"
-		desc += "Two {color} nodes at {c1} and {c2} can see each other, which is a contradiction.\n".format({"color": bad_color, "c1": _format_cell_list([cause1]), "c2": _format_cell_list([cause2])})
-		desc += "Therefore, all {color} nodes are invalid and the digit {d} can be eliminated from them.".format({"color": bad_color, "d": digit})
-		if contra_color == 0: hint.elim_cells = hint.cause_cells
-		else: hint.elim_cells = hint.secondary_cells
-		hint.elim_numbers.append(digit)
-	else: # rule 1
-		desc += "The cell at {cell} can see both a Green and a Blue node.\n".format({"cell": _format_cell_list([cause1])})
-		desc += "Therefore, it cannot contain the digit {d}.".format({"d": digit})
-
-	hint.description = desc
-	return hint
 
 func _find_xy_chains_and_wwings(hints: Array[Hint]):
 	# Collect bivalue cells

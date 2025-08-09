@@ -3,6 +3,8 @@ extends SceneTree
 var _failed: int = 0
 
 func _init():
+	if Engine.is_editor_hint():
+		return
 	var exit_code := 0
 	var args = OS.get_cmdline_args()
 	if args.has("--test_func"):
