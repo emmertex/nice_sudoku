@@ -268,6 +268,10 @@ func get_hints() -> Array[Hint]:
 								desc += "This means that in these three columns, the %d must be in one of the three rows.\n\n" % digit
 								desc += "Therefore, we can eliminate %d from other cells in these columns: %s" % [digit, _format_cell_list(hint.elim_cells)]
 								hint.description = desc
+								var sfs1 = "Swordfish on digit %d across rows %d, %d, %d in columns %d, %d, %d." % [digit, r1+1, r2+1, r3+1, cols[0]+1, cols[1]+1, cols[2]+1]
+								hint.add_step(sfs1, hint.cells.duplicate())
+								var sfs2 = "Thus in columns %d, %d, %d, only those rows can hold %d; eliminate elsewhere in those columns." % [cols[0]+1, cols[1]+1, cols[2]+1, digit]
+								hint.add_step(sfs2, [], [], [], hint.elim_cells.duplicate(), [digit])
 								hints.append(hint)
 
 		# Column-based Swordfish
@@ -319,6 +323,10 @@ func get_hints() -> Array[Hint]:
 								desc += "This means that in these three rows, the %d must be in one of the three columns.\n\n" % digit
 								desc += "Therefore, we can eliminate %d from other cells in these rows: %s" % [digit, _format_cell_list(hint.elim_cells)]
 								hint.description = desc
+								var sfs1c = "Swordfish on digit %d across columns %d, %d, %d in rows %d, %d, %d." % [digit, c1+1, c2+1, c3+1, rows[0]+1, rows[1]+1, rows[2]+1]
+								hint.add_step(sfs1c, hint.cells.duplicate())
+								var sfs2c = "Thus in rows %d, %d, %d, only those columns can hold %d; eliminate elsewhere in those rows." % [rows[0]+1, rows[1]+1, rows[2]+1, digit]
+								hint.add_step(sfs2c, [], [], [], hint.elim_cells.duplicate(), [digit])
 								hints.append(hint)
 
 	# --- Jellyfish ---
@@ -366,7 +374,7 @@ func get_hints() -> Array[Hint]:
 											hint.secondary_cells.append(cell)
 											if _get_candidates(r_check, c).get_bit(digit-1):
 												hint.elim_cells.append(cell)
-							
+									
 								if not hint.elim_cells.is_empty():
 									hint.elim_numbers.append(digit)
 									var r_str = ", ".join([str(r1+1), str(r2+1), str(r3+1), str(r4+1)])
@@ -376,6 +384,10 @@ func get_hints() -> Array[Hint]:
 									desc += "This means that in these four columns, the %d must be in one of the four rows.\n\n" % digit
 									desc += "Therefore, we can eliminate %d from other cells in these columns: %s" % [digit, _format_cell_list(hint.elim_cells)]
 									hint.description = desc
+									var jfs1 = "Jellyfish on digit %d across rows %s and columns %s." % [digit, r_str, c_str]
+									hint.add_step(jfs1, hint.cells.duplicate())
+									var jfs2 = "Thus only these rows can hold %d in those columns; eliminate elsewhere in those columns." % [digit]
+									hint.add_step(jfs2, [], [], [], hint.elim_cells.duplicate(), [digit])
 									hints.append(hint)
 
 		# Column-based Jellyfish
@@ -431,6 +443,10 @@ func get_hints() -> Array[Hint]:
 									desc += "This means that in these four rows, the %d must be in one of the four columns.\n\n" % digit
 									desc += "Therefore, we can eliminate %d from other cells in these rows: %s" % [digit, _format_cell_list(hint.elim_cells)]
 									hint.description = desc
+									var jfs1c = "Jellyfish on digit %d across columns %s and rows %s." % [digit, c_str, r_str]
+									hint.add_step(jfs1c, hint.cells.duplicate())
+									var jfs2c = "Thus only these columns can hold %d in those rows; eliminate elsewhere in those rows." % [digit]
+									hint.add_step(jfs2c, [], [], [], hint.elim_cells.duplicate(), [digit])
 									hints.append(hint)
 
 	# --- Pointing Pairs / Triples ---
@@ -699,6 +715,11 @@ func get_hints() -> Array[Hint]:
 
 	# --- Coloring ---
 	_find_coloring_hints(hints)
+
+	# --- Nishio (trial contradiction) ---
+	# Expensive: only attempt if no other hints found
+	if hints.is_empty():
+		_find_nishio_eliminations(hints)
 
 	return hints
 
@@ -974,6 +995,38 @@ func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: in
 					emitted[key] = true
 
 		_xychain_dfs(nodes, adj, next_idx, next_active, start_idx, start_digit, visited, new_path, hints, emitted)
+
+func _find_nishio_eliminations(hints: Array[Hint]):
+	# Try each candidate; if assuming it leads to no solution -> eliminate
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var cand = _get_candidates(r,c)
+			for d in range(9):
+				if not cand.get_bit(d):
+					continue
+				# Clone sudoku state minimally
+				var trial = Sudoku.new()
+				trial.load_puzzle_from_dictionary({"grid": sudoku.grid.duplicate(true), "difficulty": "trial"}, sudoku.current_puzzle_index)
+				if not trial.is_valid_move(r, c, d + 1):
+					continue
+				trial.set_number(r, c, d + 1)
+				var solutions = trial.solve_with_backtracking(1)
+				if solutions.size() == 0:
+					var hint = Hint.new(Hint.HintTechnique.NISHIO, "")
+					hint.numbers.append(d + 1)
+					hint.cells.append(Vector2i(r,c))
+					hint.elim_cells.append(Vector2i(r,c))
+					hint.elim_numbers.append(d + 1)
+					var s1 = "Assume %d at %s and propagate." % [d + 1, _format_cell_list([Vector2i(r,c)])]
+					var s2 = "This leads to a contradiction (no solution)."
+					var s3 = "Therefore, eliminate %d from %s." % [d + 1, _format_cell_list([Vector2i(r,c)])]
+					hint.add_step(s1, [Vector2i(r,c)])
+					hint.add_step(s2)
+					hint.add_step(s3, [], [], [], [Vector2i(r,c)], [d + 1])
+					hint.description = s1 + "\n\n" + s2 + "\n\n" + s3
+					hints.append(hint)
 
 func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: String, group_size: int):
 	var unit_cells: Array[Vector2i] = []
