@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://c6s75n7fscfqr"]
 
-[ext_resource type="Script" uid="uid://c14mj7xo78o4r" path="res://hint_popup.gd" id="1_4sqih"]
+[ext_resource type="Script" uid="uid://b1r2xhicktatj" path="res://hint_popup.gd" id="1_4sqih"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0t3v7"]
 bg_color = Color(0.12549, 0.12549, 0.141176, 1)
@@ -49,33 +49,35 @@ layout_mode = 2
 size_flags_vertical = 3
 follow_focus = true
 
-[node name="DescriptionLabel" type="RichTextLabel" parent="VBoxContainer/Scroll"]
+[node name="PanelContainer" type="VBoxContainer" parent="VBoxContainer/Scroll"]
 layout_mode = 2
-size_flags_vertical = 3
-bbcode_enabled = false
-fit_content_height = true
-autowrap_mode = 3
-text = "This is a detailed description of the hint, explaining the logic behind the technique and why the elimination is possible."
+size_flags_horizontal = 3
+alignment = 1
 
-[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+[node name="DescriptionLabel" type="RichTextLabel" parent="VBoxContainer/Scroll/PanelContainer"]
 layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
+text = "This is a detailed description of the hint, explaining the logic behind the technique and why the elimination is possible."
+fit_content = true
+horizontal_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/Scroll/PanelContainer"]
+layout_mode = 2
+size_flags_vertical = 0
 theme_override_constants/separation = 20
 alignment = 1
 
-[node name="PrevButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+[node name="PrevButton" type="Button" parent="VBoxContainer/Scroll/PanelContainer/HBoxContainer"]
 layout_mode = 2
 text = "Prev Step"
 
-[node name="NextButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+[node name="NextButton" type="Button" parent="VBoxContainer/Scroll/PanelContainer/HBoxContainer"]
 layout_mode = 2
 text = "Next Step"
 
-[node name="NextHintButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+[node name="NextHintButton" type="Button" parent="VBoxContainer/Scroll/PanelContainer/HBoxContainer"]
 layout_mode = 2
 text = "Next Hint"
 
-[node name="DismissButton" type="Button" parent="VBoxContainer/HBoxContainer"]
+[node name="DismissButton" type="Button" parent="VBoxContainer/Scroll/PanelContainer/HBoxContainer"]
 layout_mode = 2
 text = "Dismiss"

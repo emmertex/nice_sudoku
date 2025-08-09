@@ -10,11 +10,11 @@ var hints: Array[Hint] = []
 var current_hint_index: int = 0
 
 @onready var title_label = $VBoxContainer/TitleLabel
-@onready var description_label = $VBoxContainer/Scroll/DescriptionLabel
-@onready var next_button = $VBoxContainer/HBoxContainer/NextButton
-@onready var prev_button = $VBoxContainer/HBoxContainer/PrevButton
-@onready var next_hint_button = $VBoxContainer/HBoxContainer/NextHintButton
-@onready var dismiss_button = $VBoxContainer/HBoxContainer/DismissButton
+@onready var description_label = $VBoxContainer/Scroll/PanelContainer/DescriptionLabel
+@onready var next_button = $VBoxContainer/Scroll/PanelContainer/HBoxContainer/NextButton
+@onready var prev_button = $VBoxContainer/Scroll/PanelContainer/HBoxContainer/PrevButton
+@onready var next_hint_button = $VBoxContainer/Scroll/PanelContainer/HBoxContainer/NextHintButton
+@onready var dismiss_button = $VBoxContainer/Scroll/PanelContainer/HBoxContainer/DismissButton
 
 func _ready():
 	next_button.pressed.connect(_on_next_step_pressed)
