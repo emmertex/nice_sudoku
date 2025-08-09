@@ -10,7 +10,7 @@ var hints: Array[Hint] = []
 var current_hint_index: int = 0
 
 @onready var title_label = $VBoxContainer/TitleLabel
-@onready var description_label = $VBoxContainer/DescriptionLabel
+@onready var description_label = $VBoxContainer/Scroll/DescriptionLabel
 @onready var next_button = $VBoxContainer/HBoxContainer/NextButton
 @onready var prev_button = $VBoxContainer/HBoxContainer/PrevButton
 @onready var next_hint_button = $VBoxContainer/HBoxContainer/NextHintButton
@@ -24,6 +24,8 @@ func _ready():
 
 func setup_ui(font_size: int):
 	description_label.add_theme_font_size_override("font_size", font_size)
+	description_label.scroll_active = true
+	description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	next_button.add_theme_font_size_override("font_size", font_size)
 	prev_button.add_theme_font_size_override("font_size", font_size)
 	next_hint_button.add_theme_font_size_override("font_size", font_size)
@@ -55,6 +57,8 @@ func _show_hint(index: int):
 	var hint = hints[index]
 	title_label.text = hint.title
 	description_label.text = hint.get_active_description()
+	# Ensure scroll resets to top for each step/hint
+	description_label.scroll_to_line(0)
 	next_hint_button.disabled = (hints.size() <= 1)
 	prev_button.disabled = not hint.has_steps() or hint.get_active_step_index() <= 0
 	next_button.disabled = not hint.has_steps() or hint.get_active_step_index() >= (hint.steps.size() - 1)

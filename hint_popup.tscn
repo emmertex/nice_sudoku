@@ -44,13 +44,18 @@ text = "Hint Title"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="DescriptionLabel" type="Label" parent="VBoxContainer"]
+[node name="Scroll" type="ScrollContainer" parent="VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_font_sizes/font_size = 18
-text = "This is a detailed description of the hint, explaining the logic behind the technique and why the elimination is possible."
+follow_focus = true
+
+[node name="DescriptionLabel" type="RichTextLabel" parent="VBoxContainer/Scroll"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = false
+fit_content_height = true
 autowrap_mode = 3
-justification_flags = 162
+text = "This is a detailed description of the hint, explaining the logic behind the technique and why the elimination is possible."
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
 layout_mode = 2
