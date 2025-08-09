@@ -3,6 +3,7 @@ extends Control
 @onready var puzzle_input: LineEdit = $VBoxContainer/PuzzleInput
 @onready var solve_button: Button = $VBoxContainer/SolveButton
 @onready var result_output: LineEdit = $VBoxContainer/ResultOutput
+@onready var log_box: RichTextLabel = $VBoxContainer/LogBox
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 
 const Sudoku = preload("res://sudoku_code.gd")
@@ -22,6 +23,9 @@ func _on_solve_button_pressed() -> void:
 
 	status_label.text = "Solving..."
 	result_output.text = ""
+	if is_instance_valid(log_box):
+		log_box.bbcode_enabled = true
+		log_box.clear()
 
 	var sudoku = Sudoku.new()
 	sudoku.load_puzzle_from_string(puzzle_string)
@@ -77,6 +81,7 @@ func _apply_hint(sudoku: Sudoku, hint: Hint) -> bool:
 		var num = hint.numbers[0]
 		if sudoku.grid[cell.x][cell.y] == 0:
 			sudoku.set_number(cell.x, cell.y, num)
+			_log_hint_applied(hint, true)
 			return true
 	
 	# Case 2: Elimination Hint
@@ -96,6 +101,7 @@ func _apply_hint(sudoku: Sudoku, hint: Hint) -> bool:
 					var bits_to_exclude = sudoku.exclude_bits[r][c]
 					if bits_to_exclude > 0:
 						sudoku.sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
+			_log_hint_applied(hint, false)
 			return true
 			
 	return false
@@ -106,3 +112,54 @@ func _get_grid_as_string(sudoku: Sudoku) -> String:
 		for c in range(9):
 			s += str(sudoku.grid[r][c])
 	return s 
+
+func _log_hint_applied(hint: Hint, is_placement: bool) -> void:
+	if not is_instance_valid(log_box):
+		return
+	var level: int = _difficulty_level(hint.technique)
+	var color_hex: String = _level_color_hex(level)
+	var line: String
+	if is_placement:
+		var cell := hint.cells[0]
+		var num := hint.numbers[0]
+		line = "%s: set %d at (%d,%d)" % [hint.title, num, cell.x + 1, cell.y + 1]
+	else:
+		var cells_str := _format_cells(hint.elim_cells)
+		var nums_str := ", ".join(hint.elim_numbers.map(func(n): return str(n)))
+		line = "%s: eliminate %s from %s" % [hint.title, nums_str, cells_str]
+	log_box.append_text("[color=%s]%s[/color]\n" % [color_hex, line])
+	log_box.scroll_to_line(log_box.get_line_count() - 1)
+
+func _format_cells(cells: Array[Vector2i]) -> String:
+	return ", ".join(cells.map(func(c): return "(%d,%d)" % [c.x + 1, c.y + 1]))
+
+func _difficulty_level(tech: int) -> int:
+	# 1 (green) simple -> 5 (red) advanced
+	match tech:
+		Hint.HintTechnique.SINGLE_CANDIDATE, Hint.HintTechnique.HIDDEN_SINGLE:
+			return 1
+		Hint.HintTechnique.NAKED_PAIR_ROW, Hint.HintTechnique.NAKED_PAIR_COL, Hint.HintTechnique.NAKED_PAIR_BOX, Hint.HintTechnique.POINTING_PAIR, Hint.HintTechnique.BOX_LINE_REDUCTION:
+			return 2
+		Hint.HintTechnique.NAKED_TRIPLE_ROW, Hint.HintTechnique.NAKED_TRIPLE_COL, Hint.HintTechnique.NAKED_TRIPLE_BOX, Hint.HintTechnique.NAKED_QUAD_ROW, Hint.HintTechnique.NAKED_QUAD_COL, Hint.HintTechnique.NAKED_QUAD_BOX, Hint.HintTechnique.SIMPLE_COLORING, Hint.HintTechnique.X_WING_ROW, Hint.HintTechnique.X_WING_COL:
+			return 3
+		Hint.HintTechnique.SWORDFISH_ROW, Hint.HintTechnique.SWORDFISH_COL, Hint.HintTechnique.XY_CHAIN, Hint.HintTechnique.W_WING:
+			return 4
+		Hint.HintTechnique.JELLYFISH_ROW, Hint.HintTechnique.JELLYFISH_COL, Hint.HintTechnique.AIC_CHAIN, Hint.HintTechnique.NISHIO:
+			return 5
+		_:
+			return 3
+
+func _level_color_hex(level: int) -> String:
+	match level:
+		1:
+			return "#4CAF50" # green
+		2:
+			return "#9CCC65" # yellow-green
+		3:
+			return "#FFC107" # amber
+		4:
+			return "#FF7043" # deep orange
+		5:
+			return "#E53935" # red
+		_:
+			return "#FFFFFF"
