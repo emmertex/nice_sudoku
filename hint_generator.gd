@@ -129,7 +129,7 @@ func get_hints() -> Array[Hint]:
 		for r in range(9):
 			var positions = BitSet.new(9)
 			for c in range(9):
-				if _get_candidates(r, c).get_bit(digit - 1):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(c)
 			if positions.cardinality() == 2:
 				row_candidates[r] = positions
@@ -153,7 +153,7 @@ func get_hints() -> Array[Hint]:
 						var hint = Hint.new(Hint.HintTechnique.X_WING_ROW, desc)
 						hint.cells.append_array([Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
 						hint.numbers.append(digit)
-						
+					
 						# Add elimination & highlighting info
 						for c in cols:
 							for r_check in range(9):
@@ -162,7 +162,7 @@ func get_hints() -> Array[Hint]:
 									hint.secondary_cells.append(cell)
 									if _get_candidates(r_check, c).get_bit(digit-1):
 										hint.elim_cells.append(cell)
-						
+					
 						if not hint.elim_cells.is_empty():
 							hint.elim_numbers.append(digit)
 							desc = "Look at the rows %s and %s. The only places for a %d are in columns %d and %d.\n\n" % [r1+1, r2+1, digit, cols[0]+1, cols[1]+1]
@@ -176,13 +176,15 @@ func get_hints() -> Array[Hint]:
 							hint.add_step(s2, [], [], [], hint.elim_cells, [digit])
 							var s3 = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
 							hint.add_step(s3, [], [], [], hint.elim_cells, [digit])
-							hints.append(hint)
+							# Append only when eliminations exist
+							if not hint.elim_cells.is_empty():
+								hints.append(hint)
 		# Column-based X-Wing
 		var col_candidates = {}
 		for c in range(9):
 			var positions = BitSet.new(9)
 			for r in range(9):
-				if _get_candidates(r, c).get_bit(digit - 1):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
 					positions.set_bit(r)
 			if positions.cardinality() == 2:
 				col_candidates[c] = positions
@@ -229,6 +231,7 @@ func get_hints() -> Array[Hint]:
 							hint.add_step(s2c, [], [], [], hint.elim_cells, [digit])
 							var s3c = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
 							hint.add_step(s3c, [], [], [], hint.elim_cells, [digit])
+						if not hint.elim_cells.is_empty():
 							hints.append(hint)
 
 	# --- Swordfish ---
@@ -546,6 +549,9 @@ func get_hints() -> Array[Hint]:
 	# --- XY-Chain and W-Wing ---
 	_find_xy_chains_and_wwings(hints)
 
+	# --- Empty Rectangle ---
+	_find_empty_rectangles(hints)
+
 	# --- Proto AIC ---
 	for digit in range(1, 10):
 		# Build strong-link graph per digit
@@ -713,40 +719,47 @@ func _find_xy_chains_and_wwings(hints: Array[Hint]):
 	for _i in range(nodes.size()): adj.append([])
 
 	for d in range(9):
-		# Rows: connect all bivalue cells in the row sharing digit d
+		# Rows: link bivalue cells on digit d only if the digit appears exactly twice in the row (conjugate pair)
 		for rr in range(9):
-			var positions: Array = []
+			var all_positions_row: Array[Vector2i] = []
+			var node_positions_row: Array[Vector2i] = []
 			for cc in range(9):
 				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
-					var pos = Vector2i(rr,cc)
-					if pos_to_idx.has(pos): positions.append(pos)
-			if positions.size() == 2:
-				var a = pos_to_idx[positions[0]]
-				var b = pos_to_idx[positions[1]]
-				adj[a].append({"to": b, "digit": d})
-				adj[b].append({"to": a, "digit": d})
-		# Cols
+					var posr = Vector2i(rr,cc)
+					all_positions_row.append(posr)
+					if pos_to_idx.has(posr): node_positions_row.append(posr)
+			# For XY-Chain, require the endpoint cell to be bivalue (already guaranteed by nodes) and the link to be conjugate in the unit
+			if all_positions_row.size() == 2 and node_positions_row.size() == 2:
+				var ar = pos_to_idx[node_positions_row[0]]
+				var br = pos_to_idx[node_positions_row[1]]
+				adj[ar].append({"to": br, "digit": d})
+				adj[br].append({"to": ar, "digit": d})
+		# Cols: same logic
 		for cc in range(9):
-			var positions2: Array = []
+			var all_positions_col: Array[Vector2i] = []
+			var node_positions_col: Array[Vector2i] = []
 			for rr in range(9):
 				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
-					var pos2 = Vector2i(rr,cc)
-					if pos_to_idx.has(pos2): positions2.append(pos2)
-			if positions2.size() == 2:
-				var a2 = pos_to_idx[positions2[0]]
-				var b2 = pos_to_idx[positions2[1]]
-				adj[a2].append({"to": b2, "digit": d})
-				adj[b2].append({"to": a2, "digit": d})
-		# Boxes
+					var posc = Vector2i(rr,cc)
+					all_positions_col.append(posc)
+					if pos_to_idx.has(posc): node_positions_col.append(posc)
+			if all_positions_col.size() == 2 and node_positions_col.size() == 2:
+				var ac = pos_to_idx[node_positions_col[0]]
+				var bc = pos_to_idx[node_positions_col[1]]
+				adj[ac].append({"to": bc, "digit": d})
+				adj[bc].append({"to": ac, "digit": d})
+		# Boxes: same logic
 		for box_idx in range(9):
-			var positions3: Array = []
+			var all_positions_box: Array[Vector2i] = []
+			var node_positions_box: Array[Vector2i] = []
 			for i in range(9):
 				var p = Cardinals.box_to_rc(box_idx, i)
 				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x,p.y).get_bit(d):
-					if pos_to_idx.has(p): positions3.append(p)
-			if positions3.size() == 2:
-				var a3 = pos_to_idx[positions3[0]]
-				var b3 = pos_to_idx[positions3[1]]
+					all_positions_box.append(p)
+					if pos_to_idx.has(p): node_positions_box.append(p)
+			if all_positions_box.size() == 2 and node_positions_box.size() == 2:
+				var a3 = pos_to_idx[node_positions_box[0]]
+				var b3 = pos_to_idx[node_positions_box[1]]
 				adj[a3].append({"to": b3, "digit": d})
 				adj[b3].append({"to": a3, "digit": d})
 
@@ -778,10 +791,17 @@ func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: in
 		var next_active = pair[0] if pair[1] == used_digit else pair[1]
 		var new_path = path.duplicate()
 		new_path.append(next_idx)
+		# Do not revisit the same node in the chain to avoid degenerate cycles
+		if new_path.count(next_idx) > 1:
+			continue
 
-		if next_active == start_digit and new_path.size() >= 3:
+		if next_active == start_digit and new_path.size() >= 4:
 			var a = nodes[start_idx].pos
 			var b = nodes[next_idx].pos
+			# Type-1 XY-Chain requires endpoints not in the same row/column/box
+			if _are_peers(a, b):
+				# Endpoints share a unit; skip Type-1 emission here
+				continue
 			var key = str(start_idx) + ":" + str(next_idx) + ":" + str(start_digit)
 			if not emitted.has(key):
 				var start_pair: PackedInt32Array = nodes[start_idx].pair
@@ -1106,3 +1126,58 @@ func find_hidden_singles() -> Array:
 				singles.append({"row": cell.x, "col": cell.y, "digit": d + 1, "type": "box"})
 	
 	return singles
+
+func _find_empty_rectangles(hints: Array[Hint]) -> void:
+	# Simple Empty Rectangle detector (limited):
+	for digit in range(1, 10):
+		for b in range(9):
+			var in_box: Array[Vector2i] = []
+			for i in range(9):
+				var p = Cardinals.box_to_rc(b, i)
+				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x, p.y).get_bit(digit - 1):
+					in_box.append(p)
+			if in_box.size() < 2:
+				continue
+			var row_set := {}
+			var col_set := {}
+			for v in in_box:
+				row_set[v.x] = true
+				col_set[v.y] = true
+			if row_set.size() != 2 or col_set.size() != 2:
+				continue
+			var rows: Array = row_set.keys()
+			var cols: Array = col_set.keys()
+			for r in rows:
+				for c in cols:
+					if Cardinals.Bxy[r * 9 + c] == b:
+						continue
+					if sudoku.grid[r][c] != 0:
+						continue
+					if not _get_candidates(r, c).get_bit(digit - 1):
+						continue
+					# Conjugate outside the box along row or column
+					var row_pos: Array[int] = []
+					for cc in range(9):
+						if Cardinals.Bxy[r * 9 + cc] == b:
+							continue
+						if sudoku.grid[r][cc] == 0 and _get_candidates(r, cc).get_bit(digit - 1):
+							row_pos.append(cc)
+					var col_pos: Array[int] = []
+					for rr in range(9):
+						if Cardinals.Bxy[rr * 9 + c] == b:
+							continue
+						if sudoku.grid[rr][c] == 0 and _get_candidates(rr, c).get_bit(digit - 1):
+							col_pos.append(rr)
+					if row_pos.size() == 1 or col_pos.size() == 1:
+						var hint = Hint.new(Hint.HintTechnique.AIC_CHAIN, "")
+						hint.title = "Empty Rectangle"
+						hint.numbers.append(digit)
+						hint.cells.append_array(in_box)
+						hint.elim_cells.append(Vector2i(r, c))
+						hint.elim_numbers.append(digit)
+						var s1 = "Empty Rectangle on %d in box %d aligned to rows %d/%d and cols %d/%d." % [digit, b + 1, rows[0] + 1, rows[1] + 1, cols[0] + 1, cols[1] + 1]
+						var s2 = "Therefore eliminate %d from %s." % [digit, _format_cell_list([Vector2i(r, c)])]
+						hint.description = s1 + "\n\n" + s2
+						hint.add_step(s1, in_box.duplicate())
+						hint.add_step(s2, [], [], [], [Vector2i(r, c)], [digit])
+						hints.append(hint)

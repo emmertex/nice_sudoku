@@ -31,6 +31,7 @@ func run_all_tests() -> int:
 	if not test_x_wing_row(): _failed += 1
 	if not test_x_wing_column(): _failed += 1
 	if not test_xy_chain_type2(): _failed += 1
+	if not test_no_xy_chain_on_multi_sashimi(): _failed += 1
 	if not test_backtracking_solver(): _failed += 1
 	return _failed
 
@@ -232,6 +233,23 @@ func test_xy_chain_type2() -> bool:
 		print("Test XY-Chain Type2 Endpoint Elimination FAILED")
 		return false
 	print("Test XY-Chain Type2 Endpoint Elimination PASSED")
+	return true
+
+func test_no_xy_chain_on_multi_sashimi() -> bool:
+	var Sudoku = load("res://sudoku_code.gd")
+	var SudokuHintGenerator = load("res://hint_generator.gd")
+	var Hint = load("res://hint.gd")
+	var sudoku = Sudoku.new()
+	var hint_generator = SudokuHintGenerator.new()
+	hint_generator.sudoku = sudoku
+	var puzzle_str = ".126.4.3543..5.2615.6.1...462.7.154315.43.62.3.45261..865.4.31.2431.5..6..1.6.452"
+	sudoku.load_puzzle_from_string(puzzle_str)
+	var hints = hint_generator.get_hints()
+	for hint in hints:
+		if hint.technique == Hint.HintTechnique.XY_CHAIN:
+			print("Test No XY-Chain on Multi Sashimi FAILED: found XY-Chain hint")
+			return false
+	print("Test No XY-Chain on Multi Sashimi PASSED")
 	return true
 
 func test_backtracking_solver() -> bool:
