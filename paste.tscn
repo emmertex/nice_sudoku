@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://b6g43fiasvl5g"]
 
-[ext_resource type="Script" path="res://paste.gd" id="1_qmyhd"]
+[ext_resource type="Script" uid="uid://bqfbkceepcmrk" path="res://paste.gd" id="1_qmyhd"]
 
 [node name="PastePanel" type="PopupPanel"]
 position = Vector2i(366, 114)
@@ -93,7 +93,6 @@ size_flags_horizontal = 3
 placeholder_text = "Paste 81 number puzzle or
 891 number state puzzle"
 wrap_mode = 1
-scroll_fit_content_height = true
 
 [node name="H5" type="HBoxContainer" parent="V1"]
 layout_mode = 2

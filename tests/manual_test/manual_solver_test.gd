@@ -1,10 +1,14 @@
 extends Control
 
-@onready var puzzle_input: LineEdit = $VBoxContainer/PuzzleInput
-@onready var solve_button: Button = $VBoxContainer/SolveButton
-@onready var result_output: LineEdit = $VBoxContainer/ResultOutput
-@onready var log_box: RichTextLabel = $VBoxContainer/LogBox
-@onready var status_label: Label = $VBoxContainer/StatusLabel
+@onready var puzzle_input: LineEdit = $HSplitContainer/Left/PuzzleInput
+@onready var solve_button: Button = $HSplitContainer/Left/SolveButton
+@onready var result_output: LineEdit = $HSplitContainer/Left/ResultOutput
+@onready var log_box: RichTextLabel = $HSplitContainer/Left/LogBox
+@onready var status_label: Label = $HSplitContainer/Left/StatusLabel
+@onready var state81_output: LineEdit = $HSplitContainer/Left/State81Output
+@onready var state891_output: TextEdit = $HSplitContainer/Left/State891Output
+@onready var preview_container: Control = $HSplitContainer/Right/PreviewContainer
+var preview_board: Control = null
 
 const Sudoku = preload("res://sudoku_code.gd")
 const Hint = preload("res://hint.gd")
@@ -12,6 +16,21 @@ const SudokuHintGenerator = preload("res://hint_generator.gd")
 
 func _ready() -> void:
 	solve_button.pressed.connect(self._on_solve_button_pressed)
+	if is_instance_valid(log_box):
+		log_box.meta_clicked.connect(self._on_log_meta_clicked)
+	# Lazy-create embedded preview board from game_screen if available
+	if is_instance_valid(preview_container) and preview_board == null:
+		var scene: PackedScene = load("res://game_screen.tscn")
+		if scene:
+			preview_board = scene.instantiate()
+			# Simplify UI: hide menus and keep just the board if nodes exist
+			if preview_board.has_node("Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"):
+				preview_board.get_node("Panel/AspectRatioContainer/VBoxContainer/MenuLayer1").visible = false
+			if preview_board.has_node("Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"):
+				preview_board.get_node("Panel/AspectRatioContainer/VBoxContainer/MenuLayer2").visible = false
+			if preview_board.has_node("Panel/AspectRatioContainer/VBoxContainer/NumberButtons"):
+				preview_board.get_node("Panel/AspectRatioContainer/VBoxContainer/NumberButtons").visible = false
+			preview_container.add_child(preview_board)
 
 func _on_solve_button_pressed() -> void:
 	var puzzle_string: String = puzzle_input.text
@@ -23,12 +42,18 @@ func _on_solve_button_pressed() -> void:
 
 	status_label.text = "Solving..."
 	result_output.text = ""
+	if is_instance_valid(state81_output):
+		state81_output.text = ""
+	if is_instance_valid(state891_output):
+		state891_output.text = ""
 	if is_instance_valid(log_box):
 		log_box.bbcode_enabled = true
 		log_box.clear()
 
 	var sudoku = Sudoku.new()
 	sudoku.load_puzzle_from_string(puzzle_string)
+	# Pre-fill standard pencil marks for readability on first load
+	sudoku.auto_fill_pencil_marks()
 
 	var hint_generator = SudokuHintGenerator.new()
 	hint_generator.sudoku = sudoku
@@ -81,7 +106,9 @@ func _apply_hint(sudoku: Sudoku, hint: Hint) -> bool:
 		var num = hint.numbers[0]
 		if sudoku.grid[cell.x][cell.y] == 0:
 			sudoku.set_number(cell.x, cell.y, num)
-			_log_hint_applied(hint, true)
+			var state_after_81: String = _get_grid_as_string(sudoku)
+			var state_after_891: String = _get_891_state_string(sudoku)
+			_log_hint_applied(hint, true, state_after_81, state_after_891)
 			return true
 	
 	# Case 2: Elimination Hint
@@ -101,7 +128,9 @@ func _apply_hint(sudoku: Sudoku, hint: Hint) -> bool:
 					var bits_to_exclude = sudoku.exclude_bits[r][c]
 					if bits_to_exclude > 0:
 						sudoku.sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
-			_log_hint_applied(hint, false)
+			var state_after_elims_81: String = _get_grid_as_string(sudoku)
+			var state_after_elims_891: String = _get_891_state_string(sudoku)
+			_log_hint_applied(hint, false, state_after_elims_81, state_after_elims_891)
 			return true
 			
 	return false
@@ -113,7 +142,7 @@ func _get_grid_as_string(sudoku: Sudoku) -> String:
 			s += str(sudoku.grid[r][c])
 	return s 
 
-func _log_hint_applied(hint: Hint, is_placement: bool) -> void:
+func _log_hint_applied(hint: Hint, is_placement: bool, state_string_81: String, state_string_891: String) -> void:
 	if not is_instance_valid(log_box):
 		return
 	var level: int = _difficulty_level(hint.technique)
@@ -127,8 +156,72 @@ func _log_hint_applied(hint: Hint, is_placement: bool) -> void:
 		var cells_str := _format_cells(hint.elim_cells)
 		var nums_str := ", ".join(hint.elim_numbers.map(func(n): return str(n)))
 		line = "%s: eliminate %s from %s" % [hint.title, nums_str, cells_str]
-	log_box.append_text("[color=%s]%s[/color]\n" % [color_hex, line])
+	# Append small clickable tokens for copying 81 or 891 strings
+	log_box.append_text("[color=%s]%s[/color] [url=S81:%s][81][/url] [url=S891:%s][891][/url]\n" % [color_hex, line, state_string_81, state_string_891])
 	log_box.scroll_to_line(log_box.get_line_count() - 1)
+
+func _on_log_meta_clicked(meta: Variant) -> void:
+	if typeof(meta) == TYPE_STRING:
+		var m: String = meta
+		if m.begins_with("S81:"):
+			var s81: String = m.substr(4)
+			if s81.length() == 81:
+				if is_instance_valid(state81_output):
+					state81_output.text = s81
+				DisplayServer.clipboard_set(s81)
+				status_label.text = "Copied 81-char state (placed in 81 box)."
+				_update_preview_with_81(s81)
+				return
+		elif m.begins_with("S891:"):
+			var s891: String = m.substr(5)
+			if s891.length() == 891:
+				if is_instance_valid(state891_output):
+					state891_output.text = s891
+				DisplayServer.clipboard_set(s891)
+				status_label.text = "Copied 891-char state (placed in 891 box)."
+				_update_preview_with_891(s891)
+				return
+	status_label.text = "Could not extract state."
+
+func _update_preview_with_81(state_81: String) -> void:
+	if preview_board == null:
+		return
+	var gs = preview_board
+	if gs and gs.has_method("load_puzzle"):
+		# game_screen.gd exposes load_puzzle(index, difficulty); we need direct string load via sudoku
+		if gs.sudoku:
+			gs.sudoku.load_puzzle_from_string(state_81)
+			gs.sudoku.auto_fill_pencil_marks()
+			gs.update_ui()
+
+func _update_preview_with_891(state_891: String) -> void:
+	if preview_board == null:
+		return
+	var gs = preview_board
+	if gs and gs.has_method("load_puzzle"):
+		if gs.sudoku:
+			gs.sudoku.load_puzzle_from_string(state_891)
+			gs.update_ui()
+
+func _get_891_state_string(sudoku: Sudoku) -> String:
+	var original := ""
+	var current := ""
+	for r in range(9):
+		for c in range(9):
+			original += str(sudoku.original_grid[r][c])
+			current += str(sudoku.grid[r][c])
+	var marks := ""
+	for r in range(9):
+		for c in range(9):
+			for n_idx in range(9): # 0..8 map to digits 1..9
+				var digit := n_idx + 1
+				if sudoku.has_exclude_mark(r, c, digit):
+					marks += "2"
+				elif sudoku.has_pencil_mark(r, c, digit):
+					marks += "1"
+				else:
+					marks += "0"
+	return original + current + marks
 
 func _format_cells(cells: Array[Vector2i]) -> String:
 	return ", ".join(cells.map(func(c): return "(%d,%d)" % [c.x + 1, c.y + 1]))

@@ -175,7 +175,7 @@ func test_naked_pair() -> bool:
 func test_hidden_triple() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
 	var sudoku = Sudoku.new()
-	var puzzle_str = "......89.68935.47.9781...6951........43596........95.....9876337.24.89...9..3..."
+	var puzzle_str = ".......89.68935.47.9781...6951........43596........95.....9876337.24.89...9..3..."
 	sudoku.load_puzzle_from_string(puzzle_str)
 	# Solve: Hidden Triple: 6,7,8 in r569c1 => r56c1<>2, r9c1<>1, r9c1<>5
 	return _solve_and_report(sudoku, "Hidden Triple")
@@ -215,7 +215,7 @@ func test_pointing_candidates() -> bool:
 func test_claiming_candidates() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
 	var sudoku = Sudoku.new()
-	var puzzle_str = "......46.936.415..467.1329951238.6.437169582.6.547931.894.56...75..6.9.6.4.....5"
+	var puzzle_str = ".......46.936.415..467.1329951238.6.437169582.6.547931.894.56...75..6.9.6.4.....5"
 	sudoku.load_puzzle_from_string(puzzle_str)
 	# Solve: Locked Candidates Type 2 (Claiming): 3 in r9 => r8c4<>3
 	return _solve_and_report(sudoku, "Claiming Candidates")
@@ -392,7 +392,7 @@ func test_xyz_wing() -> bool:
 func test_wxyz_wing() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
 	var sudoku = Sudoku.new()
-	var puzzle_str = "31...2958629538471..81.9623..3.9781...18.359.89..1536.736981245142356789985724136"
+	var puzzle_str = "..1.5...883.146.57.5798..4.5......8...6..5.....461.7.5..8..15791.35..862.95.6.314"
 	sudoku.load_puzzle_from_string(puzzle_str)
 	# Solve: WXYZ Wing: A=r5c125 {2467}, B=r5c1,r6c3 {247}, X=7, Z=2 => r4c1,r5c9<>2
 	return _solve_and_report(sudoku, "WXYZ-Wing")

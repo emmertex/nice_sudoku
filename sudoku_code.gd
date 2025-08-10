@@ -126,22 +126,23 @@ func load_puzzle_from_string(line: String) -> bool:
 		original_grid = string_to_grid(line.substr(0, 81))
 		grid = string_to_grid(line.substr(81, 81))
 		current_puzzle_name = "Custom Resume"
-		# Iterate over every character from 162 to 891
+		# Iterate over every character from 162 to 891 (729 chars for 81 cells × 9 digits)
 		for i in range(162, 891):
 			@warning_ignore("integer_division")
 			var row = (i - 162) / 81
 			@warning_ignore("integer_division")
 			var col = ((i - 162) % 81) / 9
-			var num = (i - 162) % 9
+			var digit_index := (i - 162) % 9 # 0..8 corresponds to digits 1..9
+			var bit := 1 << digit_index
 			if line[i] == "1":
-				pencil_bits[row][col] |= (1 << (num - 1))
-				exclude_bits[row][col] &= ~(1 << (num - 1))
+				pencil_bits[row][col] |= bit
+				exclude_bits[row][col] &= ~bit
 			elif line[i] == "2":
-				exclude_bits[row][col] |= (1 << (num - 1))
-				pencil_bits[row][col] &= ~(1 << (num - 1))
+				exclude_bits[row][col] |= bit
+				pencil_bits[row][col] &= ~bit
 			else:
-				pencil_bits[row][col] &= ~(1 << (num - 1))
-				exclude_bits[row][col] &= ~(1 << (num - 1))
+				pencil_bits[row][col] &= ~bit
+				exclude_bits[row][col] &= ~bit
 	else:
 		return false
 
