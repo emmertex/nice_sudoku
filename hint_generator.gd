@@ -1013,11 +1013,14 @@ func _find_naked_groups_in_unit(hints: Array[Hint], unit_index: int, unit_type: 
 				elif group_size == 4: technique_name += "QUAD_"
 				technique_name += unit_type.to_upper()
 				
-				var technique_enum = Hint.HintTechnique.get(technique_name)
-				if technique_enum == null:
-					push_error("Invalid technique name generated: " + technique_name)
+				# Properly look up enum value from string
+				var enum_keys = Hint.HintTechnique.keys()
+				var enum_index = enum_keys.find(technique_name)
+				if enum_index == -1:
+					push_error("Invalid technique name generated: " + technique_name + " (group_size=" + str(group_size) + ", unit_type=" + unit_type + ")")
 					continue
 				
+				var technique_enum = enum_index as Hint.HintTechnique
 				hint.technique = technique_enum
 				hint.description = _generate_naked_group_description(hint, unit_type, unit_index)
 				hint.title = hint._get_technique_title_from_enum(technique_enum)
