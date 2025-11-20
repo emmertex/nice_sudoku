@@ -605,27 +605,29 @@ func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 	var min_width = min(window_size.y, window_size.x) * 0.75
 	print("Calculated min_width:", min_width)
 
-	for i in range(sudoku.get_puzzle_count()-1):
-		var puzzle_data = sudoku.get_puzzle_data(i)
-		if puzzle_data:
-			var puzzle_row = preload("res://loadListItem.tscn").instantiate()
-			puzzle_row.custom_minimum_size = Vector2(min_width, 0)
-			puzzle_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var puzzle_count = sudoku.get_puzzle_count()
+	if puzzle_count > 0:
+		for i in range(puzzle_count):
+			var puzzle_data = sudoku.get_puzzle_data(i)
+			if puzzle_data:
+				var puzzle_row = preload("res://loadListItem.tscn").instantiate()
+				puzzle_row.custom_minimum_size = Vector2(min_width, 0)
+				puzzle_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-			# Update labels
-			_set_label_text(puzzle_row, "Index", str(i+1))
-			_set_label_text(puzzle_row, "Difficulty", puzzle_data["difficulty"])
-			
-			var completed_time = ""
-			if completed_puzzles.has(i):
-				completed_time = _format_time(completed_puzzles[i])
-			_set_label_text(puzzle_row, "Time", completed_time)
-			
-			# Connect buttons
-			_connect_button(puzzle_row, "Res", self._on_resume_button_pressed.bind(difficulty, i), i, difficulty)
-			_connect_button(puzzle_row, "New", self._on_load_puzzle_pressed.bind(difficulty, i), i, difficulty)
-			
-			puzzle_list.add_child(puzzle_row)
+				# Update labels
+				_set_label_text(puzzle_row, "Index", str(i+1))
+				_set_label_text(puzzle_row, "Difficulty", puzzle_data["difficulty"])
+				
+				var completed_time = ""
+				if completed_puzzles.has(i):
+					completed_time = _format_time(completed_puzzles[i])
+				_set_label_text(puzzle_row, "Time", completed_time)
+				
+				# Connect buttons
+				_connect_button(puzzle_row, "Res", self._on_resume_button_pressed.bind(difficulty, i), i, difficulty)
+				_connect_button(puzzle_row, "New", self._on_load_puzzle_pressed.bind(difficulty, i), i, difficulty)
+				
+				puzzle_list.add_child(puzzle_row)
 
 	# Force layout update
 	puzzle_list.queue_sort()
