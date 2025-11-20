@@ -535,8 +535,9 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 			save_to_load = puzzle_saves[-1]
 	else:
 		for save in puzzle_saves:
-			print("Save to load: " + str(save.puzzle_selected) + " " + str(save.current_puzzle_index))
-			if save.puzzle_selected == difficulty and save.current_puzzle_index == index:
+			var save_puzzle_selected = save.get("puzzle_selected", difficulty)
+			print("Save to load: " + str(save_puzzle_selected) + " " + str(save.current_puzzle_index))
+			if save_puzzle_selected == difficulty and save.current_puzzle_index == index:
 				save_to_load = save
 				break
 	
@@ -561,7 +562,12 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	current_puzzle_name = save_to_load.current_puzzle_name
 	current_puzzle_difficulty = save_to_load.current_puzzle_difficulty
 	current_puzzle_index = save_to_load.current_puzzle_index
-	puzzle_selected = save_to_load.puzzle_selected
+	# Handle backward compatibility for puzzle_selected
+	if save_to_load.has("puzzle_selected"):
+		puzzle_selected = save_to_load.puzzle_selected
+	else:
+		# Default to current puzzle_selected or "easy" if missing
+		puzzle_selected = puzzle_selected if puzzle_selected != "" else "easy"
 	puzzle_time = save_to_load.puzzle_time
 	sbrc_grid.update_grid(grid)
 	
@@ -624,7 +630,8 @@ func has_save_state(difficulty: String, puzzle_index: int) -> bool:
 		fast_load_save_states("user://sudoku_saves.cfg")  # Adjust the file path as needed
 	
 	for save in save_states:
-		if save.puzzle_selected == difficulty and save.current_puzzle_index == puzzle_index:
+		var save_puzzle_selected = save.get("puzzle_selected", difficulty)
+		if save_puzzle_selected == difficulty and save.current_puzzle_index == puzzle_index:
 			return true
 	
 	return false
