@@ -159,9 +159,10 @@ func get_hints() -> Array[Hint]:
 							for r_check in range(9):
 								if r_check != r1 and r_check != r2:
 									var cell = Vector2i(r_check, c)
-									hint.secondary_cells.append(cell)
-									if _get_candidates(r_check, c).get_bit(digit-1):
-										hint.elim_cells.append(cell)
+									if sudoku.grid[r_check][c] == 0:
+										hint.secondary_cells.append(cell)
+										if _get_candidates(r_check, c).get_bit(digit-1):
+											hint.elim_cells.append(cell)
 					
 						if not hint.elim_cells.is_empty():
 							hint.elim_numbers.append(digit)
@@ -213,9 +214,10 @@ func get_hints() -> Array[Hint]:
 							for c_check in range(9):
 								if c_check != c1 and c_check != c2:
 									var cell = Vector2i(r, c_check)
-									hint.secondary_cells.append(cell)
-									if _get_candidates(r, c_check).get_bit(digit-1):
-										hint.elim_cells.append(cell)
+									if sudoku.grid[r][c_check] == 0:
+										hint.secondary_cells.append(cell)
+										if _get_candidates(r, c_check).get_bit(digit-1):
+											hint.elim_cells.append(cell)
 
 						if not hint.elim_cells.is_empty():
 							hint.elim_numbers.append(digit)
@@ -265,7 +267,7 @@ func get_hints() -> Array[Hint]:
 							var hint = Hint.new(Hint.HintTechnique.SWORDFISH_ROW, desc)
 							for r in [r1, r2, r3]:
 								for c in cols:
-									if _get_candidates(r, c).get_bit(digit - 1):
+									if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
 										hint.cells.append(Vector2i(r,c))
 							hint.numbers.append(digit)
 							
@@ -274,9 +276,10 @@ func get_hints() -> Array[Hint]:
 								for r_check in range(9):
 									if not r_check in [r1, r2, r3]:
 										var cell = Vector2i(r_check, c)
-										hint.secondary_cells.append(cell)
-										if _get_candidates(r_check, c).get_bit(digit - 1):
-											hint.elim_cells.append(cell)
+										if sudoku.grid[r_check][c] == 0:
+											hint.secondary_cells.append(cell)
+											if _get_candidates(r_check, c).get_bit(digit - 1):
+												hint.elim_cells.append(cell)
 						
 							if not hint.elim_cells.is_empty():
 								hint.elim_numbers.append(digit)
@@ -320,7 +323,7 @@ func get_hints() -> Array[Hint]:
 							var hint = Hint.new(Hint.HintTechnique.SWORDFISH_COL, desc)
 							for c in [c1, c2, c3]:
 								for r in rows:
-									if _get_candidates(r, c).get_bit(digit - 1):
+									if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
 										hint.cells.append(Vector2i(r,c))
 							hint.numbers.append(digit)
 							
@@ -329,9 +332,10 @@ func get_hints() -> Array[Hint]:
 								for c_check in range(9):
 									if not c_check in [c1, c2, c3]:
 										var cell = Vector2i(r, c_check)
-										hint.secondary_cells.append(cell)
-										if _get_candidates(r, c_check).get_bit(digit - 1):
-											hint.elim_cells.append(cell)
+										if sudoku.grid[r][c_check] == 0:
+											hint.secondary_cells.append(cell)
+											if _get_candidates(r, c_check).get_bit(digit - 1):
+												hint.elim_cells.append(cell)
 						
 							if not hint.elim_cells.is_empty():
 								hint.elim_numbers.append(digit)
@@ -379,7 +383,7 @@ func get_hints() -> Array[Hint]:
 								var hint = Hint.new(Hint.HintTechnique.JELLYFISH_ROW, desc)
 								for r in [r1, r2, r3, r4]:
 									for c in cols:
-										if _get_candidates(r, c).get_bit(digit - 1):
+										if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
 											hint.cells.append(Vector2i(r,c))
 								hint.numbers.append(digit)
 								
@@ -388,9 +392,10 @@ func get_hints() -> Array[Hint]:
 									for r_check in range(9):
 										if not r_check in [r1, r2, r3, r4]:
 											var cell = Vector2i(r_check, c)
-											hint.secondary_cells.append(cell)
-											if _get_candidates(r_check, c).get_bit(digit-1):
-												hint.elim_cells.append(cell)
+											if sudoku.grid[r_check][c] == 0:
+												hint.secondary_cells.append(cell)
+												if _get_candidates(r_check, c).get_bit(digit-1):
+													hint.elim_cells.append(cell)
 									
 								if not hint.elim_cells.is_empty():
 									hint.elim_numbers.append(digit)
@@ -438,7 +443,7 @@ func get_hints() -> Array[Hint]:
 								var hint = Hint.new(Hint.HintTechnique.JELLYFISH_COL, desc)
 								for c in [c1, c2, c3, c4]:
 									for r in rows:
-										if _get_candidates(r, c).get_bit(digit - 1):
+										if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
 											hint.cells.append(Vector2i(r,c))
 								hint.numbers.append(digit)
 								
@@ -447,9 +452,10 @@ func get_hints() -> Array[Hint]:
 									for c_check in range(9):
 										if not c_check in [c1, c2, c3, c4]:
 											var cell = Vector2i(r, c_check)
-											hint.secondary_cells.append(cell)
-											if _get_candidates(r, c_check).get_bit(digit-1):
-												hint.elim_cells.append(cell)
+											if sudoku.grid[r][c_check] == 0:
+												hint.secondary_cells.append(cell)
+												if _get_candidates(r, c_check).get_bit(digit-1):
+													hint.elim_cells.append(cell)
 							
 								if not hint.elim_cells.is_empty():
 									hint.elim_numbers.append(digit)
@@ -868,8 +874,9 @@ func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: in
 			var a = nodes[start_idx].pos
 			var b = nodes[next_idx].pos
 			if _are_peers(a, b):
-				# Endpoints share a unit – not Type-1
-				pass
+				# Endpoints share a unit – not Type-1, skip
+				_xychain_dfs(nodes, adj, next_idx, next_active, start_idx, start_digit, visited, new_path, hints, emitted)
+				continue
 			var key = str(start_idx) + ":" + str(next_idx) + ":" + str(start_digit)
 			if not emitted.has(key):
 				var start_pair: PackedInt32Array = nodes[start_idx].pair
