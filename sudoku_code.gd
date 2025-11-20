@@ -75,10 +75,12 @@ func load_puzzle(_puzzle_file: String, puzzle_index: int) -> bool:
 		var line = file.get_line()
 		if line_count == puzzle_index:
 			var _puzzle_data = parse_puzzle_line(line)
+			file.close()
 			return load_puzzle_from_dictionary(_puzzle_data, puzzle_index)
 	   
 		line_count += 1
    
+	file.close()
 	print("Puzzle index out of range")
 	return false
 
@@ -456,6 +458,7 @@ func get_puzzle_count() -> int:
 	while not file.eof_reached():
 		file.get_line()
 		count += 1
+	file.close()
 	return count
 
 func get_puzzle_info() -> Dictionary:
@@ -605,6 +608,7 @@ func load_puzzle_data(difficulty: String):
 	puzzle_data = []
 	while not file.eof_reached():
 		puzzle_data.append(fast_parse_puzzle_line(file.get_line()))
+	file.close()
 	
 func get_puzzle_data(index: int) -> Dictionary:
 	if index < 0 || index >= puzzle_data.size():
