@@ -543,11 +543,13 @@ func highlight_hint(hint: Hint):
 		
 		if button.get_child_count() > 0:
 			var pencil_container = button.get_child(0)
-			for num in elim_numbers:
-				# Check if this pencil mark actually exists before highlighting
-				if sudoku.has_pencil_mark(cell.x, cell.y, num):
-					var pencil_label = pencil_container.get_child(num - 1)
-					pencil_label.add_theme_color_override("font_color", CLR_HINT_CAUSE)
+			if pencil_container.get_child_count() >= 9:
+				for num in elim_numbers:
+					# Validate num is within valid range and pencil mark exists
+					if num >= 1 and num <= 9 and sudoku.has_pencil_mark(cell.x, cell.y, num):
+						var pencil_label = pencil_container.get_child(num - 1)
+						if pencil_label:
+							pencil_label.add_theme_color_override("font_color", CLR_HINT_CAUSE)
 		else:
 			push_error("Button missing pencil container child")
 
@@ -608,27 +610,29 @@ func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 	var min_width = min(window_size.y, window_size.x) * 0.75
 	print("Calculated min_width:", min_width)
 
-	for i in range(sudoku.get_puzzle_count()-1):
-		var puzzle_data = sudoku.get_puzzle_data(i)
-		if puzzle_data:
-			var puzzle_row = preload("res://loadListItem.tscn").instantiate()
-			puzzle_row.custom_minimum_size = Vector2(min_width, 0)
-			puzzle_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var puzzle_count = sudoku.get_puzzle_count()
+	if puzzle_count > 0:
+		for i in range(puzzle_count):
+			var puzzle_data = sudoku.get_puzzle_data(i)
+			if puzzle_data:
+				var puzzle_row = preload("res://loadListItem.tscn").instantiate()
+				puzzle_row.custom_minimum_size = Vector2(min_width, 0)
+				puzzle_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-			# Update labels
-			_set_label_text(puzzle_row, "Index", str(i+1))
-			_set_label_text(puzzle_row, "Difficulty", puzzle_data["difficulty"])
-			
-			var completed_time = ""
-			if completed_puzzles.has(i):
-				completed_time = _format_time(completed_puzzles[i])
-			_set_label_text(puzzle_row, "Time", completed_time)
-			
-			# Connect buttons
-			_connect_button(puzzle_row, "Res", self._on_resume_button_pressed.bind(difficulty, i), i, difficulty)
-			_connect_button(puzzle_row, "New", self._on_load_puzzle_pressed.bind(difficulty, i), i, difficulty)
-			
-			puzzle_list.add_child(puzzle_row)
+				# Update labels
+				_set_label_text(puzzle_row, "Index", str(i+1))
+				_set_label_text(puzzle_row, "Difficulty", puzzle_data["difficulty"])
+				
+				var completed_time = ""
+				if completed_puzzles.has(i):
+					completed_time = _format_time(completed_puzzles[i])
+				_set_label_text(puzzle_row, "Time", completed_time)
+				
+				# Connect buttons
+				_connect_button(puzzle_row, "Res", self._on_resume_button_pressed.bind(difficulty, i), i, difficulty)
+				_connect_button(puzzle_row, "New", self._on_load_puzzle_pressed.bind(difficulty, i), i, difficulty)
+				
+				puzzle_list.add_child(puzzle_row)
 
 	# Force layout update
 	puzzle_list.queue_sort()
@@ -744,18 +748,14 @@ func _on_paste_puzzle_button_pressed():
 	var puzzle = ""
 	var p891 = ""
 	for i in range(81):
-		@warning_ignore("integer_division")
-		given += str(sudoku.original_grid[i/9][i%9])
-		@warning_ignore("integer_division")
-		puzzle += str(sudoku.grid[i/9][i%9])
+		given += str(sudoku.original_grid[i // 9][i % 9])
+		puzzle += str(sudoku.grid[i // 9][i % 9])
 	p891 = puzzle
 	for i in range(81):
 		for j in range(9):
-			@warning_ignore("integer_division")
-			if (sudoku.has_exclude_mark(i/9, i%9, j+1)):
+			if (sudoku.has_exclude_mark(i // 9, i % 9, j+1)):
 				p891 += "2"
-				@warning_ignore("integer_division")
-			elif (sudoku.has_pencil_mark(i/9, i%9, j+1)):
+			elif (sudoku.has_pencil_mark(i // 9, i % 9, j+1)):
 				p891 += "1"
 			else:
 				p891 += "0"

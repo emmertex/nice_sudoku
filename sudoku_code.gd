@@ -75,10 +75,12 @@ func load_puzzle(_puzzle_file: String, puzzle_index: int) -> bool:
 		var line = file.get_line()
 		if line_count == puzzle_index:
 			var _puzzle_data = parse_puzzle_line(line)
+			file.close()
 			return load_puzzle_from_dictionary(_puzzle_data, puzzle_index)
 	   
 		line_count += 1
    
+	file.close()
 	print("Puzzle index out of range")
 	return false
 
@@ -316,14 +318,19 @@ func undo_history() -> void:
 	var success = false
 	
 	match operation:
-		0: success = _undo_number_safe()
-		1: success = _undo_pencil_safe()
-		2: success = _undo_exclude_safe()
-		3: success = _undo_pencil_safe()
-		4: success = _undo_exclude_safe()
+		0: 
+			if number_history.size() > 0:
+				success = _undo_number_safe()
+		1, 3: 
+			if pencil_history.size() > 0:
+				success = _undo_pencil_safe()
+		2, 4: 
+			if exclude_history.size() > 0:
+				success = _undo_exclude_safe()
 	
 	# Validate and restore if needed
 	if not success or not _validate_grid_state():
+		history.append(operation)  # Restore the operation
 		_restore_snapshot(snapshot)
 		print("Warning: Invalid undo operation, state restored")
 
@@ -456,6 +463,7 @@ func get_puzzle_count() -> int:
 	while not file.eof_reached():
 		file.get_line()
 		count += 1
+	file.close()
 	return count
 
 func get_puzzle_info() -> Dictionary:
@@ -535,8 +543,9 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 			save_to_load = puzzle_saves[-1]
 	else:
 		for save in puzzle_saves:
-			print("Save to load: " + str(save.puzzle_selected) + " " + str(save.current_puzzle_index))
-			if save.puzzle_selected == difficulty and save.current_puzzle_index == index:
+			var save_puzzle_selected = save.get("puzzle_selected", difficulty)
+			print("Save to load: " + str(save_puzzle_selected) + " " + str(save.current_puzzle_index))
+			if save_puzzle_selected == difficulty and save.current_puzzle_index == index:
 				save_to_load = save
 				break
 	
@@ -561,7 +570,12 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	current_puzzle_name = save_to_load.current_puzzle_name
 	current_puzzle_difficulty = save_to_load.current_puzzle_difficulty
 	current_puzzle_index = save_to_load.current_puzzle_index
-	puzzle_selected = save_to_load.puzzle_selected
+	# Handle backward compatibility for puzzle_selected
+	if save_to_load.has("puzzle_selected"):
+		puzzle_selected = save_to_load.puzzle_selected
+	else:
+		# Default to current puzzle_selected or "easy" if missing
+		puzzle_selected = puzzle_selected if puzzle_selected != "" else "easy"
 	puzzle_time = save_to_load.puzzle_time
 	sbrc_grid.update_grid(grid)
 	
@@ -605,8 +619,12 @@ func load_puzzle_data(difficulty: String):
 	puzzle_data = []
 	while not file.eof_reached():
 		puzzle_data.append(fast_parse_puzzle_line(file.get_line()))
+	file.close()
 	
 func get_puzzle_data(index: int) -> Dictionary:
+	if puzzle_data.is_empty():
+		# Try to load puzzle data if not already loaded
+		load_puzzle_data(puzzle_selected)
 	if index < 0 || index >= puzzle_data.size():
 		return {}
 	return puzzle_data[index]
@@ -624,7 +642,8 @@ func has_save_state(difficulty: String, puzzle_index: int) -> bool:
 		fast_load_save_states("user://sudoku_saves.cfg")  # Adjust the file path as needed
 	
 	for save in save_states:
-		if save.puzzle_selected == difficulty and save.current_puzzle_index == puzzle_index:
+		var save_puzzle_selected = save.get("puzzle_selected", difficulty)
+		if save_puzzle_selected == difficulty and save.current_puzzle_index == puzzle_index:
 			return true
 	
 	return false

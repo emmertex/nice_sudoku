@@ -58,6 +58,8 @@ func _build_sector_data():
 				box_data[box][digit].set_bit(Cardinals.BxyN[row * 9 + col])
 
 func get_candidates_for_cell(row: int, col: int) -> BitSet:
+	if candidates.is_empty():
+		_build_candidates()
 	if candidates.size() > row and candidates[row].size() > col:
 		return candidates[row][col]
 	return BitSet.new(9)
