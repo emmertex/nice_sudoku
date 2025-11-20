@@ -622,6 +622,9 @@ func load_puzzle_data(difficulty: String):
 	file.close()
 	
 func get_puzzle_data(index: int) -> Dictionary:
+	if puzzle_data.is_empty():
+		# Try to load puzzle data if not already loaded
+		load_puzzle_data(puzzle_selected)
 	if index < 0 || index >= puzzle_data.size():
 		return {}
 	return puzzle_data[index]
