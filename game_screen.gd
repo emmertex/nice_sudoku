@@ -541,14 +541,17 @@ func highlight_hint(hint: Hint):
 		style.set_bg_color(CLR_HINT_AFFECTED)
 		button.add_theme_stylebox_override("normal", style)
 		
-		var pencil_container = button.get_child(0)
-		if pencil_container.get_child_count() >= 9:
-			for num in elim_numbers:
-				# Validate num is within valid range and pencil mark exists
-				if num >= 1 and num <= 9 and sudoku.has_pencil_mark(cell.x, cell.y, num):
-					var pencil_label = pencil_container.get_child(num - 1)
-					if pencil_label:
-						pencil_label.add_theme_color_override("font_color", CLR_HINT_CAUSE)
+		if button.get_child_count() > 0:
+			var pencil_container = button.get_child(0)
+			if pencil_container.get_child_count() >= 9:
+				for num in elim_numbers:
+					# Validate num is within valid range and pencil mark exists
+					if num >= 1 and num <= 9 and sudoku.has_pencil_mark(cell.x, cell.y, num):
+						var pencil_label = pencil_container.get_child(num - 1)
+						if pencil_label:
+							pencil_label.add_theme_color_override("font_color", CLR_HINT_CAUSE)
+		else:
+			push_error("Button missing pencil container child")
 
 func _on_NewGameButton_pressed():
 	show_puzzle_selection_popup()
