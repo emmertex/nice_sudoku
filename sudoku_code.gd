@@ -316,14 +316,19 @@ func undo_history() -> void:
 	var success = false
 	
 	match operation:
-		0: success = _undo_number_safe()
-		1: success = _undo_pencil_safe()
-		2: success = _undo_exclude_safe()
-		3: success = _undo_pencil_safe()
-		4: success = _undo_exclude_safe()
+		0: 
+			if number_history.size() > 0:
+				success = _undo_number_safe()
+		1, 3: 
+			if pencil_history.size() > 0:
+				success = _undo_pencil_safe()
+		2, 4: 
+			if exclude_history.size() > 0:
+				success = _undo_exclude_safe()
 	
 	# Validate and restore if needed
 	if not success or not _validate_grid_state():
+		history.append(operation)  # Restore the operation
 		_restore_snapshot(snapshot)
 		print("Warning: Invalid undo operation, state restored")
 
