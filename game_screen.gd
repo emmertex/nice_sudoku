@@ -741,18 +741,14 @@ func _on_paste_puzzle_button_pressed():
 	var puzzle = ""
 	var p891 = ""
 	for i in range(81):
-		@warning_ignore("integer_division")
-		given += str(sudoku.original_grid[i/9][i%9])
-		@warning_ignore("integer_division")
-		puzzle += str(sudoku.grid[i/9][i%9])
+		given += str(sudoku.original_grid[i // 9][i % 9])
+		puzzle += str(sudoku.grid[i // 9][i % 9])
 	p891 = puzzle
 	for i in range(81):
 		for j in range(9):
-			@warning_ignore("integer_division")
-			if (sudoku.has_exclude_mark(i/9, i%9, j+1)):
+			if (sudoku.has_exclude_mark(i // 9, i % 9, j+1)):
 				p891 += "2"
-				@warning_ignore("integer_division")
-			elif (sudoku.has_pencil_mark(i/9, i%9, j+1)):
+			elif (sudoku.has_pencil_mark(i // 9, i % 9, j+1)):
 				p891 += "1"
 			else:
 				p891 += "0"
