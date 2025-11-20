@@ -542,11 +542,13 @@ func highlight_hint(hint: Hint):
 		button.add_theme_stylebox_override("normal", style)
 		
 		var pencil_container = button.get_child(0)
-		for num in elim_numbers:
-			# Check if this pencil mark actually exists before highlighting
-			if sudoku.has_pencil_mark(cell.x, cell.y, num):
-				var pencil_label = pencil_container.get_child(num - 1)
-				pencil_label.add_theme_color_override("font_color", CLR_HINT_CAUSE)
+		if pencil_container.get_child_count() >= 9:
+			for num in elim_numbers:
+				# Validate num is within valid range and pencil mark exists
+				if num >= 1 and num <= 9 and sudoku.has_pencil_mark(cell.x, cell.y, num):
+					var pencil_label = pencil_container.get_child(num - 1)
+					if pencil_label:
+						pencil_label.add_theme_color_override("font_color", CLR_HINT_CAUSE)
 
 func _on_NewGameButton_pressed():
 	show_puzzle_selection_popup()
