@@ -38,7 +38,7 @@ var highlight_mode: HighlightMode = HighlightMode.ALLC
 var mode: Mode = Mode.NUMBER
 var viewport_size: Vector2
 var orientation: bool = true
-var vertical_aspect_ratio: float = 1/(1.638)
+var vertical_aspect_ratio: float = 1.0 / 1.638
 var current_aspect_ratio: float = 1
 var button_size: int = 70
 var font_size: int = 10
@@ -236,6 +236,10 @@ func _on_cell_pressed(row: int, col: int):
 	queue_update("highlights")
 
 func _update_pencil():
+	var highlight_number = selected_num
+	if highlight_number == 0 and selected_cell.x >= 0 and selected_cell.y >= 0:
+		highlight_number = sudoku.grid[selected_cell.x][selected_cell.y]
+	
 	for row in range(9):
 		for col in range(9):
 			for num_idx in range(9):
@@ -254,7 +258,11 @@ func _update_pencil():
 					pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
 				elif pencil:
 					pencil_button.text = str(Cardinals.PencilN[num_idx])
-					pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
+					# In ALLC mode, highlight pencil marks matching the selected number
+					if highlight_mode == HighlightMode.ALLC and highlight_number != 0 and num == highlight_number:
+						pencil_button.add_theme_color_override("font_color", CLR_PENCIL_HIGHLIGHT)
+					else:
+						pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
 				else:
 					pencil_button.text = ""
 
@@ -748,14 +756,18 @@ func _on_paste_puzzle_button_pressed():
 	var puzzle = ""
 	var p891 = ""
 	for i in range(81):
-		given += str(sudoku.original_grid[i // 9][i % 9])
-		puzzle += str(sudoku.grid[i // 9][i % 9])
+		var row = int(i / 9)
+		var col = i % 9
+		given += str(sudoku.original_grid[row][col])
+		puzzle += str(sudoku.grid[row][col])
 	p891 = puzzle
 	for i in range(81):
+		var row = int(i / 9)
+		var col = i % 9
 		for j in range(9):
-			if (sudoku.has_exclude_mark(i // 9, i % 9, j+1)):
+			if (sudoku.has_exclude_mark(row, col, j+1)):
 				p891 += "2"
-			elif (sudoku.has_pencil_mark(i // 9, i % 9, j+1)):
+			elif (sudoku.has_pencil_mark(row, col, j+1)):
 				p891 += "1"
 			else:
 				p891 += "0"
@@ -1009,6 +1021,8 @@ func _input(event):
 		var key = event.as_text()
 		if key >= "1" and key <= "9":
 			_on_number_button_pressed(int(key))
+		elif key.to_upper() == "E" or key.to_upper() == "X":
+			_on_button_pc_pressed()
 	if event.is_action_pressed("0"):
 		_on_number_button_pressed(0)
 	if event.is_action_pressed("clear"):
@@ -1029,6 +1043,7 @@ func _on_highlight_button_pressed():
 	highlight_mode = HighlightMode.values()[(int(highlight_mode) + 1) % HighlightMode.size()]
 	_update_highlight_button_text()
 	queue_update("highlights")
+	queue_update("pencil")  # Update pencil marks to apply/remove ALLC highlighting
 
 func _update_highlight_button_text():
 	match highlight_mode:
