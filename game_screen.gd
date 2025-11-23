@@ -14,6 +14,7 @@ const CLR_BACKGROUND = Color(0.1, 0.1, 0.1)
 const CLR_PENCIL = Color(0.95, 0.95, 0.95)
 const CLR_PENCIL_HIGHLIGHT = Color(0.3, 1.0, 0.3)
 const CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)
+const CLR_MISTAKE_FLASH = Color(1.0, 0.3, 0.3, 1.0)  # Red flash for mistakes
 const CLR_HINT_AFFECTED = Color(0, 0.5, 0, 1)
 const CLR_HINT_PRIMARY = Color(0, 0.5, 0, 1)
 const CLR_HINT_SECONDARY = Color(0.58, 0, 0.83, 1)
@@ -217,8 +218,37 @@ func _on_cell_pressed(row: int, col: int):
 	if mode == Mode.NUMBER:
 		if sudoku.grid[row][col] == 0:
 			if selected_num != 0:
-				sudoku.set_number(row, col, selected_num)
-				selected_cell = Vector2(-1, -1)
+				# Save pencil marks before placing number (they get cleared by set_number)
+				var saved_pencil_bits = sudoku.pencil_bits[row][col]
+				var saved_exclude_bits = sudoku.exclude_bits[row][col]
+				
+				var result = sudoku.set_number(row, col, selected_num)
+				if result["success"]:
+					if result["is_mistake"]:
+						# Remove the incorrect number
+						sudoku.clear_number(row, col)
+						# Restore pencil marks (they were cleared by set_number)
+						sudoku.pencil_bits[row][col] = saved_pencil_bits
+						# Restore exclude marks and add the new exclude mark for the mistake
+						# Use bitwise OR to add without clearing existing exclude marks
+						sudoku.exclude_bits[row][col] = saved_exclude_bits | (1 << (selected_num - 1))
+						# Store in history (using the saved value as the "old" value)
+						sudoku.store_exclude_history(row, col, saved_exclude_bits)
+						# Update sbrc_grid to reflect the exclude mark
+						sudoku.sbrc_grid.update_grid(sudoku.grid)
+						# Apply exclude bits to candidate masks
+						for r in range(9):
+							for c in range(9):
+								var bits_to_exclude = sudoku.exclude_bits[r][c]
+								if bits_to_exclude > 0:
+									sudoku.sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
+						_show_mistake_warning()
+					selected_cell = Vector2(-1, -1)
+					queue_update("info")  # Update mistake counter display
+					queue_update("grid")
+					queue_update("pencil")
+					# Flash after UI updates to avoid being overridden
+					call_deferred("_flash_cell_red", row, col)
 		else:
 			selected_num = sudoku.grid[row][col]
 
@@ -716,6 +746,11 @@ func _on_resume_button_pressed(difficulty: String, index: int):
 	print("Loading state for difficulty: " + difficulty + " and index: " + str(index))
 	sudoku.load_state(SAVE_STATE_PATH, difficulty, index)
 	timer_running = true
+	
+	# Always try to solve if solution not already available (run async to avoid blocking)
+	if not sudoku.has_solution or sudoku.solution_grid.is_empty():
+		call_deferred("_solve_puzzle_async")
+	
 	var popup = get_node_or_null("PuzzleSelectionPopup")
 	if popup:
 		popup.queue_free()
@@ -796,6 +831,11 @@ func _on_load_button_pressed(text_input, popup):
 		selected_cell = Vector2(-1, -1)
 		timer_running = true
 		sudoku.puzzle_time = 0
+		
+		# Check if solver found a solution
+		if not sudoku.has_solution:
+			show_solver_failure_warning()
+		
 		popup.hide()
 		queue_update("grid")
 		queue_update("buttons")
@@ -911,6 +951,10 @@ func save_game_state():
 
 func load_game_state() -> bool:
 	if sudoku.load_state(SAVE_STATE_PATH):
+		# Ensure solver runs if no valid solution available
+		if not sudoku.has_solution or sudoku.solution_grid.is_empty():
+			call_deferred("_solve_puzzle_async")
+
 		queue_update("grid")
 		queue_update("buttons")
 		queue_update("pencil")
@@ -935,7 +979,10 @@ func _connect_signals():
 
 func update_puzzle_info():
 	var info = sudoku.get_puzzle_info()
-	puzzle_info.text = "Puzzle: %s    |    Difficulty: %s" % [info.name, info.difficulty]
+	var mistake_text = ""
+	if sudoku.has_solution:
+		mistake_text = "    |    Mistakes: %d" % sudoku.mistake_count
+	puzzle_info.text = "Puzzle: %s    |    Difficulty: %s%s" % [info.name, info.difficulty, mistake_text]
 
 func load_puzzle(index: int, difficulty: String):
 	sudoku.puzzle_selected = difficulty
@@ -943,6 +990,11 @@ func load_puzzle(index: int, difficulty: String):
 		selected_cell = Vector2(-1, -1)
 		timer_running = true
 		sudoku.puzzle_time = 0
+		
+		# Run solver asynchronously after UI loads (with delay to ensure UI is ready)
+		# Use call_deferred to run after all current processing is done
+		call_deferred("_solve_puzzle_async")
+		
 		queue_update("grid")
 		queue_update("buttons")
 		queue_update("pencil")
@@ -950,6 +1002,29 @@ func load_puzzle(index: int, difficulty: String):
 		queue_update("info")
 	else:
 		print("Failed to load puzzle")
+
+func _solve_puzzle_async():
+	# Run solver after UI has loaded
+	# This runs in the background and won't block the UI
+	print("Starting solver in background...")
+	
+	# Add a small delay to ensure UI is fully ready
+	await get_tree().create_timer(0.1).timeout
+	
+	var start_time = Time.get_ticks_msec()
+	
+	# Try to solve
+	sudoku.solve_puzzle()
+	
+	var elapsed = Time.get_ticks_msec() - start_time
+	print("Solver completed in %d ms, has_solution: %s" % [elapsed, sudoku.has_solution])
+	
+	# Check if solver found a solution
+	if not sudoku.has_solution:
+		print("Solver failed to find solution - mistake detection disabled")
+	
+	# Update UI to show mistake counter if solution found
+	queue_update("info")
 
 func show_puzzle_done_popup():
 	var popupDone = preload("res://puzzleDone.tscn").instantiate()
@@ -1038,6 +1113,91 @@ func _on_AutoP_pressed():
 	sudoku.auto_fill_pencil_marks()
 	queue_update("pencil")
 	queue_update("highlights")
+
+func _show_mistake_warning():
+	# Show a simple notification that a mistake was made
+	# Update the mistake counter display
+	queue_update("info")
+	# Could also show a popup here if desired
+	print("Mistake detected! Total mistakes: %d" % sudoku.mistake_count)
+
+func _flash_cell_red(row: int, col: int):
+	# Flash the cell red to indicate a mistake
+	_flash_cell_red_async(row, col)
+
+func _flash_cell_red_async(row: int, col: int):
+	# Flash the cell red to indicate a mistake
+	var button = grid_container.get_child(row * 9 + col)
+	if not button:
+		return
+
+	# Store original style
+	var original_style = button.get_theme_stylebox("normal").duplicate()
+
+	# Determine normal background color based on cell state
+	var normal_bg_color: Color
+	if sudoku.is_given_number(row, col):
+		normal_bg_color = CLR_GIVEN
+	elif sudoku.grid[row][col] == 0:
+		if ((col * 9) + row) % 2 == 0:
+			normal_bg_color = CLR_BOARD
+		else:
+			normal_bg_color = CLR_BOARD2
+	else:
+		normal_bg_color = CLR_BLOCKED
+
+	# Create red flash style with same borders as original
+	var flash_style = original_style.duplicate()
+	flash_style.set_bg_color(CLR_MISTAKE_FLASH)
+
+	# Apply red flash immediately
+	button.add_theme_stylebox_override("normal", flash_style)
+
+	# Force update to show the flash
+	await get_tree().process_frame
+
+	# Create a tween to fade back to normal over 0.5 seconds
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_QUAD)
+
+	# Create a function to update the color
+	var start_color = CLR_MISTAKE_FLASH
+	var end_color = normal_bg_color
+
+	var update_func = func(progress: float):
+		var current_color = start_color.lerp(end_color, progress)
+		var style = original_style.duplicate()
+		style.set_bg_color(current_color)
+		# Preserve all border settings from original
+		if original_style.get_border_width(SIDE_LEFT) > 0:
+			style.set_border_width(SIDE_LEFT, original_style.get_border_width(SIDE_LEFT))
+		if original_style.get_border_width(SIDE_RIGHT) > 0:
+			style.set_border_width(SIDE_RIGHT, original_style.get_border_width(SIDE_RIGHT))
+		if original_style.get_border_width(SIDE_TOP) > 0:
+			style.set_border_width(SIDE_TOP, original_style.get_border_width(SIDE_TOP))
+		if original_style.get_border_width(SIDE_BOTTOM) > 0:
+			style.set_border_width(SIDE_BOTTOM, original_style.get_border_width(SIDE_BOTTOM))
+		style.set_border_color(CLR_GRID_BORDER)
+		button.add_theme_stylebox_override("normal", style)
+
+	# Tween from 0 to 1, calling update_func at each step
+	tween.tween_method(update_func, 0.0, 1.0, 0.5)
+
+	# After tween completes, refresh highlights to ensure correct state
+	await tween.finished
+	queue_update("highlights")  # Refresh highlights after flash
+
+func show_solver_failure_warning():
+	var popup = AcceptDialog.new()
+	popup.dialog_text = "Warning: The solver was unable to find a solution for this puzzle. Mistake detection will not be available."
+	popup.title = "Solver Warning"
+	add_child(popup)
+	popup.popup_centered()
+	# Auto-remove after a delay
+	await get_tree().create_timer(5.0).timeout
+	if is_instance_valid(popup):
+		popup.queue_free()
 
 func _on_highlight_button_pressed():
 	highlight_mode = HighlightMode.values()[(int(highlight_mode) + 1) % HighlightMode.size()]

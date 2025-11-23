@@ -941,7 +941,9 @@ func _find_nishio_eliminations(hints: Array[Hint]):
 				trial.load_puzzle_from_dictionary({"grid": sudoku.grid.duplicate(true), "difficulty": "trial"}, sudoku.current_puzzle_index)
 				if not trial.is_valid_move(r, c, d + 1):
 					continue
-				trial.set_number(r, c, d + 1)
+				var result = trial.set_number(r, c, d + 1)
+				if not result["success"]:
+					continue
 				var solutions = trial.solve_with_backtracking(1)
 				if solutions.size() == 0:
 					var hint = Hint.new(Hint.HintTechnique.NISHIO, "")

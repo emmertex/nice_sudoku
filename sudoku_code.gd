@@ -1,6 +1,8 @@
 extends RefCounted
 class_name Sudoku
 
+const Hint = preload("res://hint.gd")
+
 # Properties
 var grid: Array = []
 var original_grid: Array = []
@@ -31,6 +33,11 @@ var difficulty_index: Dictionary = {
 }
 
 var sbrc_grid: SBRCGrid
+
+# Solution and mistake tracking
+var solution_grid: Array = []
+var has_solution: bool = false
+var mistake_count: int = 0
 
 # Initialization
 func _init():
@@ -96,6 +103,15 @@ func load_puzzle_from_dictionary(_puzzle_data: Dictionary, puzzle_index: int = 0
 	current_puzzle_index = puzzle_index
 	sbrc_grid.update_grid(grid)
 	_clear_history()
+	
+	# Reset mistake tracking
+	mistake_count = 0
+	solution_grid = []
+	has_solution = false
+	
+	# Note: Solver will be called from game_screen after UI loads
+	# to avoid blocking initialization
+	
 	return true
 
 
@@ -151,6 +167,15 @@ func load_puzzle_from_string(line: String) -> bool:
 	sbrc_grid.update_grid(grid)
 	_clear_history()
 	current_puzzle_index = 0
+	
+	# Reset mistake tracking
+	mistake_count = 0
+	solution_grid = []
+	has_solution = false
+	
+	# Try to solve the puzzle
+	solve_puzzle()
+	
 	return true
 
 func parse_puzzle_line(line: String) -> Dictionary:
@@ -195,7 +220,10 @@ func is_valid_move(row: int, col: int, num: int) -> bool:
 func get_candidates_for_cell(row: int, col: int) -> BitSet:
 	return sbrc_grid.get_candidates_for_cell(row, col)
 	
-func set_number(row: int, col: int, num: int) -> bool:
+func set_number(row: int, col: int, num: int) -> Dictionary:
+	# Return value: {"success": bool, "is_mistake": bool}
+	var result = {"success": false, "is_mistake": false}
+	
 	if is_valid_move(row, col, num) && !is_given_number(row, col):
 		store_number_history(row, col, grid[row][col])
 		grid[row][col] = num
@@ -218,22 +246,26 @@ func set_number(row: int, col: int, num: int) -> bool:
 			for c in range(block_col, block_col + 3):
 				if has_pencil_mark(r, c, num):
 					set_pencil_mark(r, c, num, false)
-				if has_exclude_mark(r, c, num):
-					set_exclude_mark(r, c, num, false)
 		# Clear pencil marks of the number from the row
 		for c in range(9):
 			if has_pencil_mark(row, c, num):
 				set_pencil_mark(row, c, num, false)
-			if has_exclude_mark(row, c, num):
-				set_exclude_mark(row, c, num, false)
 		# Clear pencil marks of the number from the column
 		for r in range(9):
 			if has_pencil_mark(r, col, num):
 				set_pencil_mark(r, col, num, false)
-			if has_exclude_mark(r, col, num):
-				set_exclude_mark(r, col, num, false)
-		return true
-	return false
+		
+		result["success"] = true
+		
+		# Check for mistake if solution is available
+		if has_solution and solution_grid.size() == 9 and solution_grid[0].size() == 9:
+			if solution_grid[row][col] != num:
+				mistake_count += 1
+				result["is_mistake"] = true
+		
+		return result
+	
+	return result
 
 func clear_number(row: int, col: int):
 	store_number_history(row, col, grid[row][col])
@@ -509,7 +541,9 @@ func save_state(file_path: String) -> bool:
 		"current_puzzle_difficulty": current_puzzle_difficulty,
 		"current_puzzle_index": current_puzzle_index,
 		"puzzle_selected": puzzle_selected,
-		"puzzle_time": puzzle_time
+		"puzzle_time": puzzle_time,
+		"mistake_count": mistake_count,
+		"has_solution": has_solution
 	}
 	
 	# Check if a save for this puzzle already exists
@@ -577,6 +611,24 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 		# Default to current puzzle_selected or "easy" if missing
 		puzzle_selected = puzzle_selected if puzzle_selected != "" else "easy"
 	puzzle_time = save_to_load.puzzle_time
+	
+	# Handle mistake tracking (backward compatible)
+	if save_to_load.has("mistake_count"):
+		mistake_count = save_to_load.mistake_count
+	else:
+		mistake_count = 0
+	
+	if save_to_load.has("has_solution"):
+		has_solution = save_to_load.has_solution
+		# If solution was saved, try to regenerate it
+		# DISABLED: Don't solve during load_state to avoid blocking UI
+		# Solution will be regenerated later if needed
+		# if has_solution and solution_grid.size() == 0:
+		#	solve_puzzle()
+	else:
+		has_solution = false
+		solution_grid = []
+	
 	sbrc_grid.update_grid(grid)
 	
 	return true
@@ -697,6 +749,81 @@ func solve_with_backtracking(num_solutions_to_find: int = 1) -> Array:
 
 	return solutions
 
+func solve_puzzle() -> bool:
+	print("solve_puzzle() called")
+	# First try hint-based solving
+	var hint_generator = load("res://hint_generator.gd").new()
+	hint_generator.sudoku = self
+	
+	# Save current grid state
+	var original_state = grid.duplicate(true)
+	
+	# Try hint-based solving
+	var applied_hint = true
+	var iteration_limit = 100
+	var iterations = 0
+	
+	print("Starting hint-based solving...")
+	while applied_hint and iterations < iteration_limit:
+		iterations += 1
+		applied_hint = false
+		if sbrc_grid.is_complete():
+			break
+		
+		var hints = hint_generator.get_hints()
+		if hints.is_empty():
+			break
+		
+		# Prioritize placement hints
+		var best_hint = _find_best_hint_for_solving(hints)
+		
+		if best_hint:
+			if apply_hint(best_hint):
+				applied_hint = true
+	
+	# If hint-based solving succeeded, store solution
+	if sbrc_grid.is_complete():
+		solution_grid = grid.duplicate(true)
+		has_solution = true
+		# Restore original state
+		grid = original_state
+		sbrc_grid.update_grid(grid)
+		return true
+	
+	# Fall back to backtracking solver
+	print("Hint-based solving incomplete, trying backtracking...")
+	grid = original_state
+	sbrc_grid.update_grid(grid)
+	var solutions = solve_with_backtracking(1)
+	print("Backtracking solver returned %d solutions" % solutions.size())
+	
+	if solutions.size() > 0:
+		solution_grid = solutions[0]
+		has_solution = true
+		# Restore original state
+		grid = original_state
+		sbrc_grid.update_grid(grid)
+		return true
+	
+	# No solution found
+	solution_grid = []
+	has_solution = false
+	return false
+
+func _find_best_hint_for_solving(hints: Array) -> Variant:
+	# Priority 1: Single Candidate / Hidden Single (direct placement)
+	for hint in hints:
+		if hint.technique == Hint.HintTechnique.SINGLE_CANDIDATE or hint.technique == Hint.HintTechnique.HIDDEN_SINGLE:
+			if hint.cells.size() == 1 and hint.numbers.size() == 1:
+				return hint
+	
+	# Priority 2: Any other hint that provides eliminations
+	for hint in hints:
+		if not hint.elim_cells.is_empty():
+			return hint
+	
+	return null
+
 func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num_solutions_to_find: int):
 	if solutions.size() >= num_solutions_to_find:
 		return
@@ -731,8 +858,8 @@ func apply_hint(hint: Hint) -> bool:
 		var cell = hint.cells[0]
 		var num = hint.numbers[0]
 		if grid[cell.x][cell.y] == 0:
-			set_number(cell.x, cell.y, num)
-			return true
+			var result = set_number(cell.x, cell.y, num)
+			return result["success"]
 
 	# Elimination hints
 	if not hint.elim_cells.is_empty() and not hint.elim_numbers.is_empty():

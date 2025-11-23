@@ -116,8 +116,8 @@ func _apply_hint(sudoku: Sudoku, hint: Hint) -> bool:
 		var cell = hint.cells[0]
 		var num = hint.numbers[0]
 		if sudoku.grid[cell.x][cell.y] == 0:
-			sudoku.set_number(cell.x, cell.y, num)
-			return true
+			var result = sudoku.set_number(cell.x, cell.y, num)
+			return result["success"]
 
 	# Case 2: Elimination Hint
 	if not hint.elim_cells.is_empty() and not hint.elim_numbers.is_empty():

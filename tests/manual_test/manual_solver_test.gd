@@ -105,11 +105,12 @@ func _apply_hint(sudoku: Sudoku, hint: Hint) -> bool:
 		var cell = hint.cells[0]
 		var num = hint.numbers[0]
 		if sudoku.grid[cell.x][cell.y] == 0:
-			sudoku.set_number(cell.x, cell.y, num)
-			var state_after_81: String = _get_grid_as_string(sudoku)
-			var state_after_891: String = _get_891_state_string(sudoku)
-			_log_hint_applied(hint, true, state_after_81, state_after_891)
-			return true
+			var result = sudoku.set_number(cell.x, cell.y, num)
+			if result["success"]:
+				var state_after_81: String = _get_grid_as_string(sudoku)
+				var state_after_891: String = _get_891_state_string(sudoku)
+				_log_hint_applied(hint, true, state_after_81, state_after_891)
+				return true
 	
 	# Case 2: Elimination Hint
 	if not hint.elim_cells.is_empty() and not hint.elim_numbers.is_empty():
