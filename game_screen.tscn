@@ -49,49 +49,62 @@ layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="MenuLayer1" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
+[node name="TopMenuBar" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="PastePuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
+[node name="HintButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
 layout_mode = 2
-text = "Paste"
+text = "Get Hint"
 
-[node name="NewGameButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
+[node name="UndoButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
 layout_mode = 2
-text = "New"
+text = "Undo Move"
 
-[node name="LoadPuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
-layout_mode = 2
-text = "Next"
-
-[node name="Timer" type="Label" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1"]
+[node name="PlayTimeLabel" type="Label" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
 layout_mode = 2
 text = "0:00"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="MenuLayer2" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
+[node name="OptionsToggleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
+layout_mode = 2
+text = "More Options ▼"
+
+[node name="AdditionalOptions" type="VBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="GameControls" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="HighlightButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
+[node name="PastePuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls"]
 layout_mode = 2
-text = "Highlight"
+text = "Paste Puzzle"
 
-[node name="AutoPencil" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
+[node name="NewGameButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls"]
 layout_mode = 2
-text = "Auto Fill"
+text = "New Game"
 
-[node name="HintButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
+[node name="LoadPuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls"]
 layout_mode = 2
-text = "Hint"
+text = "Load Puzzle"
 
-[node name="UndoButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2"]
+[node name="GameFeatures" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions"]
 layout_mode = 2
-text = "Undo"
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="HighlightButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures"]
+layout_mode = 2
+text = "Toggle Highlights"
+
+[node name="AutoPencil" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures"]
+layout_mode = 2
+text = "Auto Pencil"
 
 [node name="HBoxContainerGrid" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
@@ -144,7 +157,7 @@ layout_mode = 2
 [node name="Button10" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
 tooltip_text = "Clear Entry"
-text = "🗑️"
+text = "C"
 
 [node name="Button11" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
 layout_mode = 2
@@ -162,13 +175,14 @@ horizontal_alignment = 1
 
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
 [connection signal="timeout" from="UIFixTimer" to="." method="_ui_hack"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/NewGameButton" to="." method="_on_NewGameButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton" to="." method="_on_highlight_button_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/AutoPencil" to="." method="_on_AutoP_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HintButton" to="." method="_on_HintButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/UndoButton" to="." method="_on_UndoButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/HintButton" to="." method="_on_HintButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/UndoButton" to="." method="_on_UndoButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/OptionsToggleButton" to="." method="_on_options_toggle_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls/NewGameButton" to="." method="_on_NewGameButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/HighlightButton" to="." method="_on_highlight_button_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/AutoPencil" to="." method="_on_AutoP_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button10" to="." method="_on_button_c_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button11" to="." method="_on_button_p_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button12" to="." method="_on_button_pc_pressed"]

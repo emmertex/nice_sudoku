@@ -68,10 +68,11 @@ var hint_panel: Panel = null
 @onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
 @onready var grid_container = $Panel/AspectRatioContainer/VBoxContainer/HBoxContainerGrid/AspectRatioContainer/GridContainer
 @onready var puzzle_info = $Panel/AspectRatioContainer/VBoxContainer/PuzzleInfo
-@onready var highlight_button = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2/HighlightButton
-@onready var game_timer_text = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer1/Timer
-@onready var menu_layer1 = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer1
-@onready var menu_layer2 = $Panel/AspectRatioContainer/VBoxContainer/MenuLayer2
+@onready var highlight_button = $Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/HighlightButton
+@onready var game_timer_text = $Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/PlayTimeLabel
+@onready var top_menu_bar = $Panel/AspectRatioContainer/VBoxContainer/TopMenuBar
+@onready var additional_options = $Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions
+@onready var options_toggle_button = $Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/OptionsToggleButton
 @onready var aspect_container = $Panel/AspectRatioContainer/ColorRect2
 
 func _ready():
@@ -83,6 +84,9 @@ func _ready():
 	_setup_update_batching()
 	if !load_game_state():
 		_load_initial_puzzle()
+
+	# Hide additional options by default
+	additional_options.visible = false
 
 func _load_theme():
 	var theme = load("res://game_theme.tres")
@@ -561,9 +565,9 @@ func _on_HintButton_pressed():
 	hint_panel = preload("res://hint_popup.tscn").instantiate()
 	hint_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var container = menu_layer1.get_parent()
+	var container = top_menu_bar.get_parent()
 	container.add_child(hint_panel)
-	container.move_child(hint_panel, menu_layer1.get_index())
+	container.move_child(hint_panel, top_menu_bar.get_index())
 
 	# Add fade-in animation
 	hint_panel.modulate = Color(1, 1, 1, 0)
@@ -572,8 +576,8 @@ func _on_HintButton_pressed():
 	tween.set_trans(Tween.TRANS_QUAD)
 	tween.tween_property(hint_panel, "modulate", Color(1, 1, 1, 1), 0.3)
 
-	menu_layer1.hide()
-	menu_layer2.hide()
+	top_menu_bar.hide()
+	additional_options.hide()
 	
 	# Connect signals BEFORE they can be emitted
 	hint_panel.connect("hint_selected", self._on_hint_selected)
@@ -602,8 +606,8 @@ func _on_hint_dismissed():
 		hint_panel.queue_free()
 		hint_panel = null
 
-	menu_layer1.show()
-	menu_layer2.show()
+	top_menu_bar.show()
+	# Keep additional options hidden by default unless user toggled them
 
 	# Restore previous highlight preference to ALLC after hinting session
 	highlight_mode = HighlightMode.ALLC
@@ -1036,11 +1040,18 @@ func _resize_number_buttons():
 		button.add_theme_font_size_override("font_size", button_size*0.75)
 
 func _resize_menu_buttons():
-	for layer in [menu_layer1, menu_layer2]:
+	for layer in [top_menu_bar, additional_options]:
 		for child in layer.get_children():
-			child.set_custom_minimum_size(Vector2(aspect_container.size.x/4.2, button_size * 1.2))
-			@warning_ignore("narrowing_conversion")
-			child.add_theme_font_size_override("font_size", button_size * 0.4)
+			if child is HBoxContainer or child is VBoxContainer:
+				# Handle nested containers
+				for nested_child in child.get_children():
+					nested_child.set_custom_minimum_size(Vector2(aspect_container.size.x/4.2, button_size * 1.2))
+					@warning_ignore("narrowing_conversion")
+					nested_child.add_theme_font_size_override("font_size", button_size * 0.4)
+			else:
+				child.set_custom_minimum_size(Vector2(aspect_container.size.x/4.2, button_size * 1.2))
+				@warning_ignore("narrowing_conversion")
+				child.add_theme_font_size_override("font_size", button_size * 0.4)
 
 			# Add better styling to menu buttons
 			var normal_style = StyleBoxFlat.new()
@@ -1361,6 +1372,13 @@ func show_solver_failure_warning():
 func _on_highlight_button_pressed():
 	highlight_mode = HighlightMode.values()[(int(highlight_mode) + 1) % HighlightMode.size()]
 	_update_highlight_button_text()
+
+func _on_options_toggle_pressed():
+	additional_options.visible = !additional_options.visible
+	if additional_options.visible:
+		options_toggle_button.text = "Hide Options ▲"
+	else:
+		options_toggle_button.text = "More Options ▼"
 	queue_update("highlights")
 	queue_update("pencil")  # Update pencil marks to apply/remove ALLC highlighting
 
