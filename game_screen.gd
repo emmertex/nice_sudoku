@@ -124,7 +124,7 @@ const THEME_COLORS = {
 const SAVE_STATE_PATH = "user://save_state.cfg"
 
 # Enums
-enum HighlightMode { NUM, NRC, NRCB, ALL, ALLC }
+enum HighlightMode { SAME, CROSS, REGION, FULL, PENCIL }
 enum Mode { NUMBER, NUMBER_CLR, PENCIL, PENCIL_EXCLUDE }
 enum ThemeType { DARK, LIGHT, EPAPER }
 
@@ -133,7 +133,7 @@ var sudoku: Sudoku
 var hint_generator
 var selected_cell: Vector2 = Vector2(-1, -1)
 var selected_num = 0
-var highlight_mode: HighlightMode = HighlightMode.ALLC
+var highlight_mode: HighlightMode = HighlightMode.FULL
 var mode: Mode = Mode.NUMBER
 var viewport_size: Vector2
 var orientation: bool = true
@@ -485,7 +485,7 @@ func _update_pencil():
 				elif pencil:
 					pencil_button.text = str(Cardinals.PencilN[num_idx])
 					# In ALLC mode, highlight pencil marks matching the selected number
-					if highlight_mode == HighlightMode.ALLC and highlight_number != 0 and num == highlight_number:
+					if highlight_number != 0 and num == highlight_number:
 						pencil_button.add_theme_color_override("font_color", get_current_theme_color("CLR_PENCIL_HIGHLIGHT"))
 					else:
 						pencil_button.add_theme_color_override("font_color", get_current_theme_color("CLR_PENCIL"))
@@ -588,7 +588,7 @@ func _update_grid_highlights():
 	if highlight_number == 0 and selected_cell.x >= 0 and selected_cell.y >= 0:
 		highlight_number = sudoku.grid[selected_cell.x][selected_cell.y]
 
-	if (highlight_mode == HighlightMode.ALL or highlight_mode == HighlightMode.ALLC) and highlight_number != 0:
+	if highlight_mode == HighlightMode.FULL and highlight_number != 0:
 		for row in range(9):
 			for col in range(9):
 				if sudoku.grid[row][col] == highlight_number:
@@ -628,9 +628,18 @@ func _update_grid_highlights():
 					var style = button.get_theme_stylebox("normal").duplicate()
 					style.set_bg_color(get_current_theme_color("CLR_SAME"))
 					button.add_theme_stylebox_override("normal", style)
+	elif highlight_mode == HighlightMode.PENCIL and highlight_number != 0:
+		# Highlight all cells WITHOUT the pencil mark as unavailable
+		for row in range(9):
+			for col in range(9):
+				if not sudoku.has_pencil_mark(row, col, highlight_number):
+					var button = grid_container.get_child(row * 9 + col)
+					var style = button.get_theme_stylebox("normal").duplicate()
+					style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
+					button.add_theme_stylebox_override("normal", style)
 
 	# Restore NUM, NRC, NRCB highlight logic
-	elif highlight_mode == HighlightMode.NUM and highlight_number != 0:
+	elif highlight_mode == HighlightMode.SAME and highlight_number != 0:
 		# Highlight all cells with the same number as selected cell
 		for row in range(9):
 			for col in range(9):
@@ -639,7 +648,7 @@ func _update_grid_highlights():
 					var style = button.get_theme_stylebox("normal").duplicate()
 					style.set_bg_color(get_current_theme_color("CLR_SAME"))
 					button.add_theme_stylebox_override("normal", style)
-	elif highlight_mode == HighlightMode.NRC and selected_cell.x >= 0 and selected_cell.y >= 0:
+	elif highlight_mode == HighlightMode.CROSS and selected_cell.x >= 0 and selected_cell.y >= 0:
 		# Highlight row and column of selected cell
 		for i in range(9):
 			@warning_ignore("narrowing_conversion")
@@ -652,7 +661,7 @@ func _update_grid_highlights():
 			col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 			row_button.add_theme_stylebox_override("normal", row_style)
 			col_button.add_theme_stylebox_override("normal", col_style)
-	elif highlight_mode == HighlightMode.NRCB and selected_cell.x >= 0 and selected_cell.y >= 0:
+	elif highlight_mode == HighlightMode.REGION and selected_cell.x >= 0 and selected_cell.y >= 0:
 		# Highlight row, column, and block of selected cell
 		for i in range(9):
 			@warning_ignore("narrowing_conversion")
@@ -688,7 +697,7 @@ func _on_HintButton_pressed():
 	# Clear previous hint and disabling number highlight for clarity during hints
 	current_hint = null
 	selected_num = 0
-	highlight_mode = HighlightMode.NRCB
+	highlight_mode = HighlightMode.REGION
 	_update_grid_highlights()
 	_update_pencil()
 
@@ -741,7 +750,7 @@ func _on_hint_dismissed():
 	# Keep additional options hidden by default unless user toggled them
 
 	# Restore previous highlight preference to ALLC after hinting session
-	highlight_mode = HighlightMode.ALLC
+	highlight_mode = HighlightMode.FULL
 	_update_grid_highlights()
 	_update_pencil()
 	_update_timer.start() # Resume automatic updates
@@ -890,12 +899,12 @@ func show_puzzle_selection_popup():
 	_on_difficulty_selected(sudoku.difficulty_index[sudoku.puzzle_selected], puzzle_list)
 
 	# Add fade-in animation
-	popup.modulate = Color(1, 1, 1, 0)
+	vbox.modulate = Color(1, 1, 1, 0)
 	popup.popup_centered()
 	var tween = create_tween()
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_QUAD)
-	tween.tween_property(popup, "modulate", Color(1, 1, 1, 1), 0.3)
+	tween.tween_property(vbox, "modulate", Color(1, 1, 1, 1), 0.3)
 
 func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 	var difficulty = sudoku.puzzles.keys()[index]
@@ -1396,6 +1405,9 @@ func _input(event):
 
 func _on_AutoP_pressed():
 	sudoku.auto_fill_pencil_marks()
+	if highlight_mode == HighlightMode.FULL:
+		highlight_mode = HighlightMode.PENCIL
+		_update_highlight_button_text()
 	queue_update("pencil")
 	queue_update("highlights")
 
@@ -1518,13 +1530,13 @@ func _on_options_toggle_pressed():
 
 func _update_highlight_button_text():
 	match highlight_mode:
-		HighlightMode.NUM:
-			highlight_button.text = "Num"
-		HighlightMode.NRC:
-			highlight_button.text = "RC"
-		HighlightMode.NRCB:
-			highlight_button.text = "RCB"
-		HighlightMode.ALL:
-			highlight_button.text = "ALL"
-		HighlightMode.ALLC:
-			highlight_button.text = "ALLC"
+		HighlightMode.SAME:
+			highlight_button.text = "Same"
+		HighlightMode.CROSS:
+			highlight_button.text = "Cross"
+		HighlightMode.REGION:
+			highlight_button.text = "Region"
+		HighlightMode.FULL:
+			highlight_button.text = "Full"
+		HighlightMode.PENCIL:
+			highlight_button.text = "Pencil"
