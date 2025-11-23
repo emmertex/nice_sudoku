@@ -106,6 +106,18 @@ text = "Toggle Highlights"
 layout_mode = 2
 text = "Auto Pencil"
 
+[node name="ThemeSelector" type="OptionButton" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures"]
+layout_mode = 2
+selected = 0
+fit_to_longest_item = false
+item_count = 3
+popup/item_0/text = "Dark"
+popup/item_0/id = 0
+popup/item_1/text = "Light"
+popup/item_1/id = 1
+popup/item_2/text = "ePaper"
+popup/item_2/id = 2
+
 [node name="HBoxContainerGrid" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -183,6 +195,7 @@ horizontal_alignment = 1
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/HighlightButton" to="." method="_on_highlight_button_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/AutoPencil" to="." method="_on_AutoP_pressed"]
+[connection signal="item_selected" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/ThemeSelector" to="." method="_on_theme_selected"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button10" to="." method="_on_button_c_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button11" to="." method="_on_button_p_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button12" to="." method="_on_button_pc_pressed"]

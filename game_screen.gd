@@ -1,48 +1,132 @@
 extends Control
 
-# Color Palette (Organized by Usage)
-const CLR_BACKGROUND = Color(0.1, 0.1, 0.1)      # Main background
-const CLR_SURFACE = Color(0.15, 0.15, 0.15)      # Surface elements
-const CLR_SURFACE_VARIANT = Color(0.2, 0.2, 0.2) # Variant surfaces
+# Color Themes (Organized by Usage)
+const THEME_COLORS = {
+	ThemeType.DARK: {
+		# Color Palette (Organized by Usage)
+		"CLR_BACKGROUND": Color(0.1, 0.1, 0.1),      # Main background
+		"CLR_SURFACE": Color(0.15, 0.15, 0.15),      # Surface elements
+		"CLR_SURFACE_VARIANT": Color(0.2, 0.2, 0.2), # Variant surfaces
 
-# Grid Colors
-const CLR_BOARD = Color(0.21, 0.21, 0.21)        # Empty cell background 1
-const CLR_BOARD2 = Color(0.26, 0.26, 0.26)       # Empty cell background 2
-const CLR_GIVEN = Color(0.1, 0.3, 0.4, 0.8)      # Given number cells
-const CLR_SELECT = Color(0.13, 0.4, 0.65, 0.8)   # Selected cell
-const CLR_HOVER = Color(0.13, 0.4, 0.65, 0.4)    # Hovered cell
-const CLR_SAME = Color(0.13, 0.4, 0.55, 0.8)     # Same number highlights
-const CLR_PLUS = Color(0.25, 0.35, 0.6, 0.8)     # Row/column highlights
-const CLR_BLOCK = Color(0.2, 0.3, 0.55, 0.8)     # Block highlights
-const CLR_BLOCKED = Color(0.2, 0.3, 0.55, 0.8)   # Filled cells
+		# Grid Colors
+		"CLR_BOARD": Color(0.21, 0.21, 0.21),        # Empty cell background 1
+		"CLR_BOARD2": Color(0.26, 0.26, 0.26),       # Empty cell background 2
+		"CLR_GIVEN": Color(0.1, 0.3, 0.4, 0.8),      # Given number cells
+		"CLR_SELECT": Color(0.13, 0.4, 0.65, 0.8),   # Selected cell
+		"CLR_HOVER": Color(0.13, 0.4, 0.65, 0.4),    # Hovered cell
+		"CLR_SAME": Color(0.13, 0.4, 0.55, 0.8),     # Same number highlights
+		"CLR_PLUS": Color(0.25, 0.35, 0.6, 0.8),     # Row/column highlights
+		"CLR_BLOCK": Color(0.2, 0.3, 0.55, 0.8),     # Block highlights
+		"CLR_BLOCKED": Color(0.2, 0.3, 0.55, 0.8),   # Filled cells
 
-# Text Colors
-const CLR_FONT_GIVEN_NUMBER = Color(0.75, 0.75, 0.75, 1)   # Given numbers
-const CLR_FONT_REGULAR_NUMBER = Color(1, 1, 1, 1)           # User-entered numbers
-const CLR_FONT_LABEL = Color(0.8, 0.8, 0.8, 1)              # UI labels
-const CLR_FONT_HEADER = Color(1, 1, 0, 1)                   # Header text
+		# Text Colors
+		"CLR_FONT_GIVEN_NUMBER": Color(0.75, 0.75, 0.75, 1),   # Given numbers
+		"CLR_FONT_REGULAR_NUMBER": Color(1, 1, 1, 1),           # User-entered numbers
+		"CLR_FONT_LABEL": Color(0.8, 0.8, 0.8, 1),              # UI labels
+		"CLR_FONT_HEADER": Color(1, 1, 0, 1),                   # Header text
 
-# Pencil and Hint Colors
-const CLR_PENCIL = Color(0.95, 0.95, 0.95)        # Pencil marks
-const CLR_PENCIL_HIGHLIGHT = Color(0.3, 1.0, 0.3) # Highlighted pencil marks
-const CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)  # Excluded pencil marks
-const CLR_MISTAKE_FLASH = Color(1.0, 0.3, 0.3, 1.0) # Mistake flash
+		# Pencil and Hint Colors
+		"CLR_PENCIL": Color(0.95, 0.95, 0.95),        # Pencil marks
+		"CLR_PENCIL_HIGHLIGHT": Color(0.3, 1.0, 0.3), # Highlighted pencil marks
+		"CLR_PENCIL_EXCLUDE": Color(1.00, 0.3, 0.3),  # Excluded pencil marks
+		"CLR_MISTAKE_FLASH": Color(1.0, 0.3, 0.3, 1.0), # Mistake flash
 
-# Hint Colors
-const CLR_HINT_AFFECTED = Color(0, 0.5, 0, 1)     # Affected cells in hints
-const CLR_HINT_PRIMARY = Color(0, 0.5, 0, 1)      # Primary hint cells
-const CLR_HINT_SECONDARY = Color(0.58, 0, 0.83, 1) # Secondary hint cells
-const CLR_HINT_CAUSE = Color(0.55, 0, 0, 1)       # Cause cells in hints
+		# Hint Colors
+		"CLR_HINT_AFFECTED": Color(0, 0.5, 0, 1),     # Affected cells in hints
+		"CLR_HINT_PRIMARY": Color(0, 0.5, 0, 1),      # Primary hint cells
+		"CLR_HINT_SECONDARY": Color(0.58, 0, 0.83, 1), # Secondary hint cells
+		"CLR_HINT_CAUSE": Color(0.55, 0, 0, 1),       # Cause cells in hints
 
-# Grid and Border Colors
-const CLR_GRID_BORDER = Color(0, 0, 0, 1)         # Grid borders
-const CLR_GRID_THICK = Color(0.1, 0.1, 0.1, 1)    # Thick borders
+		# Grid and Border Colors
+		"CLR_GRID_BORDER": Color(0, 0, 0, 1),         # Grid borders
+		"CLR_GRID_THICK": Color(0.1, 0.1, 0.1, 1),    # Thick borders
+	},
+	ThemeType.LIGHT: {
+		# Color Palette (Organized by Usage)
+		"CLR_BACKGROUND": Color(0.95, 0.95, 0.95),    # Main background
+		"CLR_SURFACE": Color(0.9, 0.9, 0.9),          # Surface elements
+		"CLR_SURFACE_VARIANT": Color(0.85, 0.85, 0.85), # Variant surfaces
+
+		# Grid Colors
+		"CLR_BOARD": Color(1, 1, 1),                   # Empty cell background 1
+		"CLR_BOARD2": Color(0.97, 0.97, 0.97),        # Empty cell background 2
+		"CLR_GIVEN": Color(0.7, 0.85, 0.9, 0.8),      # Given number cells
+		"CLR_SELECT": Color(0.4, 0.7, 0.9, 0.8),      # Selected cell
+		"CLR_HOVER": Color(0.4, 0.7, 0.9, 0.4),       # Hovered cell
+		"CLR_SAME": Color(0.5, 0.75, 0.85, 0.8),      # Same number highlights
+		"CLR_PLUS": Color(0.6, 0.75, 0.9, 0.8),       # Row/column highlights
+		"CLR_BLOCK": Color(0.55, 0.7, 0.85, 0.8),     # Block highlights
+		"CLR_BLOCKED": Color(0.55, 0.7, 0.85, 0.8),   # Filled cells
+
+		# Text Colors
+		"CLR_FONT_GIVEN_NUMBER": Color(0.4, 0.4, 0.4, 1),   # Given numbers
+		"CLR_FONT_REGULAR_NUMBER": Color(0.1, 0.1, 0.1, 1), # User-entered numbers
+		"CLR_FONT_LABEL": Color(0.3, 0.3, 0.3, 1),          # UI labels
+		"CLR_FONT_HEADER": Color(0.8, 0.5, 0.1, 1),         # Header text
+
+		# Pencil and Hint Colors
+		"CLR_PENCIL": Color(0.5, 0.5, 0.5),            # Pencil marks
+		"CLR_PENCIL_HIGHLIGHT": Color(0.2, 0.8, 0.2),   # Highlighted pencil marks
+		"CLR_PENCIL_EXCLUDE": Color(0.9, 0.2, 0.2),     # Excluded pencil marks
+		"CLR_MISTAKE_FLASH": Color(1.0, 0.3, 0.3, 1.0), # Mistake flash
+
+		# Hint Colors
+		"CLR_HINT_AFFECTED": Color(0.2, 0.6, 0.2, 1),   # Affected cells in hints
+		"CLR_HINT_PRIMARY": Color(0.2, 0.6, 0.2, 1),    # Primary hint cells
+		"CLR_HINT_SECONDARY": Color(0.7, 0.2, 0.9, 1),  # Secondary hint cells
+		"CLR_HINT_CAUSE": Color(0.8, 0.3, 0.3, 1),      # Cause cells in hints
+
+		# Grid and Border Colors
+		"CLR_GRID_BORDER": Color(0.7, 0.7, 0.7, 1),     # Grid borders
+		"CLR_GRID_THICK": Color(0.5, 0.5, 0.5, 1),      # Thick borders
+	},
+	ThemeType.EPAPER: {
+		# Color Palette (Organized by Usage) - High contrast B&W with color support
+		"CLR_BACKGROUND": Color(1, 1, 1),               # Main background (white)
+		"CLR_SURFACE": Color(0.95, 0.95, 0.95),         # Surface elements
+		"CLR_SURFACE_VARIANT": Color(0.9, 0.9, 0.9),    # Variant surfaces
+
+		# Grid Colors
+		"CLR_BOARD": Color(1, 1, 1),                    # Empty cell background 1 (white)
+		"CLR_BOARD2": Color(0.98, 0.98, 0.98),         # Empty cell background 2 (off-white)
+		"CLR_GIVEN": Color(0.85, 0.85, 0.85, 0.9),     # Given number cells (light gray)
+		"CLR_SELECT": Color(0.7, 0.7, 0.7, 0.9),       # Selected cell (medium gray)
+		"CLR_HOVER": Color(0.8, 0.8, 0.8, 0.6),        # Hovered cell (light gray)
+		"CLR_SAME": Color(0.75, 0.75, 0.75, 0.9),      # Same number highlights
+		"CLR_PLUS": Color(0.8, 0.8, 0.8, 0.9),         # Row/column highlights
+		"CLR_BLOCK": Color(0.7, 0.7, 0.7, 0.9),        # Block highlights
+		"CLR_BLOCKED": Color(0.7, 0.7, 0.7, 0.9),      # Filled cells
+
+		# Text Colors - High contrast black text
+		"CLR_FONT_GIVEN_NUMBER": Color(0.3, 0.3, 0.3, 1),   # Given numbers (dark gray)
+		"CLR_FONT_REGULAR_NUMBER": Color(0, 0, 0, 1),        # User-entered numbers (black)
+		"CLR_FONT_LABEL": Color(0.2, 0.2, 0.2, 1),           # UI labels (dark gray)
+		"CLR_FONT_HEADER": Color(0.1, 0.1, 0.1, 1),          # Header text (very dark)
+
+		# Pencil and Hint Colors - Color support for ePaper displays
+		"CLR_PENCIL": Color(0.4, 0.4, 0.4),             # Pencil marks (gray)
+		"CLR_PENCIL_HIGHLIGHT": Color(0.2, 0.7, 0.2),    # Highlighted pencil marks (green)
+		"CLR_PENCIL_EXCLUDE": Color(0.8, 0.2, 0.2),      # Excluded pencil marks (red)
+		"CLR_MISTAKE_FLASH": Color(1.0, 0.3, 0.3, 1.0),  # Mistake flash (red)
+
+		# Hint Colors - Full color support for ePaper displays
+		"CLR_HINT_AFFECTED": Color(0.1, 0.6, 0.1, 1),    # Affected cells in hints (dark green)
+		"CLR_HINT_PRIMARY": Color(0.1, 0.6, 0.1, 1),     # Primary hint cells (dark green)
+		"CLR_HINT_SECONDARY": Color(0.6, 0.1, 0.8, 1),   # Secondary hint cells (purple)
+		"CLR_HINT_CAUSE": Color(0.7, 0.2, 0.2, 1),       # Cause cells in hints (red)
+
+		# Grid and Border Colors - High contrast
+		"CLR_GRID_BORDER": Color(0, 0, 0, 1),            # Grid borders (black)
+		"CLR_GRID_THICK": Color(0.3, 0.3, 0.3, 1),       # Thick borders (dark gray)
+	},
+}
 
 const SAVE_STATE_PATH = "user://save_state.cfg"
 
 # Enums
 enum HighlightMode { NUM, NRC, NRCB, ALL, ALLC }
 enum Mode { NUMBER, NUMBER_CLR, PENCIL, PENCIL_EXCLUDE }
+enum ThemeType { DARK, LIGHT, EPAPER }
 
 # Variables
 var sudoku: Sudoku
@@ -63,6 +147,7 @@ var _pending_updates: Array = []
 var _update_timer: Timer
 var current_hint: Hint = null
 var hint_panel: Panel = null
+var current_theme: ThemeType = ThemeType.DARK
 
 # Onready variables
 @onready var number_buttons = $Panel/AspectRatioContainer/VBoxContainer/NumberButtons
@@ -74,6 +159,7 @@ var hint_panel: Panel = null
 @onready var additional_options = $Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions
 @onready var options_toggle_button = $Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/OptionsToggleButton
 @onready var aspect_container = $Panel/AspectRatioContainer/ColorRect2
+@onready var theme_selector = $Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/ThemeSelector
 
 func _ready():
 	await get_tree().process_frame
@@ -85,10 +171,23 @@ func _ready():
 	if !load_game_state():
 		_load_initial_puzzle()
 
+	# Set initial theme selector value
+	theme_selector.selected = current_theme
+
 	# Hide additional options by default
 	additional_options.visible = false
 
 func _load_theme():
+	# Load theme preference
+	var config = ConfigFile.new()
+	var theme_path = "user://theme.cfg"
+	if config.load(theme_path) == OK:
+		current_theme = config.get_value("theme", "current_theme", ThemeType.DARK) as ThemeType
+
+	# Apply the theme colors to UI elements that use direct color overrides
+	_apply_current_theme_colors()
+
+	# Load and apply the Godot theme resource
 	var theme = load("res://game_theme.tres")
 	if theme:
 		theme = theme as Theme
@@ -102,11 +201,43 @@ func _apply_theme_recursive(node: Node, theme: Theme):
 	for child in node.get_children():
 		_apply_theme_recursive(child, theme)
 
+func _apply_current_theme_colors():
+	# Update background color
+	$ColorRect.color = get_current_theme_color("CLR_BACKGROUND")
+
+	# Update aspect container background
+	$Panel/AspectRatioContainer/ColorRect2.color = get_current_theme_color("CLR_BACKGROUND")
+
+func get_current_theme_color(color_name: String) -> Color:
+	return THEME_COLORS[current_theme][color_name]
+
+func switch_theme(new_theme: ThemeType):
+	if current_theme == new_theme:
+		return
+
+	current_theme = new_theme
+	_apply_current_theme_colors()
+
+	# Update all UI elements to use new theme colors
+	queue_update("grid")
+	queue_update("buttons")
+	queue_update("pencil")
+	queue_update("highlights")
+	queue_update("info")
+
+	_save_theme_preference()
+
+func _save_theme_preference():
+	var config = ConfigFile.new()
+	var theme_path = "user://theme.cfg"
+	config.set_value("theme", "current_theme", current_theme)
+	config.save(theme_path)
+
 func _initialize():
 	sudoku = Sudoku.new()
 	hint_generator = load("res://hint_generator.gd").new()
 	hint_generator.sudoku = sudoku
-	$ColorRect.color = CLR_BACKGROUND
+	# ColorRect color is set in _apply_current_theme_colors()
 	
 func _setup_ui():
 	_create_grid()
@@ -157,9 +288,9 @@ func _update_grid():
 			var number = sudoku.grid[row][col]
 			button.text = str(number) if number != 0 else ""
 			if sudoku.is_given_number(row, col):
-				button.add_theme_color_override("font_color", CLR_FONT_GIVEN_NUMBER)
+				button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_GIVEN_NUMBER"))
 			else:
-				button.add_theme_color_override("font_color", CLR_FONT_REGULAR_NUMBER)
+				button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_REGULAR_NUMBER"))
 	if sudoku.is_completed():
 		timer_running = false
 		save_completed_puzzle()
@@ -175,7 +306,7 @@ func _create_pencil_marks(container: Control):
 			label.size = Vector2(button_size / 3, button_size / 3)
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			label.add_theme_color_override("font_color", CLR_PENCIL)  # Use add_theme_color_override
+			label.add_theme_color_override("font_color", get_current_theme_color("CLR_PENCIL"))  # Use add_theme_color_override
 			container.add_child(label)
 
 func _create_grid():
@@ -199,14 +330,14 @@ func _create_grid():
 
 			# Enhanced button styling with better visual feedback
 			var hover_style = StyleBoxFlat.new()
-			hover_style.set_bg_color(CLR_HOVER)
+			hover_style.set_bg_color(get_current_theme_color("CLR_HOVER"))
 			hover_style.set_border_width_all(2)
 			hover_style.set_border_color(Color(0.4, 0.4, 0.4, 0.8))
 			hover_style.set_corner_radius_all(4)
 			button.add_theme_stylebox_override("hover", hover_style)
 
 			var focus_style = StyleBoxFlat.new()
-			focus_style.set_bg_color(CLR_SELECT)
+			focus_style.set_bg_color(get_current_theme_color("CLR_SELECT"))
 			focus_style.set_border_width_all(3)
 			focus_style.set_border_color(Color(0.6, 0.6, 0.6, 1))
 			focus_style.set_corner_radius_all(4)
@@ -217,9 +348,9 @@ func _create_grid():
 			# Improved grid styling with better visual hierarchy
 			var style = StyleBoxFlat.new()
 			if ((col * 9) + row) % 2 == 0:
-				style.set_bg_color(CLR_BOARD)
+				style.set_bg_color(get_current_theme_color("CLR_BOARD"))
 			else:
-				style.set_bg_color(CLR_BOARD2)
+				style.set_bg_color(get_current_theme_color("CLR_BOARD2"))
 
 			# Add subtle inner borders for all cells
 			style.set_border_width_all(1)
@@ -228,16 +359,16 @@ func _create_grid():
 			# Add thicker borders for 3x3 subgrids
 			if col % 3 == 0:
 				style.set_border_width(SIDE_LEFT, 4)
-				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
+				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
 			if col % 3 == 2:
 				style.set_border_width(SIDE_RIGHT, 4)
-				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
+				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
 			if row % 3 == 0:
 				style.set_border_width(SIDE_TOP, 4)
-				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
+				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
 			if row % 3 == 2:
 				style.set_border_width(SIDE_BOTTOM, 4)
-				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
+				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
 
 			button.add_theme_stylebox_override("normal", style)
 			grid_container.add_child(button)
@@ -251,14 +382,14 @@ func _setup_number_buttons():
 
 		# Enhanced button styling
 		var hover_style = StyleBoxFlat.new()
-		hover_style.set_bg_color(CLR_HOVER)
+		hover_style.set_bg_color(get_current_theme_color("CLR_HOVER"))
 		hover_style.set_border_width_all(2)
 		hover_style.set_border_color(Color(0.4, 0.4, 0.4, 0.8))
 		hover_style.set_corner_radius_all(6)
 		button.add_theme_stylebox_override("hover", hover_style)
 
 		var pressed_style = StyleBoxFlat.new()
-		pressed_style.set_bg_color(Color(0.15, 0.15, 0.15, 1))
+		pressed_style.set_bg_color(get_current_theme_color("CLR_SURFACE"))
 		pressed_style.set_border_width_all(2)
 		pressed_style.set_border_color(Color(0.6, 0.6, 0.6, 1))
 		pressed_style.set_corner_radius_all(6)
@@ -350,14 +481,14 @@ func _update_pencil():
 				
 				if exclude:
 					pencil_button.text = str(Cardinals.PencilN[num_idx])
-					pencil_button.add_theme_color_override("font_color", CLR_PENCIL_EXCLUDE)
+					pencil_button.add_theme_color_override("font_color", get_current_theme_color("CLR_PENCIL_EXCLUDE"))
 				elif pencil:
 					pencil_button.text = str(Cardinals.PencilN[num_idx])
 					# In ALLC mode, highlight pencil marks matching the selected number
 					if highlight_mode == HighlightMode.ALLC and highlight_number != 0 and num == highlight_number:
-						pencil_button.add_theme_color_override("font_color", CLR_PENCIL_HIGHLIGHT)
+						pencil_button.add_theme_color_override("font_color", get_current_theme_color("CLR_PENCIL_HIGHLIGHT"))
 					else:
-						pencil_button.add_theme_color_override("font_color", CLR_PENCIL)
+						pencil_button.add_theme_color_override("font_color", get_current_theme_color("CLR_PENCIL"))
 				else:
 					pencil_button.text = ""
 
@@ -390,15 +521,15 @@ func _update_buttons():
 		var style = StyleBoxFlat.new()
 		if !needed[i]:
 			button.disabled = true
-			style.bg_color = CLR_BACKGROUND
-			button.add_theme_color_override("font_color", CLR_FONT_GIVEN_NUMBER)
+			style.bg_color = get_current_theme_color("CLR_BACKGROUND")
+			button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_GIVEN_NUMBER"))
 			continue
 		else:
 			button.disabled = false
 
 		if selected_num == i + 1:
-			style.bg_color = CLR_SELECT
-			button.add_theme_color_override("font_color", CLR_FONT_REGULAR_NUMBER)
+			style.bg_color = get_current_theme_color("CLR_SELECT")
+			button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_REGULAR_NUMBER"))
 			button.add_theme_stylebox_override("normal", style)
 			continue
 		else:
@@ -406,24 +537,24 @@ func _update_buttons():
 			if (sudoku.is_valid_move(selected_cell.x, selected_cell.y, i+1) || \
 					selected_cell.x < 0 || selected_cell.y < 0) && \
 					!sudoku.is_given_number(selected_cell.x, selected_cell.y):
-				button.add_theme_color_override("font_color", CLR_FONT_REGULAR_NUMBER)
-				style.bg_color = CLR_BOARD2
+				button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_REGULAR_NUMBER"))
+				style.bg_color = get_current_theme_color("CLR_BOARD2")
 			else:
-				button.add_theme_color_override("font_color", CLR_FONT_REGULAR_NUMBER)
-				style.bg_color = CLR_BACKGROUND
+				button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_REGULAR_NUMBER"))
+				style.bg_color = get_current_theme_color("CLR_BACKGROUND")
 			button.add_theme_stylebox_override("normal", style)
    
 	for i in range(10, 13):
 		var button = number_buttons.get_node("Button" + str(i))
 		var style = StyleBoxFlat.new()
-		button.add_theme_color_override("font_color", CLR_FONT_REGULAR_NUMBER)
-		style.bg_color = CLR_BACKGROUND
+		button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_REGULAR_NUMBER"))
+		style.bg_color = get_current_theme_color("CLR_BACKGROUND")
 		if mode == Mode.NUMBER_CLR && i == 10:
-			style.bg_color = CLR_SELECT
+			style.bg_color = get_current_theme_color("CLR_SELECT")
 		if mode == Mode.PENCIL && i == 11:
-			style.bg_color = CLR_SELECT
+			style.bg_color = get_current_theme_color("CLR_SELECT")
 		if mode == Mode.PENCIL_EXCLUDE && i == 12:
-			style.bg_color = CLR_SELECT
+			style.bg_color = get_current_theme_color("CLR_SELECT")
 		button.add_theme_stylebox_override("normal", style)
 		button.add_theme_stylebox_override("hover", style)
 
@@ -434,14 +565,14 @@ func _update_grid_highlights():
 			var button = grid_container.get_child(row * 9 + col)
 			var style = button.get_theme_stylebox("normal").duplicate()
 			if sudoku.is_given_number(row, col):
-				style.set_bg_color(CLR_GIVEN)
+				style.set_bg_color(get_current_theme_color("CLR_GIVEN"))
 			elif sudoku.grid[row][col] == 0:
 				if ((col * 9) + row) % 2 == 0:
-					style.set_bg_color(CLR_BOARD)
+					style.set_bg_color(get_current_theme_color("CLR_BOARD"))
 				else:
-					style.set_bg_color(CLR_BOARD2)
+					style.set_bg_color(get_current_theme_color("CLR_BOARD2"))
 			else:
-				style.set_bg_color(CLR_BLOCKED)
+				style.set_bg_color(get_current_theme_color("CLR_BLOCKED"))
 			button.add_theme_stylebox_override("normal", style)
 
 	# 2. Highlight selected cell
@@ -449,7 +580,7 @@ func _update_grid_highlights():
 		@warning_ignore("narrowing_conversion")
 		var button = grid_container.get_child(selected_cell.x * 9 + selected_cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
-		style.set_bg_color(CLR_SELECT)
+		style.set_bg_color(get_current_theme_color("CLR_SELECT"))
 		button.add_theme_stylebox_override("normal", style)
 
 	# 3. Highlight logic by mode
@@ -470,7 +601,7 @@ func _update_grid_highlights():
 						for c in range(block_col, block_col + 3):
 							var block_button = grid_container.get_child(r * 9 + c)
 							var block_style = block_button.get_theme_stylebox("normal").duplicate()
-							block_style.set_bg_color(CLR_BLOCK)
+							block_style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
 							block_button.add_theme_stylebox_override("normal", block_style)
 		for row in range(9):
 			for col in range(9):
@@ -479,23 +610,23 @@ func _update_grid_highlights():
 					for c in range(9):
 						var row_button = grid_container.get_child(row * 9 + c)
 						var row_style = row_button.get_theme_stylebox("normal").duplicate()
-						row_style.set_bg_color(CLR_PLUS)
+						row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 						row_button.add_theme_stylebox_override("normal", row_style)
 					# Highlight Column
 					for r in range(9):
 						var col_button = grid_container.get_child(r * 9 + col)
 						var col_style = col_button.get_theme_stylebox("normal").duplicate()
-						col_style.set_bg_color(CLR_PLUS)
+						col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 						col_button.add_theme_stylebox_override("normal", col_style)
 				if sudoku.has_exclude_mark(row, col, highlight_number):
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(CLR_BLOCK)
+					style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
 					button.add_theme_stylebox_override("normal", style)
 				if sudoku.grid[row][col] == highlight_number:
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(CLR_SAME)
+					style.set_bg_color(get_current_theme_color("CLR_SAME"))
 					button.add_theme_stylebox_override("normal", style)
 
 	# Restore NUM, NRC, NRCB highlight logic
@@ -506,7 +637,7 @@ func _update_grid_highlights():
 				if sudoku.grid[row][col] == highlight_number:
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(CLR_SAME)
+					style.set_bg_color(get_current_theme_color("CLR_SAME"))
 					button.add_theme_stylebox_override("normal", style)
 	elif highlight_mode == HighlightMode.NRC and selected_cell.x >= 0 and selected_cell.y >= 0:
 		# Highlight row and column of selected cell
@@ -517,8 +648,8 @@ func _update_grid_highlights():
 			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
 			var row_style = row_button.get_theme_stylebox("normal").duplicate()
 			var col_style = col_button.get_theme_stylebox("normal").duplicate()
-			row_style.set_bg_color(CLR_PLUS)
-			col_style.set_bg_color(CLR_PLUS)
+			row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+			col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 			row_button.add_theme_stylebox_override("normal", row_style)
 			col_button.add_theme_stylebox_override("normal", col_style)
 	elif highlight_mode == HighlightMode.NRCB and selected_cell.x >= 0 and selected_cell.y >= 0:
@@ -530,8 +661,8 @@ func _update_grid_highlights():
 			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
 			var row_style = row_button.get_theme_stylebox("normal").duplicate()
 			var col_style = col_button.get_theme_stylebox("normal").duplicate()
-			row_style.set_bg_color(CLR_PLUS)
-			col_style.set_bg_color(CLR_PLUS)
+			row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+			col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 			row_button.add_theme_stylebox_override("normal", row_style)
 			col_button.add_theme_stylebox_override("normal", col_style)
 		# Highlight block
@@ -541,7 +672,7 @@ func _update_grid_highlights():
 			for c in range(block_col, block_col + 3):
 				var block_button = grid_container.get_child(r * 9 + c)
 				var block_style = block_button.get_theme_stylebox("normal").duplicate()
-				block_style.set_bg_color(CLR_BLOCK)
+				block_style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
 				block_button.add_theme_stylebox_override("normal", block_style)
 
 	if current_hint:
@@ -627,28 +758,28 @@ func highlight_hint(hint: Hint):
 	for cell in prim_cells:
 		var button = grid_container.get_child(cell.x * 9 + cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
-		style.set_bg_color(CLR_HINT_SECONDARY)
+		style.set_bg_color(get_current_theme_color("CLR_HINT_SECONDARY"))
 		button.add_theme_stylebox_override("normal", style)
-	
+
 	# Highlight secondary cells
 	for cell in sec_cells:
 		var s_button = grid_container.get_child(cell.x * 9 + cell.y)
 		var s_style = s_button.get_theme_stylebox("normal").duplicate()
-		s_style.set_bg_color(CLR_HINT_PRIMARY)
+		s_style.set_bg_color(get_current_theme_color("CLR_HINT_PRIMARY"))
 		s_button.add_theme_stylebox_override("normal", s_style)
 
 	# Highlight cause cells
 	for cell in cause_cells:
 		var c_button = grid_container.get_child(cell.x * 9 + cell.y)
 		var c_style = c_button.get_theme_stylebox("normal").duplicate()
-		c_style.set_bg_color(CLR_HINT_CAUSE)
+		c_style.set_bg_color(get_current_theme_color("CLR_HINT_CAUSE"))
 		c_button.add_theme_stylebox_override("normal", c_style)
 
 	# Highlight elimination cells and their specific pencil marks
 	for cell in elim_cells:
 		var button = grid_container.get_child(cell.x * 9 + cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
-		style.set_bg_color(CLR_HINT_AFFECTED)
+		style.set_bg_color(get_current_theme_color("CLR_HINT_AFFECTED"))
 		button.add_theme_stylebox_override("normal", style)
 		
 		if button.get_child_count() > 0:
@@ -659,7 +790,7 @@ func highlight_hint(hint: Hint):
 					if num >= 1 and num <= 9 and sudoku.has_pencil_mark(cell.x, cell.y, num):
 						var pencil_label = pencil_container.get_child(num - 1)
 						if pencil_label:
-							pencil_label.add_theme_color_override("font_color", CLR_HINT_CAUSE)
+							pencil_label.add_theme_color_override("font_color", get_current_theme_color("CLR_HINT_CAUSE"))
 		else:
 			push_error("Button missing pencil container child")
 
@@ -714,12 +845,12 @@ func show_puzzle_selection_popup():
 
 	@warning_ignore("narrowing_conversion")
 	difficulty_options.add_theme_font_size_override("font_size", button_size * 0.7)
-	difficulty_options.add_theme_color_override("font_color", CLR_FONT_LABEL)
+	difficulty_options.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_LABEL"))
 
 	# Style the dropdown popup
 	var popup_panel = difficulty_options.get_popup()
 	var popup_style = StyleBoxFlat.new()
-	popup_style.set_bg_color(Color(0.18, 0.18, 0.22, 1))
+	popup_style.set_bg_color(get_current_theme_color("CLR_SURFACE_VARIANT"))
 	popup_style.set_border_width_all(2)
 	popup_style.set_border_color(Color(0.4, 0.4, 0.5, 1))
 	popup_style.set_corner_radius_all(6)
@@ -727,7 +858,7 @@ func show_puzzle_selection_popup():
 
 	@warning_ignore("narrowing_conversion")
 	popup_panel.add_theme_font_size_override("font_size", button_size * 0.7)
-	popup_panel.add_theme_color_override("font_color", CLR_FONT_LABEL)
+	popup_panel.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_LABEL"))
 
 	var popup_hover_style = StyleBoxFlat.new()
 	popup_hover_style.set_bg_color(Color(0.3, 0.3, 0.35, 1))
@@ -1064,7 +1195,7 @@ func _resize_menu_buttons():
 	puzzle_info.set_custom_minimum_size(Vector2(aspect_container.size.x/1.5, button_size*.75))
 	@warning_ignore("narrowing_conversion")
 	puzzle_info.add_theme_font_size_override("font_size", button_size * 0.4)
-	puzzle_info.add_theme_color_override("font_color", CLR_FONT_LABEL)
+	puzzle_info.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_LABEL"))
 
 func _resize_grid_buttons():
 	for row in range(9):
@@ -1291,18 +1422,18 @@ func _flash_cell_red_async(row: int, col: int):
 	# Determine normal background color based on cell state
 	var normal_bg_color: Color
 	if sudoku.is_given_number(row, col):
-		normal_bg_color = CLR_GIVEN
+		normal_bg_color = get_current_theme_color("CLR_GIVEN")
 	elif sudoku.grid[row][col] == 0:
 		if ((col * 9) + row) % 2 == 0:
-			normal_bg_color = CLR_BOARD
+			normal_bg_color = get_current_theme_color("CLR_BOARD")
 		else:
-			normal_bg_color = CLR_BOARD2
+			normal_bg_color = get_current_theme_color("CLR_BOARD2")
 	else:
-		normal_bg_color = CLR_BLOCKED
+		normal_bg_color = get_current_theme_color("CLR_BLOCKED")
 
 	# Create red flash style with same borders as original
 	var flash_style = original_style.duplicate()
-	flash_style.set_bg_color(CLR_MISTAKE_FLASH)
+	flash_style.set_bg_color(get_current_theme_color("CLR_MISTAKE_FLASH"))
 
 	# Apply red flash with scale animation
 	button.add_theme_stylebox_override("normal", flash_style)
@@ -1325,7 +1456,7 @@ func _flash_cell_red_async(row: int, col: int):
 	fade_tween.set_trans(Tween.TRANS_QUAD)
 
 	# Create a function to update the color
-	var start_color = CLR_MISTAKE_FLASH
+	var start_color = get_current_theme_color("CLR_MISTAKE_FLASH")
 	var end_color = normal_bg_color
 
 	var update_func = func(progress: float):
@@ -1341,7 +1472,7 @@ func _flash_cell_red_async(row: int, col: int):
 			style.set_border_width(SIDE_TOP, original_style.get_border_width(SIDE_TOP))
 		if original_style.get_border_width(SIDE_BOTTOM) > 0:
 			style.set_border_width(SIDE_BOTTOM, original_style.get_border_width(SIDE_BOTTOM))
-		style.set_border_color(CLR_GRID_BORDER)
+		style.set_border_color(get_current_theme_color("CLR_GRID_BORDER"))
 		button.add_theme_stylebox_override("normal", style)
 
 	# Tween from 0 to 1, calling update_func at each step
@@ -1372,6 +1503,9 @@ func show_solver_failure_warning():
 func _on_highlight_button_pressed():
 	highlight_mode = HighlightMode.values()[(int(highlight_mode) + 1) % HighlightMode.size()]
 	_update_highlight_button_text()
+
+func _on_theme_selected(index: int):
+	switch_theme(ThemeType.values()[index])
 
 func _on_options_toggle_pressed():
 	additional_options.visible = !additional_options.visible
