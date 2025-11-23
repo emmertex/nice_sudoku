@@ -1,28 +1,42 @@
 extends Control
 
-# Constants
-const CLR_BOARD = Color(0.21, 0.21, 0.21)
-const CLR_BOARD2 = Color(0.26, 0.26, 0.26)
-const CLR_GIVEN = Color(0.1, 0.3, 0.4, 0.8)
-const CLR_SELECT = Color(0.13, 0.4, 0.65, 0.8)
-const CLR_HOVER = Color(0.13, 0.4, 0.65, 0.4)
-const CLR_SAME = Color(0.13, 0.4, 0.55, 0.8)
-const CLR_PLUS = Color(0.25, 0.35, 0.6, 0.8)
-const CLR_BLOCK = Color(0.2, 0.3, 0.55, 0.8)
-const CLR_BLOCKED = Color(0.2, 0.3, 0.55, 0.8)
-const CLR_BACKGROUND = Color(0.1, 0.1, 0.1)
-const CLR_PENCIL = Color(0.95, 0.95, 0.95)
-const CLR_PENCIL_HIGHLIGHT = Color(0.3, 1.0, 0.3)
-const CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)
-const CLR_MISTAKE_FLASH = Color(1.0, 0.3, 0.3, 1.0)  # Red flash for mistakes
-const CLR_HINT_AFFECTED = Color(0, 0.5, 0, 1)
-const CLR_HINT_PRIMARY = Color(0, 0.5, 0, 1)
-const CLR_HINT_SECONDARY = Color(0.58, 0, 0.83, 1)
-const CLR_HINT_CAUSE = Color(0.55, 0, 0, 1)
-const CLR_FONT_GIVEN_NUMBER = Color(0.75, 0.75, 0.75, 1)
-const CLR_FONT_REGULAR_NUMBER = Color(1, 1, 1, 1)
-const CLR_GRID_BORDER = Color(0, 0, 0, 1)
-const CLR_HEADER_FONT = Color(1, 1, 0, 1)
+# Color Palette (Organized by Usage)
+const CLR_BACKGROUND = Color(0.1, 0.1, 0.1)      # Main background
+const CLR_SURFACE = Color(0.15, 0.15, 0.15)      # Surface elements
+const CLR_SURFACE_VARIANT = Color(0.2, 0.2, 0.2) # Variant surfaces
+
+# Grid Colors
+const CLR_BOARD = Color(0.21, 0.21, 0.21)        # Empty cell background 1
+const CLR_BOARD2 = Color(0.26, 0.26, 0.26)       # Empty cell background 2
+const CLR_GIVEN = Color(0.1, 0.3, 0.4, 0.8)      # Given number cells
+const CLR_SELECT = Color(0.13, 0.4, 0.65, 0.8)   # Selected cell
+const CLR_HOVER = Color(0.13, 0.4, 0.65, 0.4)    # Hovered cell
+const CLR_SAME = Color(0.13, 0.4, 0.55, 0.8)     # Same number highlights
+const CLR_PLUS = Color(0.25, 0.35, 0.6, 0.8)     # Row/column highlights
+const CLR_BLOCK = Color(0.2, 0.3, 0.55, 0.8)     # Block highlights
+const CLR_BLOCKED = Color(0.2, 0.3, 0.55, 0.8)   # Filled cells
+
+# Text Colors
+const CLR_FONT_GIVEN_NUMBER = Color(0.75, 0.75, 0.75, 1)   # Given numbers
+const CLR_FONT_REGULAR_NUMBER = Color(1, 1, 1, 1)           # User-entered numbers
+const CLR_FONT_LABEL = Color(0.8, 0.8, 0.8, 1)              # UI labels
+const CLR_FONT_HEADER = Color(1, 1, 0, 1)                   # Header text
+
+# Pencil and Hint Colors
+const CLR_PENCIL = Color(0.95, 0.95, 0.95)        # Pencil marks
+const CLR_PENCIL_HIGHLIGHT = Color(0.3, 1.0, 0.3) # Highlighted pencil marks
+const CLR_PENCIL_EXCLUDE = Color(1.00, 0.3, 0.3)  # Excluded pencil marks
+const CLR_MISTAKE_FLASH = Color(1.0, 0.3, 0.3, 1.0) # Mistake flash
+
+# Hint Colors
+const CLR_HINT_AFFECTED = Color(0, 0.5, 0, 1)     # Affected cells in hints
+const CLR_HINT_PRIMARY = Color(0, 0.5, 0, 1)      # Primary hint cells
+const CLR_HINT_SECONDARY = Color(0.58, 0, 0.83, 1) # Secondary hint cells
+const CLR_HINT_CAUSE = Color(0.55, 0, 0, 1)       # Cause cells in hints
+
+# Grid and Border Colors
+const CLR_GRID_BORDER = Color(0, 0, 0, 1)         # Grid borders
+const CLR_GRID_THICK = Color(0.1, 0.1, 0.1, 1)    # Thick borders
 
 const SAVE_STATE_PATH = "user://save_state.cfg"
 
@@ -62,12 +76,27 @@ var hint_panel: Panel = null
 
 func _ready():
 	await get_tree().process_frame
+	_load_theme()
 	_initialize()
 	_setup_ui()
 	_connect_signals()
 	_setup_update_batching()
 	if !load_game_state():
 		_load_initial_puzzle()
+
+func _load_theme():
+	var theme = load("res://game_theme.tres")
+	if theme:
+		theme = theme as Theme
+		# Apply theme to the main control and its children
+		_apply_theme_recursive(self, theme)
+
+func _apply_theme_recursive(node: Node, theme: Theme):
+	if node is Control and node != self:  # Don't apply to root to avoid overriding specific styles
+		node.theme = theme
+
+	for child in node.get_children():
+		_apply_theme_recursive(child, theme)
 
 func _initialize():
 	sudoku = Sudoku.new()
@@ -147,58 +176,90 @@ func _create_pencil_marks(container: Control):
 
 func _create_grid():
 	grid_container.columns = 9
-	grid_container.add_theme_constant_override("hseparation", 0)
-	grid_container.add_theme_constant_override("vseparation", 0)
+	grid_container.add_theme_constant_override("hseparation", 2)
+	grid_container.add_theme_constant_override("vseparation", 2)
 
 	for row in range(9):
 		for col in range(9):
 			var button = Button.new()
-		   
+
 			var pencil_marks_container = Control.new()
 			pencil_marks_container.set_custom_minimum_size (Vector2(button_size, button_size))
 			pencil_marks_container.mouse_filter = Control.MOUSE_FILTER_PASS
 			button.add_child(pencil_marks_container)
 			_create_pencil_marks(pencil_marks_container)
-		   
+
 			button.set_custom_minimum_size(Vector2(button_size, button_size))
 			@warning_ignore("narrowing_conversion")
 			button.add_theme_font_size_override("font_size", button_size * 0.5)
+
+			# Enhanced button styling with better visual feedback
 			var hover_style = StyleBoxFlat.new()
 			hover_style.set_bg_color(CLR_HOVER)
+			hover_style.set_border_width_all(2)
+			hover_style.set_border_color(Color(0.4, 0.4, 0.4, 0.8))
+			hover_style.set_corner_radius_all(4)
 			button.add_theme_stylebox_override("hover", hover_style)
+
+			var focus_style = StyleBoxFlat.new()
+			focus_style.set_bg_color(CLR_SELECT)
+			focus_style.set_border_width_all(3)
+			focus_style.set_border_color(Color(0.6, 0.6, 0.6, 1))
+			focus_style.set_corner_radius_all(4)
+			button.add_theme_stylebox_override("focus", focus_style)
+
 			button.pressed.connect(_on_cell_pressed.bind(row, col))
-		   
-			# Add thicker borders for 3x3 subgrids
+
+			# Improved grid styling with better visual hierarchy
 			var style = StyleBoxFlat.new()
 			if ((col * 9) + row) % 2 == 0:
 				style.set_bg_color(CLR_BOARD)
 			else:
 				style.set_bg_color(CLR_BOARD2)
-			style.set_border_width_all(0)
-			style.set_border_color(CLR_GRID_BORDER)
-		   
+
+			# Add subtle inner borders for all cells
+			style.set_border_width_all(1)
+			style.set_border_color(Color(0.25, 0.25, 0.25, 0.8))
+
+			# Add thicker borders for 3x3 subgrids
 			if col % 3 == 0:
-				style.set_border_width(SIDE_LEFT, 5)
+				style.set_border_width(SIDE_LEFT, 4)
+				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
 			if col % 3 == 2:
-				style.set_border_width(SIDE_RIGHT, 5)
+				style.set_border_width(SIDE_RIGHT, 4)
+				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
 			if row % 3 == 0:
-				style.set_border_width(SIDE_TOP, 5)
+				style.set_border_width(SIDE_TOP, 4)
+				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
 			if row % 3 == 2:
-				style.set_border_width(SIDE_BOTTOM, 5)
-			if (col % 3 == 0) && (row % 3 == 2):
-				grid_container.add_theme_constant_override("hseparation", 3)
-				grid_container.add_theme_constant_override("vseparation", 3)
+				style.set_border_width(SIDE_BOTTOM, 4)
+				style.set_border_color(Color(0.15, 0.15, 0.15, 1))
+
 			button.add_theme_stylebox_override("normal", style)
 			grid_container.add_child(button)
 
 func _setup_number_buttons():
 	for i in range(1, 13):
 		var button = number_buttons.get_node("Button" + str(i))
-		button.set_custom_minimum_size(Vector2(button_size,button_size))
-		button.add_theme_font_size_override("font_size", button_size * 0.5)
+		button.set_custom_minimum_size(Vector2(button_size * 1.5, button_size * 1.5))
+		@warning_ignore("narrowing_conversion")
+		button.add_theme_font_size_override("font_size", button_size * 0.75)
+
+		# Enhanced button styling
 		var hover_style = StyleBoxFlat.new()
 		hover_style.set_bg_color(CLR_HOVER)
+		hover_style.set_border_width_all(2)
+		hover_style.set_border_color(Color(0.4, 0.4, 0.4, 0.8))
+		hover_style.set_corner_radius_all(6)
 		button.add_theme_stylebox_override("hover", hover_style)
+
+		var pressed_style = StyleBoxFlat.new()
+		pressed_style.set_bg_color(Color(0.15, 0.15, 0.15, 1))
+		pressed_style.set_border_width_all(2)
+		pressed_style.set_border_color(Color(0.6, 0.6, 0.6, 1))
+		pressed_style.set_corner_radius_all(6)
+		button.add_theme_stylebox_override("pressed", pressed_style)
+
 		if i < 10:
 			button.set_text(str(i))
 			button.pressed.connect(_on_number_button_pressed.bind(i))
@@ -499,11 +560,18 @@ func _on_HintButton_pressed():
 	var hints = hint_generator.get_hints()
 	hint_panel = preload("res://hint_popup.tscn").instantiate()
 	hint_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	
+
 	var container = menu_layer1.get_parent()
 	container.add_child(hint_panel)
 	container.move_child(hint_panel, menu_layer1.get_index())
-	
+
+	# Add fade-in animation
+	hint_panel.modulate = Color(1, 1, 1, 0)
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(hint_panel, "modulate", Color(1, 1, 1, 1), 0.3)
+
 	menu_layer1.hide()
 	menu_layer2.hide()
 	
@@ -601,33 +669,98 @@ func show_puzzle_selection_popup():
 	popup.name = "PuzzleSelectionPopup"
 	add_child(popup)
 
+	# Apply theme to popup
+	var theme = load("res://game_theme.tres")
+	if theme:
+		popup.theme = theme
+
+	# Improve popup panel styling
+	var panel_style = StyleBoxFlat.new()
+	panel_style.set_bg_color(Color(0.12, 0.12, 0.15, 0.98))
+	panel_style.set_border_width_all(3)
+	panel_style.set_border_color(Color(0.3, 0.3, 0.4, 1))
+	panel_style.set_corner_radius_all(12)
+	panel_style.set_shadow_color(Color(0, 0, 0, 0.4))
+	panel_style.set_shadow_size(12)
+	popup.add_theme_stylebox_override("panel", panel_style)
+
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.add_theme_constant_override("separation", 16)
 	popup.add_child(vbox)
 
 	var difficulty_options = OptionButton.new()
 	for difficulty in sudoku.puzzles.keys():
 		difficulty_options.add_item(difficulty.capitalize())
+
+	# Style the option button
+	var button_style = StyleBoxFlat.new()
+	button_style.set_bg_color(Color(0.2, 0.2, 0.25, 1))
+	button_style.set_border_width_all(2)
+	button_style.set_border_color(Color(0.4, 0.4, 0.5, 1))
+	button_style.set_corner_radius_all(6)
+	difficulty_options.add_theme_stylebox_override("normal", button_style)
+
+	var hover_style = StyleBoxFlat.new()
+	hover_style.set_bg_color(Color(0.25, 0.25, 0.3, 1))
+	hover_style.set_border_width_all(2)
+	hover_style.set_border_color(Color(0.5, 0.5, 0.6, 1))
+	hover_style.set_corner_radius_all(6)
+	difficulty_options.add_theme_stylebox_override("hover", hover_style)
+
 	@warning_ignore("narrowing_conversion")
-	difficulty_options.add_theme_font_size_override("font_size", button_size * 0.6)
+	difficulty_options.add_theme_font_size_override("font_size", button_size * 0.7)
+	difficulty_options.add_theme_color_override("font_color", CLR_FONT_LABEL)
+
+	# Style the dropdown popup
+	var popup_panel = difficulty_options.get_popup()
+	var popup_style = StyleBoxFlat.new()
+	popup_style.set_bg_color(Color(0.18, 0.18, 0.22, 1))
+	popup_style.set_border_width_all(2)
+	popup_style.set_border_color(Color(0.4, 0.4, 0.5, 1))
+	popup_style.set_corner_radius_all(6)
+	popup_panel.add_theme_stylebox_override("panel", popup_style)
+
 	@warning_ignore("narrowing_conversion")
-	difficulty_options.get_popup().add_theme_font_size_override("font_size", button_size * 0.6)
+	popup_panel.add_theme_font_size_override("font_size", button_size * 0.7)
+	popup_panel.add_theme_color_override("font_color", CLR_FONT_LABEL)
+
+	var popup_hover_style = StyleBoxFlat.new()
+	popup_hover_style.set_bg_color(Color(0.3, 0.3, 0.35, 1))
+	popup_panel.add_theme_stylebox_override("hover", popup_hover_style)
+
 	difficulty_options.selected = sudoku.difficulty_index[sudoku.puzzle_selected]
 	vbox.add_child(difficulty_options)
 
 	var scroll_container = ScrollContainer.new()
 	scroll_container.set_v_size_flags(Control.SIZE_EXPAND_FILL)
 	scroll_container.set_h_size_flags(Control.SIZE_EXPAND_FILL)
+
+	# Style the scroll container
+	var scroll_style = StyleBoxFlat.new()
+	scroll_style.set_bg_color(Color(0.14, 0.14, 0.18, 1))
+	scroll_style.set_border_width_all(1)
+	scroll_style.set_border_color(Color(0.3, 0.3, 0.4, 1))
+	scroll_style.set_corner_radius_all(8)
+	scroll_container.add_theme_stylebox_override("panel", scroll_style)
+
 	vbox.add_child(scroll_container)
 
 	var puzzle_list = VBoxContainer.new()
 	puzzle_list.set_h_size_flags(Control.SIZE_EXPAND_FILL)
+	puzzle_list.add_theme_constant_override("separation", 8)
 	scroll_container.add_child(puzzle_list)
 
 	difficulty_options.connect("item_selected", self._on_difficulty_selected.bind(puzzle_list))
 	_on_difficulty_selected(sudoku.difficulty_index[sudoku.puzzle_selected], puzzle_list)
 
+	# Add fade-in animation
+	popup.modulate = Color(1, 1, 1, 0)
 	popup.popup_centered()
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(popup, "modulate", Color(1, 1, 1, 1), 0.3)
 
 func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer):
 	var difficulty = sudoku.puzzles.keys()[index]
@@ -905,12 +1038,22 @@ func _resize_number_buttons():
 func _resize_menu_buttons():
 	for layer in [menu_layer1, menu_layer2]:
 		for child in layer.get_children():
+			child.set_custom_minimum_size(Vector2(aspect_container.size.x/4.2, button_size * 1.2))
+			@warning_ignore("narrowing_conversion")
+			child.add_theme_font_size_override("font_size", button_size * 0.4)
 
-			child.set_custom_minimum_size(Vector2(aspect_container.size.x/4.2, button_size))
-			child.add_theme_font_size_override("font_size", button_size*.375)
-	
+			# Add better styling to menu buttons
+			var normal_style = StyleBoxFlat.new()
+			normal_style.set_bg_color(Color(0.18, 0.18, 0.18, 1))
+			normal_style.set_border_width_all(1)
+			normal_style.set_border_color(Color(0.3, 0.3, 0.3, 1))
+			normal_style.set_corner_radius_all(4)
+			child.add_theme_stylebox_override("normal", normal_style)
+
 	puzzle_info.set_custom_minimum_size(Vector2(aspect_container.size.x/1.5, button_size*.75))
-	puzzle_info.add_theme_font_size_override("font_size", button_size*.375)
+	@warning_ignore("narrowing_conversion")
+	puzzle_info.add_theme_font_size_override("font_size", button_size * 0.4)
+	puzzle_info.add_theme_color_override("font_color", CLR_FONT_LABEL)
 
 func _resize_grid_buttons():
 	for row in range(9):
@@ -1150,16 +1293,25 @@ func _flash_cell_red_async(row: int, col: int):
 	var flash_style = original_style.duplicate()
 	flash_style.set_bg_color(CLR_MISTAKE_FLASH)
 
-	# Apply red flash immediately
+	# Apply red flash with scale animation
 	button.add_theme_stylebox_override("normal", flash_style)
+
+	# Add scale animation for more noticeable feedback
+	var original_scale = button.scale
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_BACK)
+	tween.tween_property(button, "scale", original_scale * 1.1, 0.15)
+	tween.tween_property(button, "modulate", Color(1, 0.8, 0.8, 1), 0.15)
 
 	# Force update to show the flash
 	await get_tree().process_frame
 
 	# Create a tween to fade back to normal over 0.5 seconds
-	var tween = create_tween()
-	tween.set_ease(Tween.EASE_OUT)
-	tween.set_trans(Tween.TRANS_QUAD)
+	var fade_tween = create_tween()
+	fade_tween.set_ease(Tween.EASE_OUT)
+	fade_tween.set_trans(Tween.TRANS_QUAD)
 
 	# Create a function to update the color
 	var start_color = CLR_MISTAKE_FLASH
@@ -1182,10 +1334,17 @@ func _flash_cell_red_async(row: int, col: int):
 		button.add_theme_stylebox_override("normal", style)
 
 	# Tween from 0 to 1, calling update_func at each step
-	tween.tween_method(update_func, 0.0, 1.0, 0.5)
+	fade_tween.tween_method(update_func, 0.0, 1.0, 0.5)
+
+	# Reset scale after flash
+	var reset_tween = create_tween()
+	reset_tween.set_ease(Tween.EASE_OUT)
+	reset_tween.set_trans(Tween.TRANS_BACK)
+	reset_tween.tween_property(button, "scale", original_scale, 0.2)
+	reset_tween.parallel().tween_property(button, "modulate", Color(1, 1, 1, 1), 0.2)
 
 	# After tween completes, refresh highlights to ensure correct state
-	await tween.finished
+	await fade_tween.finished
 	queue_update("highlights")  # Refresh highlights after flash
 
 func show_solver_failure_warning():
