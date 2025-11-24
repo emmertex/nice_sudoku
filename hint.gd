@@ -23,6 +23,7 @@ enum HintTechnique {
 	JELLYFISH_COL,
 	XY_CHAIN,
 	W_WING,
+	XY_WING,
 	AIC_CHAIN,
 	NISHIO
 }

@@ -545,6 +545,8 @@ func get_hints() -> Array[Hint]:
 						hints.append(hint)
 
 	# --- Box-Line Reduction (Claiming) ---
+	# --- XY-Wing (detect before XY-Chain as it's simpler) ---
+	_find_xy_wings(hints)
 	# --- XY-Chain and W-Wing ---
 	_find_xy_chains_and_wwings(hints)
 
@@ -687,6 +689,126 @@ func get_hints() -> Array[Hint]:
 	return hints
 
 
+func _find_xy_wings(hints: Array[Hint]):
+	# XY-Wing: pivot {XY}, wing1 {XZ}, wing2 {YZ}
+	# Pivot sees both wings, wings see each other
+	# Eliminate Z from cells seeing both wings
+	
+	# Collect bivalue cells
+	var bivalue_cells: Array = [] # {pos: Vector2i, pair: PackedInt32Array}
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var cand = _get_candidates(r, c)
+			if cand.cardinality() == 2:
+				var d1 = cand.next_set_bit(0)
+				var d2 = cand.next_set_bit(d1 + 1)
+				bivalue_cells.append({"pos": Vector2i(r, c), "pair": PackedInt32Array([d1, d2])})
+	
+	if bivalue_cells.size() < 3:
+		return
+	
+	var emitted = {}
+	# Try each cell as pivot
+	for pivot_idx in range(bivalue_cells.size()):
+		var pivot = bivalue_cells[pivot_idx]
+		var pivot_pos = pivot.pos
+		var pivot_pair = pivot.pair
+		var X = pivot_pair[0]
+		var Y = pivot_pair[1]
+		
+		# Find wing1: must have {X, Z} where Z != Y, and see pivot
+		for wing1_idx in range(bivalue_cells.size()):
+			if wing1_idx == pivot_idx:
+				continue
+			var wing1 = bivalue_cells[wing1_idx]
+			var wing1_pos = wing1.pos
+			var wing1_pair = wing1.pair
+			
+			# Check if wing1 sees pivot
+			if not _are_peers(pivot_pos, wing1_pos):
+				continue
+			
+			# Check if wing1 contains X
+			if wing1_pair.find(X) == -1:
+				continue
+			
+			# Find Z (the digit in wing1 that's not X)
+			var Z = wing1_pair[0] if wing1_pair[1] == X else wing1_pair[1]
+			if Z == Y:
+				continue  # Must be different from Y
+			
+			# Find wing2: must have {Y, Z} and see both pivot and wing1
+			for wing2_idx in range(bivalue_cells.size()):
+				if wing2_idx == pivot_idx or wing2_idx == wing1_idx:
+					continue
+				var wing2 = bivalue_cells[wing2_idx]
+				var wing2_pos = wing2.pos
+				var wing2_pair = wing2.pair
+				
+				# Check if wing2 contains both Y and Z
+				if wing2_pair.find(Y) == -1 or wing2_pair.find(Z) == -1:
+					continue
+				
+				# Check if wing2 sees pivot
+				if not _are_peers(pivot_pos, wing2_pos):
+					continue
+				
+				# Check if wing2 sees wing1 (they should share a unit)
+				if not _are_peers(wing1_pos, wing2_pos):
+					continue
+				
+				# Found XY-Wing! Eliminate Z from cells seeing both wings
+				var elim_cells: Array[Vector2i] = []
+				for r in range(9):
+					for c in range(9):
+						if sudoku.grid[r][c] != 0:
+							continue
+						var cell_pos = Vector2i(r, c)
+						if cell_pos == pivot_pos or cell_pos == wing1_pos or cell_pos == wing2_pos:
+							continue
+						if not _get_candidates(r, c).get_bit(Z):
+							continue
+						# Cell must see both wings
+						if _are_peers(cell_pos, wing1_pos) and _are_peers(cell_pos, wing2_pos):
+							elim_cells.append(cell_pos)
+				
+				if elim_cells.size() > 0:
+					var key = str(pivot_pos) + ":" + str(wing1_pos) + ":" + str(wing2_pos) + ":" + str(Z)
+					if not emitted.has(key):
+						var hint = Hint.new(Hint.HintTechnique.XY_WING, "")
+						hint.cells.append(pivot_pos)
+						hint.cells.append(wing1_pos)
+						hint.cells.append(wing2_pos)
+						hint.numbers.append(X + 1)
+						hint.numbers.append(Y + 1)
+						hint.numbers.append(Z + 1)
+						hint.elim_cells.append_array(elim_cells)
+						hint.elim_numbers.append(Z + 1)
+						
+						var desc = "XY-Wing: Pivot %s {%d/%d}, Wing1 %s {%d/%d}, Wing2 %s {%d/%d}.\n\n" % [
+							_format_cell_list([pivot_pos]), X+1, Y+1,
+							_format_cell_list([wing1_pos]), X+1, Z+1,
+							_format_cell_list([wing2_pos]), Y+1, Z+1
+						]
+						desc += "If pivot is %d, wing1 must be %d, forcing wing2 to be %d.\n" % [X+1, Z+1, Y+1]
+						desc += "If pivot is %d, wing2 must be %d, forcing wing1 to be %d.\n\n" % [Y+1, Z+1, X+1]
+						desc += "Either way, one wing must be %d, so eliminate %d from cells seeing both wings: %s." % [Z+1, Z+1, _format_cell_list(elim_cells)]
+						hint.description = desc
+						
+						var s1 = "XY-Wing found: Pivot %s {%d/%d}, Wing1 %s {%d/%d}, Wing2 %s {%d/%d}." % [
+							_format_cell_list([pivot_pos]), X+1, Y+1,
+							_format_cell_list([wing1_pos]), X+1, Z+1,
+							_format_cell_list([wing2_pos]), Y+1, Z+1
+						]
+						hint.add_step(s1, [pivot_pos, wing1_pos, wing2_pos])
+						var s2 = "One wing must be %d, so eliminate %d from cells seeing both wings." % [Z+1, Z+1]
+						hint.add_step(s2, [wing1_pos, wing2_pos], [], [], elim_cells.duplicate(), [Z+1])
+						
+						hints.append(hint)
+						emitted[key] = true
+
 func _are_peers(c1: Vector2i, c2: Vector2i) -> bool:
 	if c1.x == c2.x: return true
 	if c1.y == c2.y: return true
@@ -718,48 +840,59 @@ func _find_xy_chains_and_wwings(hints: Array[Hint]):
 	for _i in range(nodes.size()): adj.append([])
 
 	for d in range(9):
-		# Rows: link bivalue cells on digit d if they share the row (weak link)
+		# Rows: link bivalue cells on digit d if they form a conjugate pair (exactly 2 in row)
 		for rr in range(9):
 			var node_positions_row: Array[Vector2i] = []
+			var all_positions_row: Array[Vector2i] = []
 			for cc in range(9):
 				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
 					var posr = Vector2i(rr,cc)
+					all_positions_row.append(posr)
 					if pos_to_idx.has(posr): node_positions_row.append(posr)
-			if node_positions_row.size() >= 2:
-				for i in range(node_positions_row.size()):
-					for j in range(i + 1, node_positions_row.size()):
-						var ar = pos_to_idx[node_positions_row[i]]
-						var br = pos_to_idx[node_positions_row[j]]
-						adj[ar].append({"to": br, "digit": d})
-						adj[br].append({"to": ar, "digit": d})
-		# Columns
+			# Only create edges if exactly 2 candidates in row (conjugate pair/strong link)
+			if all_positions_row.size() == 2:
+				if node_positions_row.size() == 2:
+					# Both are bivalue cells
+					var ar = pos_to_idx[node_positions_row[0]]
+					var br = pos_to_idx[node_positions_row[1]]
+					adj[ar].append({"to": br, "digit": d, "strong": true})
+					adj[br].append({"to": ar, "digit": d, "strong": true})
+				elif node_positions_row.size() == 1:
+					# One bivalue cell, one non-bivalue - still a strong link
+					# But we can't link non-bivalue cells in this graph, so skip
+					pass
+		# Columns: conjugate pairs only
 		for cc in range(9):
 			var node_positions_col: Array[Vector2i] = []
+			var all_positions_col: Array[Vector2i] = []
 			for rr in range(9):
 				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
 					var posc = Vector2i(rr,cc)
+					all_positions_col.append(posc)
 					if pos_to_idx.has(posc): node_positions_col.append(posc)
-			if node_positions_col.size() >= 2:
-				for i in range(node_positions_col.size()):
-					for j in range(i + 1, node_positions_col.size()):
-						var ac = pos_to_idx[node_positions_col[i]]
-						var bc = pos_to_idx[node_positions_col[j]]
-						adj[ac].append({"to": bc, "digit": d})
-						adj[bc].append({"to": ac, "digit": d})
-		# Boxes
+			# Only create edges if exactly 2 candidates in column (conjugate pair)
+			if all_positions_col.size() == 2:
+				if node_positions_col.size() == 2:
+					var ac = pos_to_idx[node_positions_col[0]]
+					var bc = pos_to_idx[node_positions_col[1]]
+					adj[ac].append({"to": bc, "digit": d, "strong": true})
+					adj[bc].append({"to": ac, "digit": d, "strong": true})
+		# Boxes: conjugate pairs only
 		for box_idx in range(9):
 			var node_positions_box: Array[Vector2i] = []
+			var all_positions_box: Array[Vector2i] = []
 			for i in range(9):
 				var p = Cardinals.box_to_rc(box_idx, i)
 				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x,p.y).get_bit(d):
+					all_positions_box.append(p)
 					if pos_to_idx.has(p): node_positions_box.append(p)
-			if node_positions_box.size() >= 2:
-				for i in range(node_positions_box.size()):
-					for j in range(i + 1, node_positions_box.size()):
-						var a3 = pos_to_idx[node_positions_box[i]]
-						var b3 = pos_to_idx[node_positions_box[j]]
-						adj[a3].append({"to": b3, "digit": d})
-						adj[b3].append({"to": a3, "digit": d})
+			# Only create edges if exactly 2 candidates in box (conjugate pair)
+			if all_positions_box.size() == 2:
+				if node_positions_box.size() == 2:
+					var a3 = pos_to_idx[node_positions_box[0]]
+					var b3 = pos_to_idx[node_positions_box[1]]
+					adj[a3].append({"to": b3, "digit": d, "strong": true})
+					adj[b3].append({"to": a3, "digit": d, "strong": true})
 
 	# DFS search
 	var emitted = {}
@@ -863,6 +996,61 @@ func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: in
 				# Finished processing Type-2; continue exploring other paths
 				continue
 
+		# Handle W-Wing: same pair, any path length using strong links
+		if new_path.size() >= 2:
+			var start_pair: PackedInt32Array = nodes[start_idx].pair
+			var end_pair: PackedInt32Array = nodes[next_idx].pair
+			var same_pair = (start_pair[0] == end_pair[0] and end_pair[1] == start_pair[1]) or (start_pair[0] == end_pair[1] and start_pair[1] == end_pair[0])
+			# Check if path uses strong links (all edges should have "strong": true)
+			var all_strong = true
+			for i in range(new_path.size() - 1):
+				var curr_idx_check = new_path[i]
+				var next_idx_check = new_path[i + 1]
+				var found_strong_edge = false
+				for edge in adj[curr_idx_check]:
+					if edge["to"] == next_idx_check and edge.has("strong") and edge["strong"]:
+						found_strong_edge = true
+						break
+				if not found_strong_edge:
+					all_strong = false
+					break
+			
+			if same_pair and all_strong and new_path.size() >= 2:
+				var a = nodes[start_idx].pos
+				var b = nodes[next_idx].pos
+				var wwing_key = str(start_idx) + ":" + str(next_idx) + ":wwing:" + str(start_digit)
+				if not emitted.has(wwing_key):
+					# The linking digit is start_digit (the digit used in the path)
+					var linking_digit = start_digit
+					# The eliminated digit is the other one from the pair
+					var elim_digit = start_pair[0] if start_pair[1] == linking_digit else start_pair[1]
+					var elim_cells: Array[Vector2i] = []
+					for r in range(9):
+						for c in range(9):
+							if sudoku.grid[r][c] != 0: continue
+							if not _get_candidates(r,c).get_bit(elim_digit): continue
+							var v = Vector2i(r,c)
+							if _are_peers(v, a) and _are_peers(v, b) and v != a and v != b:
+								elim_cells.append(v)
+					if elim_cells.size() > 0:
+						var hint = Hint.new(Hint.HintTechnique.W_WING, "")
+						for idx in new_path:
+							hint.cells.append(nodes[idx].pos)
+						for v in elim_cells:
+							hint.elim_cells.append(v)
+						hint.elim_numbers.append(elim_digit + 1)
+						var pair_disp = "{" + str(start_pair[0]+1) + "/" + str(start_pair[1]+1) + "}"
+						var s1w = "W-Wing: two bivalue cells %s at %s and %s, linked via conjugate pairs on digit %d." % [pair_disp, _format_cell_list([a]), _format_cell_list([b]), linking_digit + 1]
+						hint.add_step(s1w, [a, b])
+						var s2w = "Thus the other candidate (%d) is synchronized; any cell seeing both endpoints cannot be %d." % [elim_digit + 1, elim_digit + 1]
+						hint.add_step(s2w, [a, b])
+						var s3w = "Eliminate %d from: %s" % [elim_digit + 1, _format_cell_list(elim_cells)]
+						hint.add_step(s3w, [], [], [], elim_cells.duplicate(), [elim_digit + 1])
+						hint.description = s1w + "\n\n" + s2w + "\n\n" + s3w
+						hints.append(hint)
+						emitted[wwing_key] = true
+					# Continue exploring - don't return here
+
 		# Handle Type-1 (endpoints do not share a unit) when chain length >=4 and parity matches
 		if next_active == start_digit and new_path.size() >= 4:
 			var a = nodes[start_idx].pos
@@ -876,7 +1064,7 @@ func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: in
 				var end_pair: PackedInt32Array = nodes[next_idx].pair
 				var is_two_node = new_path.size() == 2
 				var same_pair = (start_pair[0] == end_pair[0] and start_pair[1] == end_pair[1]) or (start_pair[0] == end_pair[1] and start_pair[1] == end_pair[0])
-				var technique = Hint.HintTechnique.W_WING if is_two_node and same_pair else Hint.HintTechnique.XY_CHAIN
+				var technique = Hint.HintTechnique.XY_CHAIN  # W-Wing already handled above
 				# Determine which digit is eliminated and collect correct targets
 				var elim_digit = start_digit
 				if technique == Hint.HintTechnique.W_WING:
