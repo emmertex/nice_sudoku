@@ -289,6 +289,9 @@ func _update_grid():
 			button.text = str(number) if number != 0 else ""
 			if sudoku.is_given_number(row, col):
 				button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_GIVEN_NUMBER"))
+			elif sudoku.is_wrong_number(row, col):
+				# Wrong numbers should be red
+				button.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2, 1.0))
 			else:
 				button.add_theme_color_override("font_color", get_current_theme_color("CLR_FONT_REGULAR_NUMBER"))
 	if sudoku.is_completed():
@@ -414,37 +417,18 @@ func _on_cell_pressed(row: int, col: int):
 	if mode == Mode.NUMBER:
 		if sudoku.grid[row][col] == 0:
 			if selected_num != 0:
-				# Save pencil marks before placing number (they get cleared by set_number)
-				var saved_pencil_bits = sudoku.pencil_bits[row][col]
-				var saved_exclude_bits = sudoku.exclude_bits[row][col]
-				
 				var result = sudoku.set_number(row, col, selected_num)
 				if result["success"]:
 					if result["is_mistake"]:
-						# Remove the incorrect number
-						sudoku.clear_number(row, col)
-						# Restore pencil marks (they were cleared by set_number)
-						sudoku.pencil_bits[row][col] = saved_pencil_bits
-						# Restore exclude marks and add the new exclude mark for the mistake
-						# Use bitwise OR to add without clearing existing exclude marks
-						sudoku.exclude_bits[row][col] = saved_exclude_bits | (1 << (selected_num - 1))
-						# Store in history (using the saved value as the "old" value)
-						sudoku.store_exclude_history(row, col, saved_exclude_bits)
-						# Update sbrc_grid to reflect the exclude mark
-						sudoku.sbrc_grid.update_grid(sudoku.grid)
-						# Apply exclude bits to candidate masks
-						for r in range(9):
-							for c in range(9):
-								var bits_to_exclude = sudoku.exclude_bits[r][c]
-								if bits_to_exclude > 0:
-									sudoku.sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
+						# Mistake detected - number stays in place, user can undo it
 						_show_mistake_warning()
+						# Flash the cell red to indicate mistake
+						call_deferred("_flash_cell_red", row, col)
 					selected_cell = Vector2(-1, -1)
 					queue_update("info")  # Update mistake counter display
 					queue_update("grid")
 					queue_update("pencil")
-					# Flash after UI updates to avoid being overridden
-					call_deferred("_flash_cell_red", row, col)
+					queue_update("highlights")  # Make sure highlights are updated to show wrong numbers
 		else:
 			selected_num = sudoku.grid[row][col]
 
@@ -572,18 +556,40 @@ func _update_grid_highlights():
 				else:
 					style.set_bg_color(get_current_theme_color("CLR_BOARD2"))
 			else:
-				style.set_bg_color(get_current_theme_color("CLR_BLOCKED"))
+				# Check if this is a wrong number - this should take priority
+				if sudoku.is_wrong_number(row, col):
+					style.set_bg_color(get_current_theme_color("CLR_MISTAKE_FLASH"))
+					# # Also ensure the border is visible
+					# style.set_border_width_all(2)
+					# style.set_border_color(Color(1.0, 0.0, 0.0, 1.0))
+				else:
+					style.set_bg_color(get_current_theme_color("CLR_BLOCKED"))
 			button.add_theme_stylebox_override("normal", style)
 
-	# 2. Highlight selected cell
+	# 2. Highlight selected cell (but preserve wrong number highlighting)
 	if selected_cell.x >= 0 and selected_cell.y >= 0:
 		@warning_ignore("narrowing_conversion")
 		var button = grid_container.get_child(selected_cell.x * 9 + selected_cell.y)
 		var style = button.get_theme_stylebox("normal").duplicate()
-		style.set_bg_color(get_current_theme_color("CLR_SELECT"))
-		button.add_theme_stylebox_override("normal", style)
+		# If it's a wrong number, keep the red background, otherwise use selection color
+		if sudoku.is_wrong_number(selected_cell.x, selected_cell.y):
+			# Wrong number - keep red but maybe make it slightly brighter
+			style.set_bg_color(Color(1.0, 0.2, 0.2, 1.0))
+			# style.set_border_width_all(3)
+			# style.set_border_color(Color(1.0, 0.0, 0.0, 1.0))
+			button.add_theme_stylebox_override("normal", style)
+			# Also update hover/focus to maintain red
+			var hover_style = style.duplicate()
+			hover_style.set_bg_color(Color(1.0, 0.3, 0.3, 1.0))
+			button.add_theme_stylebox_override("hover", hover_style)
+			var focus_style = style.duplicate()
+			focus_style.set_bg_color(Color(1.0, 0.3, 0.3, 1.0))
+			button.add_theme_stylebox_override("focus", focus_style)
+		else:
+			style.set_bg_color(get_current_theme_color("CLR_SELECT"))
+			button.add_theme_stylebox_override("normal", style)
 
-	# 3. Highlight logic by mode
+	# 3. Highlight logic by mode (but preserve wrong number highlighting)
 	var highlight_number = selected_num
 	if highlight_number == 0 and selected_cell.x >= 0 and selected_cell.y >= 0:
 		highlight_number = sudoku.grid[selected_cell.x][selected_cell.y]
@@ -601,7 +607,9 @@ func _update_grid_highlights():
 						for c in range(block_col, block_col + 3):
 							var block_button = grid_container.get_child(r * 9 + c)
 							var block_style = block_button.get_theme_stylebox("normal").duplicate()
-							block_style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
+							# Preserve wrong number highlighting
+							if not sudoku.is_wrong_number(r, c):
+								block_style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
 							block_button.add_theme_stylebox_override("normal", block_style)
 		for row in range(9):
 			for col in range(9):
@@ -610,23 +618,31 @@ func _update_grid_highlights():
 					for c in range(9):
 						var row_button = grid_container.get_child(row * 9 + c)
 						var row_style = row_button.get_theme_stylebox("normal").duplicate()
-						row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+						# Preserve wrong number highlighting
+						if not sudoku.is_wrong_number(row, c):
+							row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 						row_button.add_theme_stylebox_override("normal", row_style)
 					# Highlight Column
 					for r in range(9):
 						var col_button = grid_container.get_child(r * 9 + col)
 						var col_style = col_button.get_theme_stylebox("normal").duplicate()
-						col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+						# Preserve wrong number highlighting
+						if not sudoku.is_wrong_number(r, col):
+							col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 						col_button.add_theme_stylebox_override("normal", col_style)
 				if sudoku.has_exclude_mark(row, col, highlight_number):
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
+					# Preserve wrong number highlighting
+					if not sudoku.is_wrong_number(row, col):
+						style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
 					button.add_theme_stylebox_override("normal", style)
 				if sudoku.grid[row][col] == highlight_number:
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(get_current_theme_color("CLR_SAME"))
+					# Preserve wrong number highlighting
+					if not sudoku.is_wrong_number(row, col):
+						style.set_bg_color(get_current_theme_color("CLR_SAME"))
 					button.add_theme_stylebox_override("normal", style)
 	elif highlight_mode == HighlightMode.PENCIL and highlight_number != 0:
 		# Highlight all cells WITHOUT the pencil mark as unavailable
@@ -635,7 +651,9 @@ func _update_grid_highlights():
 				if not sudoku.has_pencil_mark(row, col, highlight_number):
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
+					# Preserve wrong number highlighting
+					if not sudoku.is_wrong_number(row, col):
+						style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
 					button.add_theme_stylebox_override("normal", style)
 
 	# Restore NUM, NRC, NRCB highlight logic
@@ -646,7 +664,9 @@ func _update_grid_highlights():
 				if sudoku.grid[row][col] == highlight_number:
 					var button = grid_container.get_child(row * 9 + col)
 					var style = button.get_theme_stylebox("normal").duplicate()
-					style.set_bg_color(get_current_theme_color("CLR_SAME"))
+					# Preserve wrong number highlighting
+					if not sudoku.is_wrong_number(row, col):
+						style.set_bg_color(get_current_theme_color("CLR_SAME"))
 					button.add_theme_stylebox_override("normal", style)
 	elif highlight_mode == HighlightMode.CROSS and selected_cell.x >= 0 and selected_cell.y >= 0:
 		# Highlight row and column of selected cell
@@ -657,8 +677,11 @@ func _update_grid_highlights():
 			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
 			var row_style = row_button.get_theme_stylebox("normal").duplicate()
 			var col_style = col_button.get_theme_stylebox("normal").duplicate()
-			row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
-			col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+			# Preserve wrong number highlighting
+			if not sudoku.is_wrong_number(selected_cell.x, i):
+				row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+			if not sudoku.is_wrong_number(i, selected_cell.y):
+				col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 			row_button.add_theme_stylebox_override("normal", row_style)
 			col_button.add_theme_stylebox_override("normal", col_style)
 	elif highlight_mode == HighlightMode.REGION and selected_cell.x >= 0 and selected_cell.y >= 0:
@@ -670,8 +693,11 @@ func _update_grid_highlights():
 			var col_button = grid_container.get_child(i * 9 + selected_cell.y)
 			var row_style = row_button.get_theme_stylebox("normal").duplicate()
 			var col_style = col_button.get_theme_stylebox("normal").duplicate()
-			row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
-			col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+			# Preserve wrong number highlighting
+			if not sudoku.is_wrong_number(selected_cell.x, i):
+				row_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
+			if not sudoku.is_wrong_number(i, selected_cell.y):
+				col_style.set_bg_color(get_current_theme_color("CLR_PLUS"))
 			row_button.add_theme_stylebox_override("normal", row_style)
 			col_button.add_theme_stylebox_override("normal", col_style)
 		# Highlight block
@@ -681,8 +707,38 @@ func _update_grid_highlights():
 			for c in range(block_col, block_col + 3):
 				var block_button = grid_container.get_child(r * 9 + c)
 				var block_style = block_button.get_theme_stylebox("normal").duplicate()
-				block_style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
+				# Preserve wrong number highlighting
+				if not sudoku.is_wrong_number(r, c):
+					block_style.set_bg_color(get_current_theme_color("CLR_BLOCK"))
 				block_button.add_theme_stylebox_override("normal", block_style)
+	
+	# Final pass: Ensure wrong numbers are always highlighted (highest priority)
+	# This runs after all other highlights to ensure wrong numbers are always visible
+	# Also update hover and focus styles for wrong numbers
+	for row in range(9):
+		for col in range(9):
+			if sudoku.is_wrong_number(row, col):
+				var button = grid_container.get_child(row * 9 + col)
+				# Update normal style
+				var style = button.get_theme_stylebox("normal").duplicate()
+				style.set_bg_color(get_current_theme_color("CLR_MISTAKE_FLASH"))
+				# style.set_border_width_all(2)
+				# style.set_border_color(Color(1.0, 0.0, 0.0, 1.0))
+				button.add_theme_stylebox_override("normal", style)
+				
+				# Update hover style to also show red for wrong numbers
+				var hover_style = style.duplicate()
+				hover_style.set_bg_color(Color(1.0, 0.2, 0.2, 1.0))  # Slightly brighter red on hover
+				# hover_style.set_border_width_all(3)
+				# hover_style.set_border_color(Color(1.0, 0.0, 0.0, 1.0))
+				button.add_theme_stylebox_override("hover", hover_style)
+				
+				# Update focus style to also show red for wrong numbers
+				var focus_style = style.duplicate()
+				focus_style.set_bg_color(Color(1.0, 0.2, 0.2, 1.0))  # Slightly brighter red when focused
+				# focus_style.set_border_width_all(3)
+				# focus_style.set_border_color(Color(1.0, 0.0, 0.0, 1.0))
+				button.add_theme_stylebox_override("focus", focus_style)
 
 	if current_hint:
 		highlight_hint(current_hint)
