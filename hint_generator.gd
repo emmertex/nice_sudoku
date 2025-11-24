@@ -545,6 +545,12 @@ func get_hints() -> Array[Hint]:
 						hints.append(hint)
 
 	# --- Box-Line Reduction (Claiming) ---
+	# --- Skyscraper and String Kite ---
+	_find_skyscrapers_and_string_kites(hints)
+	# --- S-Wing ---
+	_find_s_wings(hints)
+	# --- Remote Pair ---
+	_find_remote_pairs(hints)
 	# --- XY-Wing (detect before XY-Chain as it's simpler) ---
 	_find_xy_wings(hints)
 	# --- XY-Chain and W-Wing ---
@@ -688,6 +694,445 @@ func get_hints() -> Array[Hint]:
 
 	return hints
 
+
+func _find_skyscrapers_and_string_kites(hints: Array[Hint]):
+	# Skyscraper: Two strong links on same digit sharing a base
+	# Pattern: (digit)(cell1 = cell2) in unit1, (digit)(cell3 = cell4) in unit2
+	# Where cell2 and cell3 share a unit (the base)
+	# Eliminate digit from cells seeing both "peaks" (cell1 and cell4)
+	
+	# String Kite: Similar but the links are in different unit types
+	# Pattern: (digit)(cell1 = cell2) in row/col, (digit)(cell3 = cell4) in col/row
+	# Eliminate digit from cells seeing both peaks
+	
+	for digit in range(1, 10):
+		var d = digit - 1
+		# Find all conjugate pairs (strong links) for this digit
+		var strong_links: Array = [] # {unit_type: "row"/"col"/"box", unit_idx: int, cells: [Vector2i, Vector2i]}
+		
+		# Rows
+		for r in range(9):
+			var cols: Array[int] = []
+			for c in range(9):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(d):
+					cols.append(c)
+			if cols.size() == 2:
+				strong_links.append({"unit_type": "row", "unit_idx": r, "cells": [Vector2i(r, cols[0]), Vector2i(r, cols[1])]})
+		
+		# Columns
+		for c in range(9):
+			var rows: Array[int] = []
+			for r in range(9):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(d):
+					rows.append(r)
+			if rows.size() == 2:
+				strong_links.append({"unit_type": "col", "unit_idx": c, "cells": [Vector2i(rows[0], c), Vector2i(rows[1], c)]})
+		
+		# Boxes
+		for b in range(9):
+			var cells_in_box: Array[Vector2i] = []
+			for i in range(9):
+				var p = Cardinals.box_to_rc(b, i)
+				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x, p.y).get_bit(d):
+					cells_in_box.append(p)
+			if cells_in_box.size() == 2:
+				strong_links.append({"unit_type": "box", "unit_idx": b, "cells": cells_in_box})
+		
+		# Try all pairs of strong links
+		for i in range(strong_links.size()):
+			for j in range(i + 1, strong_links.size()):
+				var link1 = strong_links[i]
+				var link2 = strong_links[j]
+				var cell1a = link1.cells[0]
+				var cell1b = link1.cells[1]
+				var cell2a = link2.cells[0]
+				var cell2b = link2.cells[1]
+				
+				# Check if they share a base (one cell from each link are peers)
+				var shared_base = false
+				var peak1: Vector2i
+				var peak2: Vector2i
+				var base1: Vector2i
+				var base2: Vector2i
+				
+				# Try all combinations
+				if _are_peers(cell1a, cell2a):
+					shared_base = true
+					peak1 = cell1b
+					peak2 = cell2b
+					base1 = cell1a
+					base2 = cell2a
+				elif _are_peers(cell1a, cell2b):
+					shared_base = true
+					peak1 = cell1b
+					peak2 = cell2a
+					base1 = cell1a
+					base2 = cell2b
+				elif _are_peers(cell1b, cell2a):
+					shared_base = true
+					peak1 = cell1a
+					peak2 = cell2b
+					base1 = cell1b
+					base2 = cell2a
+				elif _are_peers(cell1b, cell2b):
+					shared_base = true
+					peak1 = cell1a
+					peak2 = cell2a
+					base1 = cell1b
+					base2 = cell2b
+				
+				if not shared_base:
+					continue
+				
+				# Determine technique: Skyscraper if same unit type, String Kite if different
+				var technique = Hint.HintTechnique.SKYSCRAPER if link1.unit_type == link2.unit_type else Hint.HintTechnique.STRING_KITE
+				
+				# Find eliminations: cells seeing both peaks
+				var elim_cells: Array[Vector2i] = []
+				for r in range(9):
+					for c in range(9):
+						if sudoku.grid[r][c] != 0:
+							continue
+						var cell = Vector2i(r, c)
+						if cell == peak1 or cell == peak2 or cell == base1 or cell == base2:
+							continue
+						if not _get_candidates(r, c).get_bit(d):
+							continue
+						if _are_peers(cell, peak1) and _are_peers(cell, peak2):
+							elim_cells.append(cell)
+				
+				if elim_cells.size() > 0:
+					var key = str(peak1) + ":" + str(peak2) + ":" + str(digit)
+					if not hints.any(func(h): return h.technique == technique and h.numbers.has(digit) and h.cells.has(peak1) and h.cells.has(peak2)):
+						var hint = Hint.new(technique, "")
+						hint.cells.append(peak1)
+						hint.cells.append(peak2)
+						hint.cells.append(base1)
+						hint.cells.append(base2)
+						hint.numbers.append(digit)
+						hint.elim_cells.append_array(elim_cells)
+						hint.elim_numbers.append(digit)
+						
+						var tech_name = "Skyscraper" if technique == Hint.HintTechnique.SKYSCRAPER else "String Kite"
+						var desc = "%s on digit %d: Strong links (%s = %s) and (%s = %s) share base %s.\n\n" % [
+							tech_name, digit,
+							_format_cell_list([peak1]), _format_cell_list([base1]),
+							_format_cell_list([base2]), _format_cell_list([peak2]),
+							_format_cell_list([base1, base2])
+						]
+						desc += "If %s is %d, then %s cannot be %d, forcing %s to be %d.\n" % [_format_cell_list([base1]), digit, _format_cell_list([base2]), digit, _format_cell_list([peak2]), digit]
+						desc += "If %s is %d, then %s cannot be %d, forcing %s to be %d.\n\n" % [_format_cell_list([base2]), digit, _format_cell_list([base1]), digit, _format_cell_list([peak1]), digit]
+						desc += "Either way, one peak must be %d, so eliminate %d from cells seeing both peaks: %s." % [digit, digit, _format_cell_list(elim_cells)]
+						hint.description = desc
+						
+						var s1 = "%s on digit %d: (%s = %s) and (%s = %s)." % [tech_name, digit, _format_cell_list([peak1, base1]), _format_cell_list([base2, peak2])]
+						hint.add_step(s1, [peak1, base1, base2, peak2])
+						var s2 = "One peak must be %d, eliminate %d from cells seeing both peaks." % [digit, digit]
+						hint.add_step(s2, [peak1, peak2], [], [], elim_cells.duplicate(), [digit])
+						
+						hints.append(hint)
+
+func _find_s_wings(hints: Array[Hint]):
+	# S-Wing: (A)(cell1 = cell2) - (A=B)(cell2) - (B)(cell3 = cell4)
+	# Pattern: Strong link on A, bivalue cell with {A,B}, strong link on B
+	# Eliminate B from cell1 or A from cell4 (depending on which sees the other endpoint)
+	
+	for digit_a in range(1, 10):
+		var d_a = digit_a - 1
+		# Find strong links on digit A
+		var strong_links_a: Array = [] # {cells: [Vector2i, Vector2i]}
+		
+		# Rows
+		for r in range(9):
+			var cols: Array[int] = []
+			for c in range(9):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(d_a):
+					cols.append(c)
+			if cols.size() == 2:
+				strong_links_a.append({"cells": [Vector2i(r, cols[0]), Vector2i(r, cols[1])]})
+		
+		# Columns
+		for c in range(9):
+			var rows: Array[int] = []
+			for r in range(9):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(d_a):
+					rows.append(r)
+			if rows.size() == 2:
+				strong_links_a.append({"cells": [Vector2i(rows[0], c), Vector2i(rows[1], c)]})
+		
+		# Boxes
+		for b in range(9):
+			var cells_in_box: Array[Vector2i] = []
+			for i in range(9):
+				var p = Cardinals.box_to_rc(b, i)
+				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x, p.y).get_bit(d_a):
+					cells_in_box.append(p)
+			if cells_in_box.size() == 2:
+				strong_links_a.append({"cells": cells_in_box})
+		
+		# For each strong link on A, find bivalue cells with {A, B} that see one endpoint
+		for link_a in strong_links_a:
+			var cell_a1 = link_a.cells[0]
+			var cell_a2 = link_a.cells[1]
+			
+			# Check both endpoints of the strong link
+			for endpoint_a in [cell_a1, cell_a2]:
+				# Find bivalue cells seeing this endpoint
+				for r in range(9):
+					for c in range(9):
+						if sudoku.grid[r][c] != 0:
+							continue
+						var cell_bivalue = Vector2i(r, c)
+						if cell_bivalue == endpoint_a:
+							continue
+						if not _are_peers(cell_bivalue, endpoint_a):
+							continue
+						
+						var cand = _get_candidates(r, c)
+						if cand.cardinality() != 2:
+							continue
+						
+						var d1 = cand.next_set_bit(0)
+						var d2 = cand.next_set_bit(d1 + 1)
+						
+						# Check if it contains A
+						if d1 != d_a and d2 != d_a:
+							continue
+						
+						var digit_b = d1 if d2 == d_a else d2
+						
+						# Now find strong link on B that sees the bivalue cell
+						var strong_links_b: Array = []
+						
+						# Rows
+						for rr in range(9):
+							var cols_b: Array[int] = []
+							for cc in range(9):
+								if sudoku.grid[rr][cc] == 0 and _get_candidates(rr, cc).get_bit(digit_b):
+									cols_b.append(cc)
+							if cols_b.size() == 2:
+								strong_links_b.append({"cells": [Vector2i(rr, cols_b[0]), Vector2i(rr, cols_b[1])]})
+						
+						# Columns
+						for cc in range(9):
+							var rows_b: Array[int] = []
+							for rr in range(9):
+								if sudoku.grid[rr][cc] == 0 and _get_candidates(rr, cc).get_bit(digit_b):
+									rows_b.append(rr)
+							if rows_b.size() == 2:
+								strong_links_b.append({"cells": [Vector2i(rows_b[0], cc), Vector2i(rows_b[1], cc)]})
+						
+						# Boxes
+						for bb in range(9):
+							var cells_b: Array[Vector2i] = []
+							for ii in range(9):
+								var pp = Cardinals.box_to_rc(bb, ii)
+								if sudoku.grid[pp.x][pp.y] == 0 and _get_candidates(pp.x, pp.y).get_bit(digit_b):
+									cells_b.append(pp)
+							if cells_b.size() == 2:
+								strong_links_b.append({"cells": cells_b})
+						
+						# Check if any strong link on B sees the bivalue cell
+						for link_b in strong_links_b:
+							var cell_b1 = link_b.cells[0]
+							var cell_b2 = link_b.cells[1]
+							
+							# Bivalue cell must see one endpoint of B link
+							var sees_b1 = _are_peers(cell_bivalue, cell_b1)
+							var sees_b2 = _are_peers(cell_bivalue, cell_b2)
+							
+							if not (sees_b1 or sees_b2):
+								continue
+							
+							# Determine which endpoint of B link
+							var endpoint_b = cell_b1 if sees_b1 else cell_b2
+							var other_b = cell_b2 if sees_b1 else cell_b1
+							
+							# Determine which endpoint of A link (the one not endpoint_a)
+							var other_a = cell_a2 if endpoint_a == cell_a1 else cell_a1
+							
+							# Find eliminations: cells seeing both other endpoints
+							var elim_cells: Array[Vector2i] = []
+							for rr in range(9):
+								for cc in range(9):
+									if sudoku.grid[rr][cc] != 0:
+										continue
+									var cell = Vector2i(rr, cc)
+									if cell == endpoint_a or cell == endpoint_b or cell == cell_bivalue or cell == other_a or cell == other_b:
+										continue
+									if not _get_candidates(rr, cc).get_bit(digit_b):
+										continue
+									if _are_peers(cell, other_a) and _are_peers(cell, other_b):
+										elim_cells.append(cell)
+							
+							if elim_cells.size() > 0:
+								var key = str(endpoint_a) + ":" + str(cell_bivalue) + ":" + str(endpoint_b) + ":swing"
+								if not hints.any(func(h): return h.technique == Hint.HintTechnique.S_WING and h.cells.has(endpoint_a) and h.cells.has(cell_bivalue) and h.cells.has(endpoint_b)):
+									var hint = Hint.new(Hint.HintTechnique.S_WING, "")
+									hint.cells.append(endpoint_a)
+									hint.cells.append(cell_bivalue)
+									hint.cells.append(endpoint_b)
+									hint.numbers.append(digit_a)
+									hint.numbers.append(digit_b + 1)
+									hint.elim_cells.append_array(elim_cells)
+									hint.elim_numbers.append(digit_b + 1)
+									
+									var desc = "S-Wing: (%d)(%s = %s) - (%d=%d)(%s) - (%d)(%s = %s).\n\n" % [
+										digit_a, _format_cell_list([endpoint_a]), _format_cell_list([other_a]),
+										digit_a, digit_b + 1, _format_cell_list([cell_bivalue]),
+										digit_b + 1, _format_cell_list([endpoint_b]), _format_cell_list([other_b])
+									]
+									desc += "If %s is %d, then %s must be %d, forcing %s to be %d.\n" % [endpoint_a, digit_a, cell_bivalue, digit_b + 1, endpoint_b, digit_b + 1]
+									desc += "If %s is not %d, then %s must be %d, forcing %s to be %d.\n\n" % [endpoint_a, digit_a, other_a, digit_a, cell_bivalue, digit_a]
+									desc += "Either way, %s or %s must be %d, so eliminate %d from cells seeing both: %s." % [_format_cell_list([endpoint_b]), _format_cell_list([other_b]), digit_b + 1, digit_b + 1, _format_cell_list(elim_cells)]
+									hint.description = desc
+									
+									var s1 = "S-Wing: Strong link on %d (%s = %s), bivalue %s {%d/%d}, strong link on %d (%s = %s)." % [
+										digit_a, _format_cell_list([endpoint_a, other_a]),
+										_format_cell_list([cell_bivalue]), digit_a, digit_b + 1,
+										digit_b + 1, _format_cell_list([endpoint_b, other_b])
+									]
+									hint.add_step(s1, [endpoint_a, cell_bivalue, endpoint_b])
+									var s2 = "Eliminate %d from cells seeing both endpoints: %s." % [digit_b + 1, _format_cell_list(elim_cells)]
+									hint.add_step(s2, [other_a, other_b], [], [], elim_cells.duplicate(), [digit_b + 1])
+									
+									hints.append(hint)
+
+func _find_remote_pairs(hints: Array[Hint]):
+	# Remote Pair: Chain of bivalue cells with alternating pairs {A,B}
+	# All cells in chain have same pair {A,B}
+	# Eliminate A or B from cells seeing both endpoints
+	
+	# Collect bivalue cells
+	var bivalue_cells: Array = [] # {pos: Vector2i, pair: PackedInt32Array}
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var cand = _get_candidates(r, c)
+			if cand.cardinality() == 2:
+				var d1 = cand.next_set_bit(0)
+				var d2 = cand.next_set_bit(d1 + 1)
+				bivalue_cells.append({"pos": Vector2i(r, c), "pair": PackedInt32Array([d1, d2])})
+	
+	if bivalue_cells.size() < 2:
+		return
+	
+	# Group by pair
+	var pairs_map = {}
+	for cell_data in bivalue_cells:
+		var pair_key = str(cell_data.pair[0]) + "," + str(cell_data.pair[1])
+		if not pairs_map.has(pair_key):
+			pairs_map[pair_key] = []
+		pairs_map[pair_key].append(cell_data)
+	
+	# For each pair, find chains
+	for pair_key in pairs_map.keys():
+		var cells_with_pair = pairs_map[pair_key]
+		if cells_with_pair.size() < 2:
+			continue
+		
+		var pair = cells_with_pair[0].pair
+		var A = pair[0]
+		var B = pair[1]
+		
+		# Build graph: connect cells if they see each other and share a unit with exactly 2 candidates of A or B
+		# Actually, Remote Pair is simpler: just connect cells that see each other
+		var adj: Array = []
+		for _i in range(cells_with_pair.size()):
+			adj.append([])
+		
+		for i in range(cells_with_pair.size()):
+			for j in range(i + 1, cells_with_pair.size()):
+				var cell1 = cells_with_pair[i].pos
+				var cell2 = cells_with_pair[j].pos
+				if _are_peers(cell1, cell2):
+					adj[i].append(j)
+					adj[j].append(i)
+		
+		# DFS to find chains
+		var emitted = {}
+		for start_idx in range(cells_with_pair.size()):
+			var visited: Dictionary = {}
+			var path: Array = [start_idx]
+			_remote_pair_dfs(cells_with_pair, adj, start_idx, visited, path, hints, emitted, A, B)
+	
+func _remote_pair_dfs(cells: Array, adj: Array, curr_idx: int, visited: Dictionary, path: Array, hints: Array[Hint], emitted: Dictionary, A: int, B: int):
+	if visited.has(curr_idx):
+		return
+	visited[curr_idx] = true
+	
+	# Check if we have a valid Remote Pair chain (length >= 2)
+	if path.size() >= 2:
+		var start_cell = cells[path[0]].pos
+		var end_cell = cells[curr_idx].pos
+		
+		# Endpoints should not be peers (they should be remote)
+		if not _are_peers(start_cell, end_cell):
+			var key = str(start_cell) + ":" + str(end_cell) + ":remotepair"
+			if not emitted.has(key):
+				# Determine which digit to eliminate (try both)
+				for elim_digit in [A, B]:
+					var elim_cells: Array[Vector2i] = []
+					for r in range(9):
+						for c in range(9):
+							if sudoku.grid[r][c] != 0:
+								continue
+							var cell = Vector2i(r, c)
+							if cell == start_cell or cell == end_cell:
+								continue
+							# Check if cell is in the chain
+							var in_chain = false
+							for idx in path:
+								if cells[idx].pos == cell:
+									in_chain = true
+									break
+							if in_chain:
+								continue
+							if not _get_candidates(r, c).get_bit(elim_digit):
+								continue
+							if _are_peers(cell, start_cell) and _are_peers(cell, end_cell):
+								elim_cells.append(cell)
+					
+					if elim_cells.size() > 0:
+						var hint = Hint.new(Hint.HintTechnique.REMOTE_PAIR, "")
+						for idx in path:
+							hint.cells.append(cells[idx].pos)
+						hint.cells.append(cells[curr_idx].pos)
+						hint.numbers.append(A + 1)
+						hint.numbers.append(B + 1)
+						hint.elim_cells.append_array(elim_cells)
+						hint.elim_numbers.append(elim_digit + 1)
+						
+						var chain_text = []
+						for idx in path:
+							chain_text.append(_format_cell_list([cells[idx].pos]))
+						chain_text.append(_format_cell_list([cells[curr_idx].pos]))
+						
+						var desc = "Remote Pair chain on {%d/%d}: %s.\n\n" % [A+1, B+1, " -> ".join(chain_text)]
+						desc += "All cells in the chain have the same pair {%d/%d}.\n" % [A+1, B+1]
+						desc += "If start is %d, end must be %d (or vice versa), synchronizing the pair.\n\n" % [A+1, B+1]
+						desc += "Eliminate %d from cells seeing both endpoints: %s." % [elim_digit + 1, _format_cell_list(elim_cells)]
+						hint.description = desc
+						
+						var s1 = "Remote Pair chain: %s (all have {%d/%d})." % [" -> ".join(chain_text), A+1, B+1]
+						hint.add_step(s1, hint.cells.duplicate())
+						var s2 = "Eliminate %d from cells seeing both endpoints: %s." % [elim_digit + 1, _format_cell_list(elim_cells)]
+						hint.add_step(s2, [start_cell, end_cell], [], [], elim_cells.duplicate(), [elim_digit + 1])
+						
+						hints.append(hint)
+						emitted[key] = true
+						break  # Only emit one hint per chain
+	
+	# Continue DFS
+	for next_idx in adj[curr_idx]:
+		if visited.has(next_idx):
+			continue
+		var new_path = path.duplicate()
+		new_path.append(next_idx)
+		_remote_pair_dfs(cells, adj, next_idx, visited, new_path, hints, emitted, A, B)
+	
+	visited.erase(curr_idx)  # Backtrack
 
 func _find_xy_wings(hints: Array[Hint]):
 	# XY-Wing: pivot {XY}, wing1 {XZ}, wing2 {YZ}

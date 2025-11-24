@@ -24,6 +24,10 @@ enum HintTechnique {
 	XY_CHAIN,
 	W_WING,
 	XY_WING,
+	SKYSCRAPER,
+	STRING_KITE,
+	S_WING,
+	REMOTE_PAIR,
 	AIC_CHAIN,
 	NISHIO
 }
