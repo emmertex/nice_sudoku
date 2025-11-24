@@ -1491,8 +1491,16 @@ func _find_wxyz_wings(hints: Array[Hint]):
 									hint.elim_cells.append_array(elim_cells)
 									hint.elim_numbers.append(Z + 1)
 									
-									var wing1_str = "{%s}" % ", ".join([str(d+1) for d in range(9) if wing1_cand.get_bit(d)])
-									var wing2_str = "{%s}" % ", ".join([str(d+1) for d in range(9) if wing2_cand.get_bit(d)])
+									var wing1_digits: Array[String] = []
+									for dd in range(9):
+										if wing1_cand.get_bit(dd):
+											wing1_digits.append(str(dd+1))
+									var wing1_str = "{%s}" % ", ".join(wing1_digits)
+									var wing2_digits: Array[String] = []
+									for dd in range(9):
+										if wing2_cand.get_bit(dd):
+											wing2_digits.append(str(dd+1))
+									var wing2_str = "{%s}" % ", ".join(wing2_digits)
 									
 									var desc = "WXYZ-Wing: Pivot %s {%d/%d/%d/%d}, Wing1 %s %s, Wing2 %s %s.\n\n" % [
 										_format_cell_list([pivot_pos]), W+1, X+1, Y+1, Z+1,
@@ -1641,9 +1649,11 @@ func _xyring_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: int
 			if elim_cells.size() > 0:
 				var hint = Hint.new(Hint.HintTechnique.XY_RING, "")
 				hint.cells.append_array(ring_cells)
-				hint.numbers.append_array([d + 1 for d in ring_digits])
+				for d in ring_digits:
+					hint.numbers.append(d + 1)
 				hint.elim_cells.append_array(elim_cells)
-				hint.elim_numbers.append_array([d + 1 for d in elim_digits])
+				for d in elim_digits:
+					hint.elim_numbers.append(d + 1)
 				
 				var chain_text = []
 				for idx in path:
@@ -1657,7 +1667,10 @@ func _xyring_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: int
 				var s1 = "XY-Ring: %s" % " -> ".join(chain_text)
 				hint.add_step(s1, ring_cells.duplicate())
 				var s2 = "Eliminate ring digits from cells seeing multiple ring cells: %s." % _format_cell_list(elim_cells)
-				hint.add_step(s2, [], [], [], elim_cells.duplicate(), [d + 1 for d in elim_digits])
+				var elim_nums: Array[int] = []
+				for d in elim_digits:
+					elim_nums.append(d + 1)
+				hint.add_step(s2, [], [], [], elim_cells.duplicate(), elim_nums)
 				
 				hints.append(hint)
 				emitted[key] = true
@@ -1843,10 +1856,19 @@ func _find_als_xy_rule(hints: Array[Hint]):
 							hint.numbers.append(elim_d + 1)
 						hint.numbers.append(d + 1)
 						hint.elim_cells.append_array(elim_cells)
-						hint.elim_numbers.append_array([elim_d + 1 for elim_d in elim_digits])
+						for elim_d in elim_digits:
+							hint.elim_numbers.append(elim_d + 1)
 						
-						var als1_str = "{%s}" % ", ".join([str(dd+1) for dd in range(9) if als1.candidates.get_bit(dd)])
-						var als2_str = "{%s}" % ", ".join([str(dd+1) for dd in range(9) if als2.candidates.get_bit(dd)])
+						var als1_digits: Array[String] = []
+						for dd in range(9):
+							if als1.candidates.get_bit(dd):
+								als1_digits.append(str(dd+1))
+						var als1_str = "{%s}" % ", ".join(als1_digits)
+						var als2_digits: Array[String] = []
+						for dd in range(9):
+							if als2.candidates.get_bit(dd):
+								als2_digits.append(str(dd+1))
+						var als2_str = "{%s}" % ", ".join(als2_digits)
 						
 						var desc = "ALS-XY Rule: ALS1 %s %s, ALS2 %s %s, restricted common candidate %d.\n\n" % [
 							_format_cell_list(als1.cells), als1_str,
@@ -1859,7 +1881,10 @@ func _find_als_xy_rule(hints: Array[Hint]):
 						var s1 = "ALS-XY Rule: Two ALS share restricted common candidate %d." % (d + 1)
 						hint.add_step(s1, als1.cells + als2.cells)
 						var s2 = "Eliminate from cells seeing both ALS: %s." % _format_cell_list(elim_cells)
-						hint.add_step(s2, [], [], [], elim_cells.duplicate(), [elim_d + 1 for elim_d in elim_digits])
+						var elim_nums: Array[int] = []
+						for elim_d in elim_digits:
+							elim_nums.append(elim_d + 1)
+						hint.add_step(s2, [], [], [], elim_cells.duplicate(), elim_nums)
 						
 						hints.append(hint)
 
@@ -1989,7 +2014,11 @@ func _als_chain_dfs(als_list: Array, adj: Array, curr_idx: int, last_digit: int,
 			var chain_text = []
 			for idx in path:
 				var als = als_list[idx]
-				var cand_str = "{%s}" % ", ".join([str(d+1) for d in range(9) if als.candidates.get_bit(d)])
+				var cand_digits: Array[String] = []
+				for d in range(9):
+					if als.candidates.get_bit(d):
+						cand_digits.append(str(d+1))
+				var cand_str = "{%s}" % ", ".join(cand_digits)
 				chain_text.append(_format_cell_list(als.cells) + " " + cand_str)
 			
 			var desc = "ALS-Chain: %s.\n\n" % " -> ".join(chain_text)
@@ -2288,6 +2317,7 @@ func _find_shared_cell(hints: Array[Hint]):
 			if strong_link_count >= 2:
 				# This is a simplified detection - full implementation would be more complex
 				pass  # Placeholder for now
+	return
 
 func _find_mlh_wings(hints: Array[Hint]):
 	# M/L/H-Wings are AIC patterns
@@ -2303,6 +2333,7 @@ func _find_mlh_wings(hints: Array[Hint]):
 	# M(2)-Wing: (A=B) - (B) = (B-A) = (A)
 	# This requires detecting bivalue cells and strong links
 	# Implementation deferred - can be added later as enhancement
+	pass
 
 func _are_peers(c1: Vector2i, c2: Vector2i) -> bool:
 	if c1.x == c2.x: return true
@@ -2502,8 +2533,8 @@ func _xychain_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: in
 				var curr_idx_check = new_path[i]
 				var next_idx_check = new_path[i + 1]
 				var found_strong_edge = false
-				for edge in adj[curr_idx_check]:
-					if edge["to"] == next_idx_check and edge.has("strong") and edge["strong"]:
+				for edge_check in adj[curr_idx_check]:
+					if edge_check["to"] == next_idx_check and edge_check.has("strong") and edge_check["strong"]:
 						found_strong_edge = true
 						break
 				if not found_strong_edge:
