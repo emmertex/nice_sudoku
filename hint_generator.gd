@@ -553,8 +553,13 @@ func get_hints() -> Array[Hint]:
 	_find_remote_pairs(hints)
 	# --- XY-Wing (detect before XY-Chain as it's simpler) ---
 	_find_xy_wings(hints)
+	# --- XYZ-Wing and WXYZ-Wing ---
+	_find_xyz_wings(hints)
+	_find_wxyz_wings(hints)
 	# --- XY-Chain and W-Wing ---
 	_find_xy_chains_and_wwings(hints)
+	# --- XY-Ring (modify XY-Chain to detect closed loops) ---
+	_find_xy_rings(hints)
 
 	# --- Empty Rectangle ---
 	_find_empty_rectangles(hints)
@@ -1253,6 +1258,437 @@ func _find_xy_wings(hints: Array[Hint]):
 						
 						hints.append(hint)
 						emitted[key] = true
+
+func _find_xyz_wings(hints: Array[Hint]):
+	# XYZ-Wing: pivot {XYZ}, wing1 {XZ}, wing2 {YZ}
+	# Similar to XY-Wing but pivot has 3 candidates
+	# Can also be ALS-based: pivot is ALS {XYZ}, wings are {XZ} and {YZ}
+	
+	# First, try simple case: pivot is trivalue cell
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var pivot_cand = _get_candidates(r, c)
+			if pivot_cand.cardinality() != 3:
+				continue
+			
+			var pivot_digits: Array[int] = []
+			for d in range(9):
+				if pivot_cand.get_bit(d):
+					pivot_digits.append(d)
+			
+			var X = pivot_digits[0]
+			var Y = pivot_digits[1]
+			var Z = pivot_digits[2]
+			var pivot_pos = Vector2i(r, c)
+			
+			# Find wing1: {X, Z} bivalue cell seeing pivot
+			# Find wing2: {Y, Z} bivalue cell seeing pivot and wing1
+			for r1 in range(9):
+				for c1 in range(9):
+					if sudoku.grid[r1][c1] != 0:
+						continue
+					var wing1_pos = Vector2i(r1, c1)
+					if wing1_pos == pivot_pos:
+						continue
+					if not _are_peers(pivot_pos, wing1_pos):
+						continue
+					
+					var wing1_cand = _get_candidates(r1, c1)
+					if wing1_cand.cardinality() != 2:
+						continue
+					
+					var w1d1 = wing1_cand.next_set_bit(0)
+					var w1d2 = wing1_cand.next_set_bit(w1d1 + 1)
+					
+					# Check if wing1 has {X, Z} or {Z, X}
+					if not ((w1d1 == X and w1d2 == Z) or (w1d1 == Z and w1d2 == X)):
+						continue
+					
+					# Find wing2: {Y, Z} bivalue cell
+					for r2 in range(9):
+						for c2 in range(9):
+							if sudoku.grid[r2][c2] != 0:
+								continue
+							var wing2_pos = Vector2i(r2, c2)
+							if wing2_pos == pivot_pos or wing2_pos == wing1_pos:
+								continue
+							if not _are_peers(pivot_pos, wing2_pos):
+								continue
+							if not _are_peers(wing1_pos, wing2_pos):
+								continue
+							
+							var wing2_cand = _get_candidates(r2, c2)
+							if wing2_cand.cardinality() != 2:
+								continue
+							
+							var w2d1 = wing2_cand.next_set_bit(0)
+							var w2d2 = wing2_cand.next_set_bit(w2d1 + 1)
+							
+							# Check if wing2 has {Y, Z} or {Z, Y}
+							if not ((w2d1 == Y and w2d2 == Z) or (w2d1 == Z and w2d2 == Y)):
+								continue
+							
+							# Found XYZ-Wing! Eliminate Z from cells seeing both wings
+							var elim_cells: Array[Vector2i] = []
+							for rr in range(9):
+								for cc in range(9):
+									if sudoku.grid[rr][cc] != 0:
+										continue
+									var cell_pos = Vector2i(rr, cc)
+									if cell_pos == pivot_pos or cell_pos == wing1_pos or cell_pos == wing2_pos:
+										continue
+									if not _get_candidates(rr, cc).get_bit(Z):
+										continue
+									if _are_peers(cell_pos, wing1_pos) and _are_peers(cell_pos, wing2_pos):
+										elim_cells.append(cell_pos)
+							
+							if elim_cells.size() > 0:
+								var key = str(pivot_pos) + ":" + str(wing1_pos) + ":" + str(wing2_pos) + ":xyz"
+								if not hints.any(func(h): return h.technique == Hint.HintTechnique.XYZ_WING and h.cells.has(pivot_pos)):
+									var hint = Hint.new(Hint.HintTechnique.XYZ_WING, "")
+									hint.cells.append(pivot_pos)
+									hint.cells.append(wing1_pos)
+									hint.cells.append(wing2_pos)
+									hint.numbers.append(X + 1)
+									hint.numbers.append(Y + 1)
+									hint.numbers.append(Z + 1)
+									hint.elim_cells.append_array(elim_cells)
+									hint.elim_numbers.append(Z + 1)
+									
+									var desc = "XYZ-Wing: Pivot %s {%d/%d/%d}, Wing1 %s {%d/%d}, Wing2 %s {%d/%d}.\n\n" % [
+										_format_cell_list([pivot_pos]), X+1, Y+1, Z+1,
+										_format_cell_list([wing1_pos]), X+1, Z+1,
+										_format_cell_list([wing2_pos]), Y+1, Z+1
+									]
+									desc += "If pivot is %d, wing1 must be %d, forcing wing2 to be %d.\n" % [X+1, Z+1, Y+1]
+									desc += "If pivot is %d, wing2 must be %d, forcing wing1 to be %d.\n" % [Y+1, Z+1, X+1]
+									desc += "If pivot is %d, both wings must be %d or %d.\n\n" % [Z+1, X+1, Y+1]
+									desc += "Either way, one wing must be %d, so eliminate %d from cells seeing both wings: %s." % [Z+1, Z+1, _format_cell_list(elim_cells)]
+									hint.description = desc
+									
+									var s1 = "XYZ-Wing: Pivot %s {%d/%d/%d}, Wing1 %s {%d/%d}, Wing2 %s {%d/%d}." % [
+										_format_cell_list([pivot_pos]), X+1, Y+1, Z+1,
+										_format_cell_list([wing1_pos]), X+1, Z+1,
+										_format_cell_list([wing2_pos]), Y+1, Z+1
+									]
+									hint.add_step(s1, [pivot_pos, wing1_pos, wing2_pos])
+									var s2 = "One wing must be %d, eliminate %d from cells seeing both wings." % [Z+1, Z+1]
+									hint.add_step(s2, [wing1_pos, wing2_pos], [], [], elim_cells.duplicate(), [Z+1])
+									
+									hints.append(hint)
+
+func _find_wxyz_wings(hints: Array[Hint]):
+	# WXYZ-Wing: pivot {WXYZ}, wings with subsets
+	# Can be ALS-based: pivot is ALS {WXYZ}, wings are ALS with subsets
+	# For now, implement simple case: pivot is quad-value cell {WXYZ}
+	
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var pivot_cand = _get_candidates(r, c)
+			if pivot_cand.cardinality() != 4:
+				continue
+			
+			var pivot_digits: Array[int] = []
+			for d in range(9):
+				if pivot_cand.get_bit(d):
+					pivot_digits.append(d)
+			
+			var W = pivot_digits[0]
+			var X = pivot_digits[1]
+			var Y = pivot_digits[2]
+			var Z = pivot_digits[3]
+			var pivot_pos = Vector2i(r, c)
+			
+			# Find wings: bivalue or trivalue cells that are subsets of pivot and see pivot
+			# Try different combinations
+			# Wing1: subset containing X, Wing2: subset containing Y, both contain Z
+			for r1 in range(9):
+				for c1 in range(9):
+					if sudoku.grid[r1][c1] != 0:
+						continue
+					var wing1_pos = Vector2i(r1, c1)
+					if wing1_pos == pivot_pos:
+						continue
+					if not _are_peers(pivot_pos, wing1_pos):
+						continue
+					
+					var wing1_cand = _get_candidates(r1, c1)
+					var wing1_size = wing1_cand.cardinality()
+					if wing1_size < 2 or wing1_size > 3:
+						continue
+					
+					# Check if wing1 contains X and Z, and is subset of pivot
+					if not wing1_cand.get_bit(X) or not wing1_cand.get_bit(Z):
+						continue
+					if not pivot_cand.intersection(wing1_cand).equals(wing1_cand):
+						continue
+					
+					# Find wing2: subset containing Y and Z
+					for r2 in range(9):
+						for c2 in range(9):
+							if sudoku.grid[r2][c2] != 0:
+								continue
+							var wing2_pos = Vector2i(r2, c2)
+							if wing2_pos == pivot_pos or wing2_pos == wing1_pos:
+								continue
+							if not _are_peers(pivot_pos, wing2_pos):
+								continue
+							if not _are_peers(wing1_pos, wing2_pos):
+								continue
+							
+							var wing2_cand = _get_candidates(r2, c2)
+							var wing2_size = wing2_cand.cardinality()
+							if wing2_size < 2 or wing2_size > 3:
+								continue
+							
+							# Check if wing2 contains Y and Z, and is subset of pivot
+							if not wing2_cand.get_bit(Y) or not wing2_cand.get_bit(Z):
+								continue
+							if not pivot_cand.intersection(wing2_cand).equals(wing2_cand):
+								continue
+							
+							# Found WXYZ-Wing! Eliminate Z from cells seeing both wings
+							var elim_cells: Array[Vector2i] = []
+							for rr in range(9):
+								for cc in range(9):
+									if sudoku.grid[rr][cc] != 0:
+										continue
+									var cell_pos = Vector2i(rr, cc)
+									if cell_pos == pivot_pos or cell_pos == wing1_pos or cell_pos == wing2_pos:
+										continue
+									if not _get_candidates(rr, cc).get_bit(Z):
+										continue
+									if _are_peers(cell_pos, wing1_pos) and _are_peers(cell_pos, wing2_pos):
+										elim_cells.append(cell_pos)
+							
+							if elim_cells.size() > 0:
+								var key = str(pivot_pos) + ":" + str(wing1_pos) + ":" + str(wing2_pos) + ":wxyz"
+								if not hints.any(func(h): return h.technique == Hint.HintTechnique.WXYZ_WING and h.cells.has(pivot_pos)):
+									var hint = Hint.new(Hint.HintTechnique.WXYZ_WING, "")
+									hint.cells.append(pivot_pos)
+									hint.cells.append(wing1_pos)
+									hint.cells.append(wing2_pos)
+									hint.numbers.append(W + 1)
+									hint.numbers.append(X + 1)
+									hint.numbers.append(Y + 1)
+									hint.numbers.append(Z + 1)
+									hint.elim_cells.append_array(elim_cells)
+									hint.elim_numbers.append(Z + 1)
+									
+									var wing1_str = "{%s}" % ", ".join([str(d+1) for d in range(9) if wing1_cand.get_bit(d)])
+									var wing2_str = "{%s}" % ", ".join([str(d+1) for d in range(9) if wing2_cand.get_bit(d)])
+									
+									var desc = "WXYZ-Wing: Pivot %s {%d/%d/%d/%d}, Wing1 %s %s, Wing2 %s %s.\n\n" % [
+										_format_cell_list([pivot_pos]), W+1, X+1, Y+1, Z+1,
+										_format_cell_list([wing1_pos]), wing1_str,
+										_format_cell_list([wing2_pos]), wing2_str
+									]
+									desc += "Eliminate %d from cells seeing both wings: %s." % [Z+1, _format_cell_list(elim_cells)]
+									hint.description = desc
+									
+									var s1 = "WXYZ-Wing: Pivot %s {%d/%d/%d/%d}, Wing1 %s %s, Wing2 %s %s." % [
+										_format_cell_list([pivot_pos]), W+1, X+1, Y+1, Z+1,
+										_format_cell_list([wing1_pos]), wing1_str,
+										_format_cell_list([wing2_pos]), wing2_str
+									]
+									hint.add_step(s1, [pivot_pos, wing1_pos, wing2_pos])
+									var s2 = "Eliminate %d from cells seeing both wings: %s." % [Z+1, _format_cell_list(elim_cells)]
+									hint.add_step(s2, [wing1_pos, wing2_pos], [], [], elim_cells.duplicate(), [Z+1])
+									
+									hints.append(hint)
+
+func _find_xy_rings(hints: Array[Hint]):
+	# XY-Ring: Closed loop of XY-Chains forming a ring
+	# Modify XY-Chain detection to find cycles
+	# This is already partially handled by Type-2 XY-Chain, but we need to detect rings specifically
+	
+	# Collect bivalue cells
+	var nodes: Array = [] # {pos: Vector2i, pair: PackedInt32Array}
+	var pos_to_idx = {}
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var cand = _get_candidates(r, c)
+			if cand.cardinality() == 2:
+				var d1 = cand.next_set_bit(0)
+				var d2 = cand.next_set_bit(d1 + 1)
+				var idx = nodes.size()
+				nodes.append({"pos": Vector2i(r, c), "pair": PackedInt32Array([d1, d2])})
+				pos_to_idx[Vector2i(r, c)] = idx
+	
+	if nodes.size() < 4:
+		return
+	
+	# Build edges (same as XY-Chain)
+	var adj: Array = []
+	for _i in range(nodes.size()): adj.append([])
+	
+	for d in range(9):
+		# Rows
+		for rr in range(9):
+			var node_positions_row: Array[Vector2i] = []
+			for cc in range(9):
+				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
+					var posr = Vector2i(rr,cc)
+					if pos_to_idx.has(posr): node_positions_row.append(posr)
+			if node_positions_row.size() >= 2:
+				for i in range(node_positions_row.size()):
+					for j in range(i + 1, node_positions_row.size()):
+						var ar = pos_to_idx[node_positions_row[i]]
+						var br = pos_to_idx[node_positions_row[j]]
+						adj[ar].append({"to": br, "digit": d})
+						adj[br].append({"to": ar, "digit": d})
+		# Columns
+		for cc in range(9):
+			var node_positions_col: Array[Vector2i] = []
+			for rr in range(9):
+				if sudoku.grid[rr][cc] == 0 and _get_candidates(rr,cc).get_bit(d):
+					var posc = Vector2i(rr,cc)
+					if pos_to_idx.has(posc): node_positions_col.append(posc)
+			if node_positions_col.size() >= 2:
+				for i in range(node_positions_col.size()):
+					for j in range(i + 1, node_positions_col.size()):
+						var ac = pos_to_idx[node_positions_col[i]]
+						var bc = pos_to_idx[node_positions_col[j]]
+						adj[ac].append({"to": bc, "digit": d})
+						adj[bc].append({"to": ac, "digit": d})
+		# Boxes
+		for box_idx in range(9):
+			var node_positions_box: Array[Vector2i] = []
+			for i in range(9):
+				var p = Cardinals.box_to_rc(box_idx, i)
+				if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x,p.y).get_bit(d):
+					if pos_to_idx.has(p): node_positions_box.append(p)
+			if node_positions_box.size() >= 2:
+				for i in range(node_positions_box.size()):
+					for j in range(i + 1, node_positions_box.size()):
+						var a3 = pos_to_idx[node_positions_box[i]]
+						var b3 = pos_to_idx[node_positions_box[j]]
+						adj[a3].append({"to": b3, "digit": d})
+						adj[b3].append({"to": a3, "digit": d})
+	
+	# Find rings: cycles where we return to start with same digit
+	var emitted = {}
+	for start_idx in range(nodes.size()):
+		var pair: PackedInt32Array = nodes[start_idx].pair
+		for s_digit in [pair[0], pair[1]]:
+			var visited: Dictionary = {}
+			var path: Array = [start_idx]
+			_xyring_dfs(nodes, adj, start_idx, s_digit, start_idx, s_digit, visited, path, hints, emitted)
+
+func _xyring_dfs(nodes: Array, adj: Array, curr_idx: int, curr_active_digit: int, start_idx: int, start_digit: int, visited: Dictionary, path: Array, hints: Array[Hint], emitted: Dictionary):
+	if path.size() > 1 and curr_idx == start_idx and curr_active_digit == start_digit and path.size() >= 4:
+		# Found a ring!
+		var key = str(start_idx) + ":ring:" + str(start_digit)
+		if not emitted.has(key):
+			# Determine eliminations based on the ring pattern
+			# For XY-Ring, we eliminate digits that appear in cells seeing multiple ring cells
+			var ring_cells: Array[Vector2i] = []
+			for idx in path:
+				ring_cells.append(nodes[idx].pos)
+			
+			# Collect all digits in the ring
+			var ring_digits: Array[int] = []
+			for idx in path:
+				var pair = nodes[idx].pair
+				if not ring_digits.has(pair[0]): ring_digits.append(pair[0])
+				if not ring_digits.has(pair[1]): ring_digits.append(pair[1])
+			
+			# Find eliminations: cells seeing multiple ring cells that contain ring digits
+			var elim_cells: Array[Vector2i] = []
+			var elim_digits: Array[int] = []
+			
+			for d in ring_digits:
+				for r in range(9):
+					for c in range(9):
+						if sudoku.grid[r][c] != 0:
+							continue
+						var cell = Vector2i(r, c)
+						if cell in ring_cells:
+							continue
+						if not _get_candidates(r, c).get_bit(d):
+							continue
+						
+						# Count how many ring cells this cell sees
+						var see_count = 0
+						for ring_cell in ring_cells:
+							if _are_peers(cell, ring_cell):
+								see_count += 1
+						
+						# If sees 2+ ring cells, can potentially eliminate
+						if see_count >= 2:
+							elim_cells.append(cell)
+							if not elim_digits.has(d):
+								elim_digits.append(d)
+			
+			if elim_cells.size() > 0:
+				var hint = Hint.new(Hint.HintTechnique.XY_RING, "")
+				hint.cells.append_array(ring_cells)
+				hint.numbers.append_array([d + 1 for d in ring_digits])
+				hint.elim_cells.append_array(elim_cells)
+				hint.elim_numbers.append_array([d + 1 for d in elim_digits])
+				
+				var chain_text = []
+				for idx in path:
+					var pair = nodes[idx].pair
+					chain_text.append(_format_cell_list([nodes[idx].pos]) + " {%d/%d}" % [pair[0]+1, pair[1]+1])
+				
+				var desc = "XY-Ring: Closed loop %s.\n\n" % " -> ".join(chain_text)
+				desc += "Forms a ring where digits alternate. Eliminate ring digits from cells seeing multiple ring cells: %s." % _format_cell_list(elim_cells)
+				hint.description = desc
+				
+				var s1 = "XY-Ring: %s" % " -> ".join(chain_text)
+				hint.add_step(s1, ring_cells.duplicate())
+				var s2 = "Eliminate ring digits from cells seeing multiple ring cells: %s." % _format_cell_list(elim_cells)
+				hint.add_step(s2, [], [], [], elim_cells.duplicate(), [d + 1 for d in elim_digits])
+				
+				hints.append(hint)
+				emitted[key] = true
+			return
+	
+	var visit_key = str(curr_idx) + ":" + str(curr_active_digit)
+	if visited.has(visit_key):
+		return
+	visited[visit_key] = true
+	
+	for edge in adj[curr_idx]:
+		var edge_digit: int = edge["digit"]
+		if not (edge_digit == curr_active_digit or (path.size() == 1 and (edge_digit == nodes[start_idx].pair[0] or edge_digit == nodes[start_idx].pair[1]))):
+			continue
+		var next_idx = edge["to"]
+		var pair: PackedInt32Array = nodes[next_idx].pair
+		if pair.find(edge_digit) == -1:
+			continue
+		var next_active = pair[0] if pair[1] == edge_digit else pair[1]
+		var new_path = path.duplicate()
+		new_path.append(next_idx)
+		
+		if new_path.count(next_idx) > 1:
+			continue
+		
+		_xyring_dfs(nodes, adj, next_idx, next_active, start_idx, start_digit, visited, new_path, hints, emitted)
+	
+	visited.erase(visit_key)
+
+func _find_mlh_wings(hints: Array[Hint]):
+	# M/L/H-Wings are AIC patterns
+	# M-Wing: (A=B)cell1 - (B)cell2 = (B-A)cell3 = (A)cell4
+	# L-Wing: Local wing patterns
+	# H-Wing: Hybrid wing patterns
+	# These are complex AIC chains, so we'll use the existing strong link infrastructure
+	
+	# For now, implement basic detection using AIC chains
+	# The existing AIC_CHAIN detection might already handle some cases
+	# We'll add specific M/L/H-Wing detection that's more targeted
+	
+	# M(2)-Wing: (A=B) - (B) = (B-A) = (A)
+	# This requires detecting bivalue cells and strong links
+	# Implementation deferred - can be added later as enhancement
 
 func _are_peers(c1: Vector2i, c2: Vector2i) -> bool:
 	if c1.x == c2.x: return true
