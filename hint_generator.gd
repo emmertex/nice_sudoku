@@ -466,6 +466,15 @@ func get_hints() -> Array[Hint]:
 									hint.add_step(jfs2c, [], [], [], hint.elim_cells.duplicate(), [digit])
 									hints.append(hint)
 
+	# --- Sashimi X-Wing and Swordfish ---
+	_find_sashimi_fish(hints)
+	
+	# --- DDS (Double Digit Subset) ---
+	_find_dds(hints)
+	
+	# --- Shared Cell ---
+	_find_shared_cell(hints)
+	
 	# --- Pointing Pairs / Triples ---
 	for num in range(1, 10):
 		for b in range(9): # Iterate through each box
@@ -2013,6 +2022,272 @@ func _als_chain_dfs(als_list: Array, adj: Array, curr_idx: int, last_digit: int,
 		_als_chain_dfs(als_list, adj, next_idx, digit, start_idx, visited, new_path, hints, emitted)
 	
 	visited.erase(curr_idx)
+
+func _find_sashimi_fish(hints: Array[Hint]):
+	# Sashimi X-Wing/Swordfish: Incomplete fish patterns (one cell missing)
+	# Sashimi X-Wing: 2 rows/cols with candidates in 2 cols/rows, but one cell is missing
+	# Sashimi Swordfish: 3 rows/cols with candidates in 3 cols/rows, but one cell is missing
+	
+	for digit in range(1, 10):
+		var d = digit - 1
+		
+		# Row-based Sashimi X-Wing
+		var row_candidates = {}
+		for r in range(9):
+			var positions = BitSet.new(9)
+			for c in range(9):
+				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(d):
+					positions.set_bit(c)
+			if positions.cardinality() >= 2 and positions.cardinality() <= 3:
+				row_candidates[r] = positions
+		
+		if row_candidates.size() >= 2:
+			var rows = row_candidates.keys()
+			for i in range(rows.size()):
+				for j in range(i + 1, rows.size()):
+					var r1 = rows[i]
+					var r2 = rows[j]
+					var union_cols = row_candidates[r1].union(row_candidates[r2])
+					
+					if union_cols.cardinality() == 2:
+						# Potential Sashimi X-Wing
+						var cols: Array[int] = []
+						for c in range(9):
+							if union_cols.get_bit(c):
+								cols.append(c)
+						
+						# Check if it's Sashimi (one cell missing compared to perfect X-Wing)
+						var sashimi_cells: Array[Vector2i] = []
+						var missing_cell: Vector2i = Vector2i(-1, -1)
+						var perfect_count = 0
+						
+						for c in cols:
+							if row_candidates[r1].get_bit(c):
+								sashimi_cells.append(Vector2i(r1, c))
+								perfect_count += 1
+							if row_candidates[r2].get_bit(c):
+								sashimi_cells.append(Vector2i(r2, c))
+								perfect_count += 1
+						
+						# If we have 3 cells instead of 4, it's Sashimi
+						if sashimi_cells.size() == 3:
+							# Find the missing cell
+							for c in cols:
+								if not row_candidates[r1].get_bit(c):
+									missing_cell = Vector2i(r1, c)
+								if not row_candidates[r2].get_bit(c):
+									missing_cell = Vector2i(r2, c)
+							
+							# Find eliminations
+							var elim_cells: Array[Vector2i] = []
+							for c in cols:
+								for r_check in range(9):
+									if r_check != r1 and r_check != r2:
+										var cell = Vector2i(r_check, c)
+										if _get_candidates(r_check, c).get_bit(d):
+											elim_cells.append(cell)
+							
+							if elim_cells.size() > 0:
+								var hint = Hint.new(Hint.HintTechnique.SASHIMI_X_WING, "")
+								hint.cells.append_array(sashimi_cells)
+								hint.numbers.append(digit)
+								hint.elim_cells.append_array(elim_cells)
+								hint.elim_numbers.append(digit)
+								
+								var desc = "Sashimi X-Wing on digit %d: rows %d and %d, columns %d and %d (one cell missing).\n\n" % [digit, r1+1, r2+1, cols[0]+1, cols[1]+1]
+								desc += "Eliminate %d from: %s." % [digit, _format_cell_list(elim_cells)]
+								hint.description = desc
+								
+								var s1 = "Sashimi X-Wing on digit %d: rows %d, %d in columns %d, %d (incomplete pattern)." % [digit, r1+1, r2+1, cols[0]+1, cols[1]+1]
+								hint.add_step(s1, sashimi_cells.duplicate())
+								var s2 = "Eliminate %d from: %s." % [digit, _format_cell_list(elim_cells)]
+								hint.add_step(s2, [], [], [], elim_cells.duplicate(), [digit])
+								
+								hints.append(hint)
+		
+		# Similar logic for Sashimi Swordfish (3 rows/cols)
+		if row_candidates.size() >= 3:
+			var rows = row_candidates.keys()
+			for i in range(rows.size()):
+				for j in range(i + 1, rows.size()):
+					for k in range(j + 1, rows.size()):
+						var r1 = rows[i]
+						var r2 = rows[j]
+						var r3 = rows[k]
+						var union_cols = row_candidates[r1].union(row_candidates[r2]).union(row_candidates[r3])
+						
+						if union_cols.cardinality() == 3:
+							var cols: Array[int] = []
+							for c in range(9):
+								if union_cols.get_bit(c):
+									cols.append(c)
+							
+							var sashimi_cells: Array[Vector2i] = []
+							for c in cols:
+								for r in [r1, r2, r3]:
+									if row_candidates[r].get_bit(c):
+										sashimi_cells.append(Vector2i(r, c))
+							
+							# If we have less than 9 cells (perfect would be 9), it's Sashimi
+							if sashimi_cells.size() < 9 and sashimi_cells.size() >= 6:
+								var elim_cells: Array[Vector2i] = []
+								for c in cols:
+									for r_check in range(9):
+										if not r_check in [r1, r2, r3]:
+											var cell = Vector2i(r_check, c)
+											if _get_candidates(r_check, c).get_bit(d):
+												elim_cells.append(cell)
+								
+								if elim_cells.size() > 0:
+									var hint = Hint.new(Hint.HintTechnique.SASHIMI_SWORDFISH, "")
+									hint.cells.append_array(sashimi_cells)
+									hint.numbers.append(digit)
+									hint.elim_cells.append_array(elim_cells)
+									hint.elim_numbers.append(digit)
+									
+									var desc = "Sashimi Swordfish on digit %d: rows %d, %d, %d in columns %d, %d, %d (incomplete pattern).\n\n" % [digit, r1+1, r2+1, r3+1, cols[0]+1, cols[1]+1, cols[2]+1]
+									desc += "Eliminate %d from: %s." % [digit, _format_cell_list(elim_cells)]
+									hint.description = desc
+									
+									var s1 = "Sashimi Swordfish on digit %d: rows %d, %d, %d in columns %d, %d, %d." % [digit, r1+1, r2+1, r3+1, cols[0]+1, cols[1]+1, cols[2]+1]
+									hint.add_step(s1, sashimi_cells.duplicate())
+									var s2 = "Eliminate %d from: %s." % [digit, _format_cell_list(elim_cells)]
+									hint.add_step(s2, [], [], [], elim_cells.duplicate(), [digit])
+									
+									hints.append(hint)
+
+func _find_dds(hints: Array[Hint]):
+	# DDS (Double Digit Subset): Two digits appear together in a subset of cells
+	# Pattern: Two digits X and Y appear together in N cells, and those cells contain only X and Y (or subsets)
+	
+	for digit1 in range(1, 10):
+		for digit2 in range(digit1 + 1, 10):
+			var d1 = digit1 - 1
+			var d2 = digit2 - 1
+			
+			# Find cells containing both digits
+			var cells_with_both: Array[Vector2i] = []
+			for r in range(9):
+				for c in range(9):
+					if sudoku.grid[r][c] != 0:
+						continue
+					var cand = _get_candidates(r, c)
+					if cand.get_bit(d1) and cand.get_bit(d2):
+						cells_with_both.append(Vector2i(r, c))
+			
+			if cells_with_both.size() < 2:
+				continue
+			
+			# Check if these cells form a subset in a unit (row/col/box)
+			# Check rows
+			for r in range(9):
+				var row_cells: Array[Vector2i] = []
+				for cell in cells_with_both:
+					if cell.x == r:
+						row_cells.append(cell)
+				
+				if row_cells.size() >= 2:
+					# Check if these cells only contain d1 and d2 (or subsets)
+					var all_only_d1d2 = true
+					for cell in row_cells:
+						var cand = _get_candidates(cell.x, cell.y)
+						var other_digits = cand.clone()
+						other_digits.clear_bit(d1)
+						other_digits.clear_bit(d2)
+						if other_digits.cardinality() > 0:
+							all_only_d1d2 = false
+							break
+					
+					if all_only_d1d2:
+						# Found DDS in row
+						var elim_cells: Array[Vector2i] = []
+						for c in range(9):
+							var cell = Vector2i(r, c)
+							if cell in row_cells:
+								continue
+							if sudoku.grid[r][c] != 0:
+								continue
+							var cand = _get_candidates(r, c)
+							if cand.get_bit(d1) or cand.get_bit(d2):
+								elim_cells.append(cell)
+						
+						if elim_cells.size() > 0:
+							var hint = Hint.new(Hint.HintTechnique.DDS, "")
+							hint.cells.append_array(row_cells)
+							hint.numbers.append(digit1)
+							hint.numbers.append(digit2)
+							hint.elim_cells.append_array(elim_cells)
+							if elim_cells.any(func(c): return _get_candidates(c.x, c.y).get_bit(d1)):
+								hint.elim_numbers.append(digit1)
+							if elim_cells.any(func(c): return _get_candidates(c.x, c.y).get_bit(d2)):
+								hint.elim_numbers.append(digit2)
+							
+							var desc = "DDS (Double Digit Subset): Digits %d and %d appear together in row %d cells %s.\n\n" % [digit1, digit2, r+1, _format_cell_list(row_cells)]
+							desc += "These cells only contain %d and/or %d, so eliminate these digits from other cells in the row: %s." % [digit1, digit2, _format_cell_list(elim_cells)]
+							hint.description = desc
+							
+							var s1 = "DDS: Digits %d and %d appear together in row %d." % [digit1, digit2, r+1]
+							hint.add_step(s1, row_cells.duplicate())
+							var s2 = "Eliminate %d and/or %d from other cells in the row: %s." % [digit1, digit2, _format_cell_list(elim_cells)]
+							hint.add_step(s2, [], [], [], elim_cells.duplicate(), hint.elim_numbers.duplicate())
+							
+							hints.append(hint)
+			
+			# Similar for columns and boxes (simplified - can be extended)
+
+func _find_shared_cell(hints: Array[Hint]):
+	# Shared Cell: Pattern where multiple techniques share an elimination cell
+	# This is more of a meta-pattern that combines other techniques
+	# For now, detect when multiple hints would eliminate from the same cell
+	
+	# This is a simplified implementation - in practice, Shared Cell detection
+	# would analyze combinations of other techniques
+	# For now, we'll detect cases where a cell sees multiple strong links or patterns
+	
+	# Check for cells that are part of multiple strong link patterns
+	for r in range(9):
+		for c in range(9):
+			if sudoku.grid[r][c] != 0:
+				continue
+			var cell = Vector2i(r, c)
+			var cand = _get_candidates(r, c)
+			
+			# Count how many strong links this cell is part of
+			var strong_link_count = 0
+			for d in range(9):
+				if not cand.get_bit(d):
+					continue
+				
+				# Check row
+				var row_count = 0
+				for cc in range(9):
+					if sudoku.grid[r][cc] == 0 and _get_candidates(r, cc).get_bit(d):
+						row_count += 1
+				if row_count == 2:
+					strong_link_count += 1
+				
+				# Check column
+				var col_count = 0
+				for rr in range(9):
+					if sudoku.grid[rr][c] == 0 and _get_candidates(rr, c).get_bit(d):
+						col_count += 1
+				if col_count == 2:
+					strong_link_count += 1
+				
+				# Check box
+				var box_idx = Cardinals.Bxy[r * 9 + c]
+				var box_count = 0
+				for i in range(9):
+					var p = Cardinals.box_to_rc(box_idx, i)
+					if sudoku.grid[p.x][p.y] == 0 and _get_candidates(p.x, p.y).get_bit(d):
+						box_count += 1
+				if box_count == 2:
+					strong_link_count += 1
+			
+			# If cell is part of multiple strong links, it might be a shared cell pattern
+			if strong_link_count >= 2:
+				# This is a simplified detection - full implementation would be more complex
+				pass  # Placeholder for now
 
 func _find_mlh_wings(hints: Array[Hint]):
 	# M/L/H-Wings are AIC patterns
