@@ -38,6 +38,8 @@ enum HintTechnique {
 	XYZ_WING,
 	WXYZ_WING,
 	XY_RING,
+	ALS_XY_RULE,
+	ALS_CHAIN,
 	AIC_CHAIN,
 	NISHIO
 }
