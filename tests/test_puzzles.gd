@@ -378,7 +378,7 @@ func test_als_chain() -> bool:
 func test_dds() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
 	var sudoku = Sudoku.new()
-	var puzzle_str = "7.6..5..43......9.......52......943.1....7..8...8....182..9..7.6.9...........3.."
+	var puzzle_str = "7.6..5..43......9.......52......943.1....7..8...8....182..9..7.6.9............3.."
 	sudoku.load_puzzle_from_string(puzzle_str)
 	return _solve_and_report(sudoku, "DDS")
 
