@@ -1017,7 +1017,7 @@ func solve_with_backtracking(num_solutions_to_find: int = 1) -> Array:
 	return solutions
 
 func solve_puzzle() -> bool:
-	print("solve_puzzle() called")
+	#print("solve_puzzle() called")
 	# First try hint-based solving
 	var hint_generator = load("res://hint_generator.gd").new()
 	hint_generator.sudoku = self
@@ -1030,7 +1030,7 @@ func solve_puzzle() -> bool:
 	var iteration_limit = 100
 	var iterations = 0
 	
-	print("Starting hint-based solving...")
+	#print("Starting hint-based solving...")
 	while applied_hint and iterations < iteration_limit:
 		iterations += 1
 		applied_hint = false

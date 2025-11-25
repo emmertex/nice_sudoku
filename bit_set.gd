@@ -87,4 +87,12 @@ func clone() -> BitSet:
 	var result = BitSet.new(size)
 	for i in range(data.size()):
 		result.data[i] = data[i]
-	return result 
+	return result
+
+func equals(other: BitSet) -> bool:
+	if size != other.size:
+		return false
+	for i in range(data.size()):
+		if data[i] != other.data[i]:
+			return false
+	return true

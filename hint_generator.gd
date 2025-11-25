@@ -48,6 +48,7 @@ func get_hints() -> Array[Hint]:
 					
 					hints.append(hint)
 
+					if hints.size() > 0: return hints
 	# --- Hidden Singles ---
 	var hidden_singles = find_hidden_singles()
 	for single in hidden_singles:
@@ -103,6 +104,7 @@ func get_hints() -> Array[Hint]:
 
 		hints.append(hint)
 
+		if hints.size() > 0: return hints
 	# --- Naked Groups (Pairs, Triples, Quads) ---
 	# Rows
 	for r in range(9):
@@ -122,116 +124,120 @@ func get_hints() -> Array[Hint]:
 		_find_naked_groups_in_unit(hints, b, "box", 3)
 		_find_naked_groups_in_unit(hints, b, "box", 4)
 
+	if hints.size() > 0: return hints
+
 	# --- X-Wing ---
-	for digit in range(1, 10):
-		# Row-based X-Wing
-		var row_candidates = {}
-		for r in range(9):
-			var positions = BitSet.new(9)
-			for c in range(9):
-				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
-					positions.set_bit(c)
-			if positions.cardinality() == 2:
-				row_candidates[r] = positions
+	# for digit in range(1, 10):
+	# 	# Row-based X-Wing
+	# 	var row_candidates = {}
+	# 	for r in range(9):
+	# 		var positions = BitSet.new(9)
+	# 		for c in range(9):
+	# 			if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
+	# 				positions.set_bit(c)
+	# 		if positions.cardinality() == 2:
+	# 			row_candidates[r] = positions
 
-		if row_candidates.size() >= 2:
-			var rows = row_candidates.keys()
-			for i in range(rows.size()):
-				for j in range(i + 1, rows.size()):
-					var r1 = rows[i]
-					var r2 = rows[j]
-					# Compare bit patterns directly (BitSet stores only one int for size 9)
-					if row_candidates[r1].data[0] == row_candidates[r2].data[0]:
-						# X-Wing found
-						var cols = []
-						var cands = row_candidates[r1]
-						for c in range(9):
-							if cands.get_bit(c):
-								cols.append(c)
+	# 	if row_candidates.size() >= 2:
+	# 		var rows = row_candidates.keys()
+	# 		for i in range(rows.size()):
+	# 			for j in range(i + 1, rows.size()):
+	# 				var r1 = rows[i]
+	# 				var r2 = rows[j]
+	# 				# Compare bit patterns directly (BitSet stores only one int for size 9)
+	# 				if row_candidates[r1].data[0] == row_candidates[r2].data[0]:
+	# 					# X-Wing found
+	# 					var cols = []
+	# 					var cands = row_candidates[r1]
+	# 					for c in range(9):
+	# 						if cands.get_bit(c):
+	# 							cols.append(c)
 						
-						var desc = "X-Wing: on digit %d in rows %d and %d, covering columns %d and %d." % [digit, r1+1, r2+1, cols[0]+1, cols[1]+1]
-						var hint = Hint.new(Hint.HintTechnique.X_WING_ROW, desc)
-						hint.cells.append_array([Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
-						hint.numbers.append(digit)
+	# 					var desc = "X-Wing: on digit %d in rows %d and %d, covering columns %d and %d." % [digit, r1+1, r2+1, cols[0]+1, cols[1]+1]
+	# 					var hint = Hint.new(Hint.HintTechnique.X_WING_ROW, desc)
+	# 					hint.cells.append_array([Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
+	# 					hint.numbers.append(digit)
 					
-						# Add elimination & highlighting info
-						for c in cols:
-							for r_check in range(9):
-								if r_check != r1 and r_check != r2:
-									var cell = Vector2i(r_check, c)
-									hint.secondary_cells.append(cell)
-									if _get_candidates(r_check, c).get_bit(digit-1):
-										hint.elim_cells.append(cell)
+	# 					# Add elimination & highlighting info
+	# 					for c in cols:
+	# 						for r_check in range(9):
+	# 							if r_check != r1 and r_check != r2:
+	# 								var cell = Vector2i(r_check, c)
+	# 								hint.secondary_cells.append(cell)
+	# 								if _get_candidates(r_check, c).get_bit(digit-1):
+	# 									hint.elim_cells.append(cell)
 					
-						if not hint.elim_cells.is_empty():
-							hint.elim_numbers.append(digit)
-							desc = "Look at the rows %s and %s. The only places for a %d are in columns %d and %d.\n\n" % [r1+1, r2+1, digit, cols[0]+1, cols[1]+1]
-							desc += "This forms an X-Wing. Since the %d in these rows must be in one of those two columns, we can eliminate %d as a candidate from all other cells in columns %d and %d.\n\n" % [digit, digit, cols[0]+1, cols[1]+1]
-							desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
-							hint.description = desc
-							# Steps for X-Wing (row-based)
-							var s1 = "Scan digit %d: rows %d and %d each have exactly two candidates in the same columns." % [digit, r1+1, r2+1]
-							hint.add_step(s1, [Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
-							var s2 = "These form the corners of an X-Wing. Thus, in columns %d and %d, %d cannot occur in any other row." % [cols[0]+1, cols[1]+1, digit]
-							hint.add_step(s2, [], [], [], hint.elim_cells, [digit])
-							var s3 = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
-							hint.add_step(s3, [], [], [], hint.elim_cells, [digit])
-						# Always append the X-Wing hint (even if no eliminations) so strategy tests can detect it
-						hints.append(hint)
-		# Column-based X-Wing
-		var col_candidates = {}
-		for c in range(9):
-			var positions = BitSet.new(9)
-			for r in range(9):
-				if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
-					positions.set_bit(r)
-			if positions.cardinality() == 2:
-				col_candidates[c] = positions
+	# 					if not hint.elim_cells.is_empty():
+	# 						hint.elim_numbers.append(digit)
+	# 						desc = "Look at the rows %s and %s. The only places for a %d are in columns %d and %d.\n\n" % [r1+1, r2+1, digit, cols[0]+1, cols[1]+1]
+	# 						desc += "This forms an X-Wing. Since the %d in these rows must be in one of those two columns, we can eliminate %d as a candidate from all other cells in columns %d and %d.\n\n" % [digit, digit, cols[0]+1, cols[1]+1]
+	# 						desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+	# 						hint.description = desc
+	# 						# Steps for X-Wing (row-based)
+	# 						var s1 = "Scan digit %d: rows %d and %d each have exactly two candidates in the same columns." % [digit, r1+1, r2+1]
+	# 						hint.add_step(s1, [Vector2i(r1, cols[0]), Vector2i(r1, cols[1]), Vector2i(r2, cols[0]), Vector2i(r2, cols[1])])
+	# 						var s2 = "These form the corners of an X-Wing. Thus, in columns %d and %d, %d cannot occur in any other row." % [cols[0]+1, cols[1]+1, digit]
+	# 						hint.add_step(s2, [], [], [], hint.elim_cells, [digit])
+	# 						var s3 = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+	# 						hint.add_step(s3, [], [], [], hint.elim_cells, [digit])
+	# 					# Always append the X-Wing hint (even if no eliminations) so strategy tests can detect it
+	# 					hints.append(hint)
+	# 	# Column-based X-Wing
+	# 	var col_candidates = {}
+	# 	for c in range(9):
+	# 		var positions = BitSet.new(9)
+	# 		for r in range(9):
+	# 			if sudoku.grid[r][c] == 0 and _get_candidates(r, c).get_bit(digit - 1):
+	# 				positions.set_bit(r)
+	# 		if positions.cardinality() == 2:
+	# 			col_candidates[c] = positions
 		
-		if col_candidates.size() >= 2:
-			var cols = col_candidates.keys()
-			for i in range(cols.size()):
-				for j in range(i + 1, cols.size()):
-					var c1 = cols[i]
-					var c2 = cols[j]
-					# Compare bit patterns directly
-					if col_candidates[c1].data[0] == col_candidates[c2].data[0]:
-						# X-Wing found
-						var rows = []
-						var cands = col_candidates[c1]
-						for r in range(9):
-							if cands.get_bit(r):
-								rows.append(r)
+	# 	if col_candidates.size() >= 2:
+	# 		var cols = col_candidates.keys()
+	# 		for i in range(cols.size()):
+	# 			for j in range(i + 1, cols.size()):
+	# 				var c1 = cols[i]
+	# 				var c2 = cols[j]
+	# 				# Compare bit patterns directly
+	# 				if col_candidates[c1].data[0] == col_candidates[c2].data[0]:
+	# 					# X-Wing found
+	# 					var rows = []
+	# 					var cands = col_candidates[c1]
+	# 					for r in range(9):
+	# 						if cands.get_bit(r):
+	# 							rows.append(r)
 						
-						var desc = "X-Wing: on digit %d in columns %d and %d, covering rows %d and %d." % [digit, c1+1, c2+1, rows[0]+1, rows[1]+1]
-						var hint = Hint.new(Hint.HintTechnique.X_WING_COL, desc)
-						hint.cells.append_array([Vector2i(rows[0], c1), Vector2i(rows[1], c1), Vector2i(rows[0], c2), Vector2i(rows[1], c2)])
-						hint.numbers.append(digit)
+	# 					var desc = "X-Wing: on digit %d in columns %d and %d, covering rows %d and %d." % [digit, c1+1, c2+1, rows[0]+1, rows[1]+1]
+	# 					var hint = Hint.new(Hint.HintTechnique.X_WING_COL, desc)
+	# 					hint.cells.append_array([Vector2i(rows[0], c1), Vector2i(rows[1], c1), Vector2i(rows[0], c2), Vector2i(rows[1], c2)])
+	# 					hint.numbers.append(digit)
 
-						# Add elimination & highlighting info
-						for r in rows:
-							for c_check in range(9):
-								if c_check != c1 and c_check != c2:
-									var cell = Vector2i(r, c_check)
-									hint.secondary_cells.append(cell)
-									if _get_candidates(r, c_check).get_bit(digit-1):
-										hint.elim_cells.append(cell)
+	# 					# Add elimination & highlighting info
+	# 					for r in rows:
+	# 						for c_check in range(9):
+	# 							if c_check != c1 and c_check != c2:
+	# 								var cell = Vector2i(r, c_check)
+	# 								hint.secondary_cells.append(cell)
+	# 								if _get_candidates(r, c_check).get_bit(digit-1):
+	# 									hint.elim_cells.append(cell)
 
-						if not hint.elim_cells.is_empty():
-							hint.elim_numbers.append(digit)
-							desc = "Look at the columns %s and %s. The only places for a %d are in rows %d and %d.\n\n" % [c1+1, c2+1, digit, rows[0]+1, rows[1]+1]
-							desc += "This forms an X-Wing. Since the %d in these columns must be in one of those two rows, we can eliminate %d as a candidate from all other cells in rows %d and %d.\n\n" % [digit, digit, rows[0]+1, rows[1]+1]
-							desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
-							hint.description = desc
-							# Steps for X-Wing (column-based)
-							var s1c = "Scan digit %d: columns %d and %d each have exactly two candidates in the same rows." % [digit, c1+1, c2+1]
-							hint.add_step(s1c, [Vector2i(rows[0], c1), Vector2i(rows[1], c1), Vector2i(rows[0], c2), Vector2i(rows[1], c2)])
-							var s2c = "These form the corners of an X-Wing. Thus, in rows %d and %d, %d cannot occur in any other column." % [rows[0]+1, rows[1]+1, digit]
-							hint.add_step(s2c, [], [], [], hint.elim_cells, [digit])
-							var s3c = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
-							hint.add_step(s3c, [], [], [], hint.elim_cells, [digit])
-						# Always append the X-Wing hint (even if no eliminations) so strategy tests can detect it
-						hints.append(hint)
+	# 					if not hint.elim_cells.is_empty():
+	# 						hint.elim_numbers.append(digit)
+	# 						desc = "Look at the columns %s and %s. The only places for a %d are in rows %d and %d.\n\n" % [c1+1, c2+1, digit, rows[0]+1, rows[1]+1]
+	# 						desc += "This forms an X-Wing. Since the %d in these columns must be in one of those two rows, we can eliminate %d as a candidate from all other cells in rows %d and %d.\n\n" % [digit, digit, rows[0]+1, rows[1]+1]
+	# 						desc += "Therefore, we can eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+	# 						hint.description = desc
+	# 						# Steps for X-Wing (column-based)
+	# 						var s1c = "Scan digit %d: columns %d and %d each have exactly two candidates in the same rows." % [digit, c1+1, c2+1]
+	# 						hint.add_step(s1c, [Vector2i(rows[0], c1), Vector2i(rows[1], c1), Vector2i(rows[0], c2), Vector2i(rows[1], c2)])
+	# 						var s2c = "These form the corners of an X-Wing. Thus, in rows %d and %d, %d cannot occur in any other column." % [rows[0]+1, rows[1]+1, digit]
+	# 						hint.add_step(s2c, [], [], [], hint.elim_cells, [digit])
+	# 						var s3c = "Eliminate %d from: %s." % [digit, _format_cell_list(hint.elim_cells)]
+	# 						hint.add_step(s3c, [], [], [], hint.elim_cells, [digit])
+	# 					# Always append the X-Wing hint (even if no eliminations) so strategy tests can detect it
+	# 					hints.append(hint)
+
+	# 	if hints.size() > 0: return hints
 
 	# --- Swordfish ---
 	for digit in range(1, 10):
@@ -345,6 +351,8 @@ func get_hints() -> Array[Hint]:
 								var sfs2c = "Thus in rows %d, %d, %d, only those columns can hold %d; eliminate elsewhere in those rows." % [rows[0]+1, rows[1]+1, rows[2]+1, digit]
 								hint.add_step(sfs2c, [], [], [], hint.elim_cells.duplicate(), [digit])
 								hints.append(hint)
+
+		if hints.size() > 0: return hints
 
 	# --- Jellyfish ---
 	for digit in range(1, 10):
@@ -466,15 +474,18 @@ func get_hints() -> Array[Hint]:
 									hint.add_step(jfs2c, [], [], [], hint.elim_cells.duplicate(), [digit])
 									hints.append(hint)
 
+		if hints.size() > 0: return hints
+
 	# --- Sashimi X-Wing and Swordfish ---
 	_find_sashimi_fish(hints)
-	
+	if hints.size() > 0: return hints
+
 	# --- DDS (Double Digit Subset) ---
 	_find_dds(hints)
-	
+	if hints.size() > 0: return hints
 	# --- Shared Cell ---
 	_find_shared_cell(hints)
-	
+	if hints.size() > 0: return hints
 	# --- Pointing Pairs / Triples ---
 	for num in range(1, 10):
 		for b in range(9): # Iterate through each box
@@ -539,7 +550,7 @@ func get_hints() -> Array[Hint]:
 							hint.secondary_cells.append(current_cell)
 							if _get_candidates(r, first_col).get_bit(num - 1):
 								hint.elim_cells.append(current_cell)
-					
+
 					if not hint.elim_cells.is_empty():
 						hint.elim_numbers.append(num)
 						var desc = "In this box, the only place for a {num} is somewhere in column {col}.\n\n".format({"num": num, "col": first_col + 1})
@@ -552,6 +563,8 @@ func get_hints() -> Array[Hint]:
 						var s2pc = "Therefore, in column %d outside this box, %d cannot appear." % [first_col + 1, num]
 						hint.add_step(s2pc, [], [], [], hint.elim_cells.duplicate(), [num])
 						hints.append(hint)
+
+	if hints.size() > 0: return hints
 
 	# --- Box-Line Reduction (Claiming) ---
 	# --- Skyscraper and String Kite ---
@@ -575,6 +588,7 @@ func get_hints() -> Array[Hint]:
 
 	# --- Empty Rectangle ---
 	_find_empty_rectangles(hints)
+
 
 	# --- Proto AIC ---
 	for digit in range(1, 10):
@@ -842,7 +856,7 @@ func _find_skyscrapers_and_string_kites(hints: Array[Hint]):
 						desc += "Either way, one peak must be %d, so eliminate %d from cells seeing both peaks: %s." % [digit, digit, _format_cell_list(elim_cells)]
 						hint.description = desc
 						
-						var s1 = "%s on digit %d: (%s = %s) and (%s = %s)." % [tech_name, digit, _format_cell_list([peak1, base1]), _format_cell_list([base2, peak2])]
+						var s1 = "%s on digit %d: (%s) and (%s)." % [tech_name, digit, _format_cell_list([peak1, base1]), _format_cell_list([base2, peak2])]
 						hint.add_step(s1, [peak1, base1, base2, peak2])
 						var s2 = "One peak must be %d, eliminate %d from cells seeing both peaks." % [digit, digit]
 						hint.add_step(s2, [peak1, peak2], [], [], elim_cells.duplicate(), [digit])
@@ -1004,7 +1018,7 @@ func _find_s_wings(hints: Array[Hint]):
 									desc += "Either way, %s or %s must be %d, so eliminate %d from cells seeing both: %s." % [_format_cell_list([endpoint_b]), _format_cell_list([other_b]), digit_b + 1, digit_b + 1, _format_cell_list(elim_cells)]
 									hint.description = desc
 									
-									var s1 = "S-Wing: Strong link on %d (%s = %s), bivalue %s {%d/%d}, strong link on %d (%s = %s)." % [
+									var s1 = "S-Wing: Strong link on %d (%s), bivalue %s {%d/%d}, strong link on %d (%s)." % [
 										digit_a, _format_cell_list([endpoint_a, other_a]),
 										_format_cell_list([cell_bivalue]), digit_a, digit_b + 1,
 										digit_b + 1, _format_cell_list([endpoint_b, other_b])

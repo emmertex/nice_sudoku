@@ -97,6 +97,7 @@ func _solve_and_report(sudoku, test_name) -> bool:
 	return sudoku.sbrc_grid.is_complete()
 
 func _find_best_hint(hints: Array[Hint]) -> Hint:
+	#return hints[0]
 	# Priority 1: Single Candidate / Hidden Single (direct placement)
 	for hint in hints:
 		if hint.technique == Hint.HintTechnique.SINGLE_CANDIDATE or hint.technique == Hint.HintTechnique.HIDDEN_SINGLE:
