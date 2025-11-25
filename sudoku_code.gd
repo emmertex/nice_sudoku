@@ -1128,13 +1128,34 @@ func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num
 	var c = cell.y
 
 	for num in range(1, 10):
-		if sbrc_grid.is_valid_placement(r, c, num):
+		if _is_valid_for_backtrack(r, c, num):
 			grid[r][c] = num
 			_solve_recursive(cell_index + 1, empty_cells, solutions, num_solutions_to_find)
 			grid[r][c] = 0 # backtrack
 
 			if solutions.size() >= num_solutions_to_find:
 				return
+
+# Validation for backtracking - checks against grid directly (not sbrc_grid)
+func _is_valid_for_backtrack(row: int, col: int, num: int) -> bool:
+	# Check row
+	for c in range(9):
+		if grid[row][c] == num:
+			return false
+	# Check column
+	for r in range(9):
+		if grid[r][col] == num:
+			return false
+	# Check box
+	@warning_ignore("integer_division")
+	var box_row = (row / 3) * 3
+	@warning_ignore("integer_division")
+	var box_col = (col / 3) * 3
+	for r in range(box_row, box_row + 3):
+		for c in range(box_col, box_col + 3):
+			if grid[r][c] == num:
+				return false
+	return true
 
 func get_grid_as_string() -> String:
 	var s = ""
