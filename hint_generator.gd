@@ -980,6 +980,10 @@ func _find_s_wings(hints: Array[Hint]):
 							var cell_b1 = link_b.cells[0]
 							var cell_b2 = link_b.cells[1]
 							
+							# B link must not share any cells with A link
+							if cell_b1 == cell_a1 or cell_b1 == cell_a2 or cell_b2 == cell_a1 or cell_b2 == cell_a2:
+								continue
+							
 							# Bivalue cell must see one endpoint of B link
 							var sees_b1 = _are_peers(cell_bivalue, cell_b1)
 							var sees_b2 = _are_peers(cell_bivalue, cell_b2)
