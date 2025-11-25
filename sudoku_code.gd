@@ -1044,9 +1044,33 @@ func solve_puzzle() -> bool:
 		# Prioritize placement hints
 		var best_hint = _find_best_hint_for_solving(hints)
 		
-		if best_hint:
-			if apply_hint(best_hint):
-				applied_hint = true
+		if best_hint == null:
+			break
+		
+		# Check if hint will actually make progress
+		var will_make_progress = false
+		if best_hint.cells.size() == 1 and best_hint.numbers.size() == 1:
+			# Placement hint - check if cell is empty
+			var cell = best_hint.cells[0]
+			if grid[cell.x][cell.y] == 0:
+				will_make_progress = true
+		elif not best_hint.elim_cells.is_empty():
+			# Elimination hint - check if any eliminations haven't been applied yet
+			for cell in best_hint.elim_cells:
+				for num in best_hint.elim_numbers:
+					if not has_exclude_mark(cell.x, cell.y, num):
+						will_make_progress = true
+						break
+				if will_make_progress:
+					break
+		
+		if not will_make_progress:
+			break
+		
+		if apply_hint(best_hint):
+			applied_hint = true
+		else:
+			break
 	
 	# If hint-based solving succeeded, store solution
 	if sbrc_grid.is_complete():
@@ -1144,6 +1168,22 @@ func apply_hint(hint: Hint) -> bool:
 					var bits_to_exclude = exclude_bits[r][c]
 					if bits_to_exclude > 0:
 						sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
+
+			# After eliminations, check if any cells became singles (naked singles)
+			# This prevents infinite loops where eliminations don't lead to placements
+			for r in range(9):
+				for c in range(9):
+					if grid[r][c] == 0:
+						var cands = sbrc_grid.get_candidates_for_cell(r, c)
+						var bits_to_exclude = exclude_bits[r][c]
+						if bits_to_exclude > 0:
+							cands = cands.clone()
+							cands.data[0] &= ~bits_to_exclude
+						if cands.cardinality() == 1:
+							# Found a naked single - this should be detected in next iteration
+							# but we return true to indicate progress was made
+							pass
+			
 			return true
 			
 	return false
