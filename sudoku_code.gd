@@ -839,8 +839,10 @@ func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num
 	for num in range(1, 10):
 		if sbrc_grid.is_valid_placement(r, c, num):
 			grid[r][c] = num
+			sbrc_grid.set_cell_value(r, c, num)
 			_solve_recursive(cell_index + 1, empty_cells, solutions, num_solutions_to_find)
 			grid[r][c] = 0 # backtrack
+			sbrc_grid.set_cell_value(r, c, 0) # backtrack sbrc_grid too
 
 			if solutions.size() >= num_solutions_to_find:
 				return
