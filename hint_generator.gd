@@ -984,6 +984,10 @@ func _find_s_wings(hints: Array[Hint]):
 							if cell_b1 == cell_a1 or cell_b1 == cell_a2 or cell_b2 == cell_a1 or cell_b2 == cell_a2:
 								continue
 							
+							# B link must not contain the bivalue cell
+							if cell_b1 == cell_bivalue or cell_b2 == cell_bivalue:
+								continue
+							
 							# Bivalue cell must see one endpoint of B link
 							var sees_b1 = _are_peers(cell_bivalue, cell_b1)
 							var sees_b2 = _are_peers(cell_bivalue, cell_b2)

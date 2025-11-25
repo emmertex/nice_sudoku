@@ -1022,8 +1022,9 @@ func solve_puzzle() -> bool:
 	var hint_generator = load("res://hint_generator.gd").new()
 	hint_generator.sudoku = self
 	
-	# Save current grid state
+	# Save current grid state and exclude_bits
 	var original_state = grid.duplicate(true)
+	var original_exclude_bits = exclude_bits.duplicate(true)
 	
 	# Try hint-based solving
 	var applied_hint = true
@@ -1076,14 +1077,16 @@ func solve_puzzle() -> bool:
 	if sbrc_grid.is_complete():
 		solution_grid = grid.duplicate(true)
 		has_solution = true
-		# Restore original state
+		# Restore original state (including exclude_bits)
 		grid = original_state
+		exclude_bits = original_exclude_bits
 		sbrc_grid.update_grid(grid)
 		return true
 	
 	# Fall back to backtracking solver
 	print("Hint-based solving incomplete, trying backtracking...")
 	grid = original_state
+	exclude_bits = original_exclude_bits
 	sbrc_grid.update_grid(grid)
 	var solutions = solve_with_backtracking(1)
 	print("Backtracking solver returned %d solutions" % solutions.size())
