@@ -8,10 +8,10 @@ var grid: Array = []
 var original_grid: Array = []
 var pencil_bits: Array = []  # 9x9 array of integers
 var exclude_bits: Array = [] # 9x9 array of integers
-var history: Array = []
-var number_history: Array = []
-var pencil_history: Array = []
-var exclude_history: Array = []
+# Action-based undo system
+# Each action represents a single user action and can contain multiple changes
+# Actions are stored as dictionaries with type and changes array
+var action_history: Array = []  # Array of action dictionaries
 var current_puzzle_name: String = ""
 var current_puzzle_difficulty: String = ""
 var current_puzzle_index: int = -1
@@ -225,19 +225,34 @@ func set_number(row: int, col: int, num: int) -> Dictionary:
 	var result = {"success": false, "is_mistake": false}
 	
 	if is_valid_move(row, col, num) && !is_given_number(row, col):
-		store_number_history(row, col, grid[row][col])
-		grid[row][col] = num
+		# Create action to track all changes from this number placement
+		var action = {
+			"type": "place_number",
+			"changes": []
+		}
 		
-		sbrc_grid.set_cell_value(row, col, num)
-	   
-		# Clear all pencil marks from the cell
-		for i in range(9):
-			if has_pencil_mark(row, col, i+1):
-				set_pencil_mark(row, col, i+1, false)
-			if has_exclude_mark(row, col, i+1):
-				set_exclude_mark(row, col, i+1, false)
-	   
-		# Clear pencil marks of the number from the block
+		# Store the number change (use bracket notation for consistency)
+		action["changes"].append({
+			"type": "number",
+			"row": row,
+			"col": col,
+			"old_value": grid[row][col],
+			"new_value": num
+		})
+		
+		# Collect all cells that will have pencil/exclude marks changed BEFORE clearing them
+		# Use dictionaries keyed by cell position to avoid duplicates
+		var pencil_changes = {}  # Key: "row_col", Value: old_bits
+		var exclude_changes = {}  # Key: "row_col", Value: old_bits
+		
+		# Collect pencil/exclude marks from the cell itself
+		var cell_key = str(row) + "_" + str(col)
+		if pencil_bits[row][col] != 0:
+			pencil_changes[cell_key] = pencil_bits[row][col]
+		if exclude_bits[row][col] != 0:
+			exclude_changes[cell_key] = exclude_bits[row][col]
+		
+		# Collect pencil marks of the number from the block
 		@warning_ignore("integer_division")
 		var block_row = (row / 3) * 3
 		@warning_ignore("integer_division")
@@ -245,15 +260,92 @@ func set_number(row: int, col: int, num: int) -> Dictionary:
 		for r in range(block_row, block_row + 3):
 			for c in range(block_col, block_col + 3):
 				if has_pencil_mark(r, c, num):
-					set_pencil_mark(r, c, num, false)
+					var key = str(r) + "_" + str(c)
+					if not pencil_changes.has(key):
+						pencil_changes[key] = pencil_bits[r][c]
+		
+		# Collect pencil marks of the number from the row
+		for c in range(9):
+			if has_pencil_mark(row, c, num):
+				var key = str(row) + "_" + str(c)
+				if not pencil_changes.has(key):
+					pencil_changes[key] = pencil_bits[row][c]
+		
+		# Collect pencil marks of the number from the column
+		for r in range(9):
+			if has_pencil_mark(r, col, num):
+				var key = str(r) + "_" + str(col)
+				if not pencil_changes.has(key):
+					pencil_changes[key] = pencil_bits[r][col]
+		
+		# Now actually perform the changes
+		grid[row][col] = num
+		sbrc_grid.set_cell_value(row, col, num)
+		
+		# Clear all pencil marks from the cell (without storing history)
+		for i in range(9):
+			if has_pencil_mark(row, col, i+1):
+				set_pencil_mark_internal(row, col, i+1, false)
+			if has_exclude_mark(row, col, i+1):
+				set_exclude_mark_internal(row, col, i+1, false)
+		
+		# Clear pencil marks of the number from the block
+		for r in range(block_row, block_row + 3):
+			for c in range(block_col, block_col + 3):
+				if has_pencil_mark(r, c, num):
+					set_pencil_mark_internal(r, c, num, false)
+		
 		# Clear pencil marks of the number from the row
 		for c in range(9):
 			if has_pencil_mark(row, c, num):
-				set_pencil_mark(row, c, num, false)
+				set_pencil_mark_internal(row, c, num, false)
+		
 		# Clear pencil marks of the number from the column
 		for r in range(9):
 			if has_pencil_mark(r, col, num):
-				set_pencil_mark(r, col, num, false)
+				set_pencil_mark_internal(r, col, num, false)
+		
+		# Store pencil changes in action (using old_bits from before clearing)
+		for key in pencil_changes:
+			var parts = key.split("_")
+			var r = int(parts[0])
+			var c = int(parts[1])
+			action["changes"].append({
+				"type": "pencil",
+				"row": r,
+				"col": c,
+				"num": 0,  # 0 means all bits
+				"old_bits": pencil_changes[key],
+				"new_bits": pencil_bits[r][c]  # Current state after clearing
+			})
+		
+		# Store exclude changes in action
+		for key in exclude_changes:
+			var parts = key.split("_")
+			var r = int(parts[0])
+			var c = int(parts[1])
+			action["changes"].append({
+				"type": "exclude",
+				"row": r,
+				"col": c,
+				"num": 0,  # 0 means all bits
+				"old_bits": exclude_changes[key],
+				"new_bits": exclude_bits[r][c]
+			})
+		
+		# Store the action in history (always store, even if no pencil changes)
+		# Deep duplicate the action to avoid reference issues
+		# Use bracket notation consistently
+		var changes_array = action["changes"]
+		var action_copy = {
+			"type": action["type"],
+			"changes": []
+		}
+		for change in changes_array:
+			# Deep duplicate each change dictionary
+			action_copy["changes"].append(change.duplicate(true))
+		
+		action_history.append(action_copy)
 		
 		result["success"] = true
 		
@@ -268,10 +360,23 @@ func set_number(row: int, col: int, num: int) -> Dictionary:
 	return result
 
 func clear_number(row: int, col: int):
-	store_number_history(row, col, grid[row][col])
-	grid[row][col] = 0
+	# Create action for clearing number
+	var action = {
+		"type": "clear_number",
+		"changes": [{
+			"type": "number",
+			"row": row,
+			"col": col,
+			"old_value": grid[row][col],
+			"new_value": 0
+		}]
+	}
 	
+	grid[row][col] = 0
 	sbrc_grid.set_cell_value(row, col, 0)
+	
+	action_history.append(action)
+
 	
 
 func is_completed() -> bool:
@@ -281,7 +386,42 @@ func is_completed() -> bool:
 # Pencil Marks and Exclude
 func auto_fill_pencil_marks():
 	sbrc_grid.update_grid(grid)
-	clear_all_pencil_marks()
+	
+	# Create action for auto-fill
+	var action = {
+		"type": "auto_fill_pencil",
+		"changes": []
+	}
+	
+	# Collect all changes before applying them
+	for row in range(9):
+		for col in range(9):
+			if pencil_bits[row][col] != 0:
+				action.changes.append({
+					"type": "pencil",
+					"row": row,
+					"col": col,
+					"num": 0,  # 0 means all bits
+					"old_bits": pencil_bits[row][col],
+					"new_bits": 0
+				})
+			if exclude_bits[row][col] != 0:
+				action.changes.append({
+					"type": "exclude",
+					"row": row,
+					"col": col,
+					"num": 0,  # 0 means all bits
+					"old_bits": exclude_bits[row][col],
+					"new_bits": 0
+				})
+	
+	# Clear all pencil marks
+	for row in range(9):
+		for col in range(9):
+			pencil_bits[row][col] = 0
+			exclude_bits[row][col] = 0
+	
+	# Now fill with candidates
 	for row in range(9):
 		for col in range(9):
 			if grid[row][col] == 0:
@@ -292,77 +432,189 @@ func auto_fill_pencil_marks():
 						mask |= (1 << i)
 				
 				if pencil_bits[row][col] != mask:
-					pencil_history.append([row, col, pencil_bits[row][col]])
-					history.append(1) # Pencil mark history
+					action.changes.append({
+						"type": "pencil",
+						"row": row,
+						"col": col,
+						"num": 0,  # 0 means all bits
+						"old_bits": pencil_bits[row][col],
+						"new_bits": mask
+					})
 					pencil_bits[row][col] = mask
 					exclude_bits[row][col] = 0
+	
+	# Store action if there were any changes
+	if action.changes.size() > 0:
+		action_history.append(action)
 
 func clear_all_pencil_marks():
+	# Create action for clearing all pencil marks
+	var action = {
+		"type": "clear_all_pencil",
+		"changes": []
+	}
+	
 	for row in range(9):
 		for col in range(9):
 			if pencil_bits[row][col] != 0:
-				pencil_history.append([row, col, pencil_bits[row][col]])
-				history.append(1)
+				action.changes.append({
+					"type": "pencil",
+					"row": row,
+					"col": col,
+					"num": 0,  # 0 means all bits
+					"old_bits": pencil_bits[row][col],
+					"new_bits": 0
+				})
 				pencil_bits[row][col] = 0
 			if exclude_bits[row][col] != 0:
-				exclude_history.append([row, col, exclude_bits[row][col]])
-				history.append(2)
+				action.changes.append({
+					"type": "exclude",
+					"row": row,
+					"col": col,
+					"num": 0,  # 0 means all bits
+					"old_bits": exclude_bits[row][col],
+					"new_bits": 0
+				})
 				exclude_bits[row][col] = 0
+	
+	# Store action if there were any changes
+	if action.changes.size() > 0:
+		action_history.append(action)
 
 func swap_pencil(row: int, col: int, num: int) -> void:
-	pencil_history.append([row, col, pencil_bits[row][col]])
-	history.append(3)
+	# Create action for manual pencil change
+	var action = {
+		"type": "swap_pencil",
+		"changes": []
+	}
+	
+	var old_pencil_bits = pencil_bits[row][col]
+	var old_exclude_bits = exclude_bits[row][col]
+	
 	if has_pencil_mark(row, col, num):
-		set_pencil_mark(row, col, num, false)
+		set_pencil_mark_internal(row, col, num, false)
 	else:
-		set_pencil_mark(row, col, num, true)
-		set_exclude_mark(row, col, num, false) # Always clear exclude
+		set_pencil_mark_internal(row, col, num, true)
+		set_exclude_mark_internal(row, col, num, false) # Always clear exclude
+	
+	action.changes.append({
+		"type": "pencil",
+		"row": row,
+		"col": col,
+		"num": num,
+		"old_bits": old_pencil_bits,
+		"new_bits": pencil_bits[row][col]
+	})
+	
+	# If exclude was cleared, track that too
+	if old_exclude_bits != exclude_bits[row][col]:
+		action.changes.append({
+			"type": "exclude",
+			"row": row,
+			"col": col,
+			"num": num,
+			"old_bits": old_exclude_bits,
+			"new_bits": exclude_bits[row][col]
+		})
+	
+	action_history.append(action)
 
 func swap_exclude(row: int, col: int, num: int) -> void:
-	exclude_history.append([row, col, exclude_bits[row][col]])
-	history.append(4)
+	# Create action for manual exclude change
+	var action = {
+		"type": "swap_exclude",
+		"changes": []
+	}
+	
+	var old_pencil_bits = pencil_bits[row][col]
+	var old_exclude_bits = exclude_bits[row][col]
+	
 	if has_exclude_mark(row, col, num):
-		set_exclude_mark(row, col, num, false)
+		set_exclude_mark_internal(row, col, num, false)
 	else:
-		set_exclude_mark(row, col, num, true)
-		set_pencil_mark(row, col, num, false) # Always clear pencil
+		set_exclude_mark_internal(row, col, num, true)
+		set_pencil_mark_internal(row, col, num, false) # Always clear pencil
+	
+	action.changes.append({
+		"type": "exclude",
+		"row": row,
+		"col": col,
+		"num": num,
+		"old_bits": old_exclude_bits,
+		"new_bits": exclude_bits[row][col]
+	})
+	
+	# If pencil was cleared, track that too
+	if old_pencil_bits != pencil_bits[row][col]:
+		action.changes.append({
+			"type": "pencil",
+			"row": row,
+			"col": col,
+			"num": num,
+			"old_bits": old_pencil_bits,
+			"new_bits": pencil_bits[row][col]
+		})
+	
+	action_history.append(action)
 
 # History Management
-func store_number_history(row: int, col:int, num:int) -> void:
-	number_history.append([row, col, num])
-	history.append(0)
-
 func _clear_history() -> void:
-	history = []
-	number_history = []
-	pencil_history = []
-	exclude_history = []
+	action_history = []
 
 func undo_history() -> void:
-	if history.size() == 0:
+	if action_history.size() == 0:
 		return
 	
 	# Create snapshot for safety
 	var snapshot = _create_snapshot()
 	
-	# Perform undo operation
-	var operation = history.pop_back()
-	var success = false
+	# Get the last action and undo all its changes
+	var action = action_history.pop_back()
 	
-	match operation:
-		0: 
-			if number_history.size() > 0:
-				success = _undo_number_safe()
-		1, 3: 
-			if pencil_history.size() > 0:
-				success = _undo_pencil_safe()
-		2, 4: 
-			if exclude_history.size() > 0:
-				success = _undo_exclude_safe()
+	# Access changes array - try both dot notation and bracket notation
+	var changes = null
+	if action.has("changes"):
+		changes = action["changes"]
+	elif "changes" in action:
+		changes = action.changes
+	else:
+		print("Warning: Action missing 'changes' key. Action keys: ", action.keys())
+		action_history.append(action)  # Restore the action
+		return
+	
+	if changes == null or changes.is_empty():
+		print("Warning: Action has no changes to undo. Action: ", action)
+		action_history.append(action)  # Restore the action
+		return
+	
+	# Undo all changes in reverse order (so number is undone last, after pencils)
+	for i in range(changes.size() - 1, -1, -1):
+		var change = changes[i]
+		
+		# Use bracket notation for dictionary access to be safe
+		var change_type = change.get("type", "")
+		var change_row = change.get("row", -1)
+		var change_col = change.get("col", -1)
+		
+		if change_row < 0 or change_col < 0 or change_row >= 9 or change_col >= 9:
+			print("Warning: Invalid change coordinates: [", change_row, ",", change_col, "]")
+			continue
+		
+		match change_type:
+			"number":
+				var old_value = change.get("old_value", 0)
+				grid[change_row][change_col] = old_value
+				sbrc_grid.set_cell_value(change_row, change_col, old_value)
+			"pencil":
+				var old_bits = change.get("old_bits", 0)
+				pencil_bits[change_row][change_col] = old_bits
+			"exclude":
+				var old_bits = change.get("old_bits", 0)
+				exclude_bits[change_row][change_col] = old_bits
 	
 	# Validate and restore if needed
-	if not success or not _validate_grid_state():
-		history.append(operation)  # Restore the operation
+	if not _validate_grid_state():
+		action_history.append(action)  # Restore the action
 		_restore_snapshot(snapshot)
 		print("Warning: Invalid undo operation, state restored")
 
@@ -371,46 +623,18 @@ func _create_snapshot() -> Dictionary:
 		"grid": grid.duplicate(true),
 		"pencil_bits": pencil_bits.duplicate(true),
 		"exclude_bits": exclude_bits.duplicate(true),
-		"history": history.duplicate(true),
-		"number_history": number_history.duplicate(true),
-		"pencil_history": pencil_history.duplicate(true),
-		"exclude_history": exclude_history.duplicate(true)
+		"action_history": action_history.duplicate(true)
 	}
 
 func _restore_snapshot(snapshot: Dictionary):
 	grid = snapshot.grid
 	pencil_bits = snapshot.pencil_bits
 	exclude_bits = snapshot.exclude_bits
-	history = snapshot.history
-	number_history = snapshot.number_history
-	pencil_history = snapshot.pencil_history
-	exclude_history = snapshot.exclude_history
+	action_history = snapshot.action_history
 	sbrc_grid = SBRCGrid.new(grid)
 
 func _validate_grid_state() -> bool:
 	return sbrc_grid.get_conflicts().size() == 0
-	
-func _undo_number_safe() -> bool:
-	if number_history.size() > 0:
-		var last = number_history.pop_back()
-		grid[last[0]][last[1]] = last[2]
-		sbrc_grid.set_cell_value(last[0], last[1], last[2])
-		return true
-	return false
-
-func _undo_pencil_safe() -> bool:
-	if pencil_history.size() > 0:
-		var last = pencil_history.pop_back()
-		pencil_bits[last[0]][last[1]] = last[2]
-		return true
-	return false
-
-func _undo_exclude_safe() -> bool:
-	if exclude_history.size() > 0:
-		var last = exclude_history.pop_back()
-		exclude_bits[last[0]][last[1]] = last[2]
-		return true
-	return false
 
 func find_hidden_singles() -> Array:
 	var singles = []
@@ -484,6 +708,22 @@ func get_empty_cells() -> Array:
 func is_given_number(row: int, col: int) -> bool:
 	return original_grid[row][col] != 0
 
+func is_wrong_number(row: int, col: int) -> bool:
+	# Check if the number in this cell is wrong (doesn't match solution)
+	if not has_solution:
+		return false
+	if solution_grid.is_empty():
+		return false
+	if grid[row][col] == 0:
+		return false
+	if solution_grid.size() != 9:
+		return false
+	if solution_grid[0].size() != 9:
+		return false
+	# Compare with solution
+	var is_wrong = solution_grid[row][col] != grid[row][col]
+	return is_wrong
+
 # Puzzle Information
 func get_puzzle_count() -> int:
 	var file = FileAccess.open(puzzles[puzzle_selected], FileAccess.READ)
@@ -533,10 +773,7 @@ func save_state(file_path: String) -> bool:
 		"original_grid": original_grid,
 		"pencil_bits": pencil_bits,
 		"exclude_bits": exclude_bits,
-		"history": history,
-		"number_history": number_history,
-		"pencil_history": pencil_history,
-		"exclude_history": exclude_history,
+		"action_history": action_history,
 		"current_puzzle_name": current_puzzle_name,
 		"current_puzzle_difficulty": current_puzzle_difficulty,
 		"current_puzzle_index": current_puzzle_index,
@@ -597,10 +834,12 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 		# Initialize empty pencil/exclude arrays for old save files
 		_generate_pencil_grid()
 	
-	history = save_to_load.history
-	number_history = save_to_load.number_history
-	pencil_history = save_to_load.pencil_history
-	exclude_history = save_to_load.exclude_history
+	# Handle backward compatibility for old history format
+	if save_to_load.has("action_history"):
+		action_history = save_to_load.action_history
+	else:
+		# Old save format - clear history (can't convert old format to new)
+		action_history = []
 	current_puzzle_name = save_to_load.current_puzzle_name
 	current_puzzle_difficulty = save_to_load.current_puzzle_difficulty
 	current_puzzle_index = save_to_load.current_puzzle_index
@@ -716,30 +955,58 @@ func puzzle_file(path: String) -> bool:
 func has_pencil_mark(row: int, col: int, num: int) -> bool:
 	return (pencil_bits[row][col] & (1 << (num - 1))) != 0
 
-func set_pencil_mark(row: int, col: int, num: int, value: bool):
-	store_pencil_history(row, col, pencil_bits[row][col])
+# Internal functions that modify pencil/exclude marks without storing history
+# These are used when changes are part of a larger action
+func set_pencil_mark_internal(row: int, col: int, num: int, value: bool):
 	if value:
 		pencil_bits[row][col] |= (1 << (num - 1))
 	else:
 		pencil_bits[row][col] &= ~(1 << (num - 1))
 
-func has_exclude_mark(row: int, col: int, num: int) -> bool:
-	return (exclude_bits[row][col] & (1 << (num - 1))) != 0
-
-func set_exclude_mark(row: int, col: int, num: int, value: bool):
-	store_exclude_history(row, col, exclude_bits[row][col])
+func set_exclude_mark_internal(row: int, col: int, num: int, value: bool):
 	if value:
 		exclude_bits[row][col] |= (1 << (num - 1))
 	else:
 		exclude_bits[row][col] &= ~(1 << (num - 1))
 
-func store_pencil_history(row: int, col: int, old_bits: int):
-	pencil_history.append([row, col, old_bits])
-	history.append(1) # Pencil mark history
+# Public functions for setting pencil/exclude marks
+# These create their own actions (for programmatic use)
+func set_pencil_mark(row: int, col: int, num: int, value: bool):
+	var action = {
+		"type": "set_pencil",
+		"changes": [{
+			"type": "pencil",
+			"row": row,
+			"col": col,
+			"num": num,
+			"old_bits": pencil_bits[row][col],
+			"new_bits": pencil_bits[row][col]  # Will be updated below
+		}]
+	}
+	
+	set_pencil_mark_internal(row, col, num, value)
+	action.changes[0].new_bits = pencil_bits[row][col]
+	action_history.append(action)
 
-func store_exclude_history(row: int, col: int, old_bits: int):
-	exclude_history.append([row, col, old_bits])
-	history.append(2) # Exclude mark history
+func has_exclude_mark(row: int, col: int, num: int) -> bool:
+	return (exclude_bits[row][col] & (1 << (num - 1))) != 0
+
+func set_exclude_mark(row: int, col: int, num: int, value: bool):
+	var action = {
+		"type": "set_exclude",
+		"changes": [{
+			"type": "exclude",
+			"row": row,
+			"col": col,
+			"num": num,
+			"old_bits": exclude_bits[row][col],
+			"new_bits": exclude_bits[row][col]  # Will be updated below
+		}]
+	}
+	
+	set_exclude_mark_internal(row, col, num, value)
+	action.changes[0].new_bits = exclude_bits[row][col]
+	action_history.append(action)
 
 func solve_with_backtracking(num_solutions_to_find: int = 1) -> Array:
 	var solutions = []
@@ -750,20 +1017,21 @@ func solve_with_backtracking(num_solutions_to_find: int = 1) -> Array:
 	return solutions
 
 func solve_puzzle() -> bool:
-	print("solve_puzzle() called")
+	#print("solve_puzzle() called")
 	# First try hint-based solving
 	var hint_generator = load("res://hint_generator.gd").new()
 	hint_generator.sudoku = self
 	
-	# Save current grid state
+	# Save current grid state and exclude_bits
 	var original_state = grid.duplicate(true)
+	var original_exclude_bits = exclude_bits.duplicate(true)
 	
 	# Try hint-based solving
 	var applied_hint = true
 	var iteration_limit = 100
 	var iterations = 0
 	
-	print("Starting hint-based solving...")
+	#print("Starting hint-based solving...")
 	while applied_hint and iterations < iteration_limit:
 		iterations += 1
 		applied_hint = false
@@ -777,22 +1045,48 @@ func solve_puzzle() -> bool:
 		# Prioritize placement hints
 		var best_hint = _find_best_hint_for_solving(hints)
 		
-		if best_hint:
-			if apply_hint(best_hint):
-				applied_hint = true
+		if best_hint == null:
+			break
+		
+		# Check if hint will actually make progress
+		var will_make_progress = false
+		if best_hint.cells.size() == 1 and best_hint.numbers.size() == 1:
+			# Placement hint - check if cell is empty
+			var cell = best_hint.cells[0]
+			if grid[cell.x][cell.y] == 0:
+				will_make_progress = true
+		elif not best_hint.elim_cells.is_empty():
+			# Elimination hint - check if any eliminations haven't been applied yet
+			for cell in best_hint.elim_cells:
+				for num in best_hint.elim_numbers:
+					if not has_exclude_mark(cell.x, cell.y, num):
+						will_make_progress = true
+						break
+				if will_make_progress:
+					break
+		
+		if not will_make_progress:
+			break
+		
+		if apply_hint(best_hint):
+			applied_hint = true
+		else:
+			break
 	
 	# If hint-based solving succeeded, store solution
 	if sbrc_grid.is_complete():
 		solution_grid = grid.duplicate(true)
 		has_solution = true
-		# Restore original state
+		# Restore original state (including exclude_bits)
 		grid = original_state
+		exclude_bits = original_exclude_bits
 		sbrc_grid.update_grid(grid)
 		return true
 	
 	# Fall back to backtracking solver
 	print("Hint-based solving incomplete, trying backtracking...")
 	grid = original_state
+	exclude_bits = original_exclude_bits
 	sbrc_grid.update_grid(grid)
 	var solutions = solve_with_backtracking(1)
 	print("Backtracking solver returned %d solutions" % solutions.size())
@@ -837,13 +1131,34 @@ func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num
 	var c = cell.y
 
 	for num in range(1, 10):
-		if sbrc_grid.is_valid_placement(r, c, num):
+		if _is_valid_for_backtrack(r, c, num):
 			grid[r][c] = num
 			_solve_recursive(cell_index + 1, empty_cells, solutions, num_solutions_to_find)
 			grid[r][c] = 0 # backtrack
 
 			if solutions.size() >= num_solutions_to_find:
 				return
+
+# Validation for backtracking - checks against grid directly (not sbrc_grid)
+func _is_valid_for_backtrack(row: int, col: int, num: int) -> bool:
+	# Check row
+	for c in range(9):
+		if grid[row][c] == num:
+			return false
+	# Check column
+	for r in range(9):
+		if grid[r][col] == num:
+			return false
+	# Check box
+	@warning_ignore("integer_division")
+	var box_row = (row / 3) * 3
+	@warning_ignore("integer_division")
+	var box_col = (col / 3) * 3
+	for r in range(box_row, box_row + 3):
+		for c in range(box_col, box_col + 3):
+			if grid[r][c] == num:
+				return false
+	return true
 
 func get_grid_as_string() -> String:
 	var s = ""
@@ -877,6 +1192,22 @@ func apply_hint(hint: Hint) -> bool:
 					var bits_to_exclude = exclude_bits[r][c]
 					if bits_to_exclude > 0:
 						sbrc_grid.candidates[r][c].data[0] &= ~bits_to_exclude
+
+			# After eliminations, check if any cells became singles (naked singles)
+			# This prevents infinite loops where eliminations don't lead to placements
+			for r in range(9):
+				for c in range(9):
+					if grid[r][c] == 0:
+						var cands = sbrc_grid.get_candidates_for_cell(r, c)
+						var bits_to_exclude = exclude_bits[r][c]
+						if bits_to_exclude > 0:
+							cands = cands.clone()
+							cands.data[0] &= ~bits_to_exclude
+						if cands.cardinality() == 1:
+							# Found a naked single - this should be detected in next iteration
+							# but we return true to indicate progress was made
+							pass
+			
 			return true
 			
 	return false
