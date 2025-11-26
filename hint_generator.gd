@@ -3,6 +3,7 @@ class_name SudokuHintGenerator
 
 var sudoku: Sudoku
 var strong_links: Array
+var linkset: Array # 2D array: linkset[digit][link_type] -> Array[StrongLink]
 
 const SOLVER_SEQUENCE = [
 	preload("res://solvers/single_candidate_solver.gd"),
@@ -37,8 +38,8 @@ func get_hints() -> Array[Hint]:
 		solver.solve(self, hints)
 		if (Time.get_ticks_msec() - time_start) > 50:
 			print("Solver: %s, time: %d ms, hints: %d" % [solver.name(), Time.get_ticks_msec() - time_start, hints.size()])
-		#if hints.size() > 0:
-		#	return hints
+		# if hints.size() > 0:
+		# 	return hints
 	return hints
 
 func _get_candidates(r: int, c: int) -> BitSet:
@@ -50,6 +51,13 @@ func _get_candidates(r: int, c: int) -> BitSet:
 
 func _build_strong_links():
 	strong_links = []
+	linkset = []
+	linkset.resize(9) # 9 digits
+	for d in range(9):
+		linkset[d] = []
+		linkset[d].resize(8) # 8 link types (BIVALVE to ALS)
+		for t in range(8):
+			linkset[d][t] = []
 
 	# Cache all candidates to avoid repeated calculations
 	var candidates_cache: Array[Array] = []
@@ -232,6 +240,47 @@ func _build_strong_links():
 			for d_key in als_digits_set.keys():
 				als_digits.append(d_key)
 			strong_links.append(StrongLink.new_als(als_cells, als_digits))
+
+	# Populate linkset from strong_links
+	for link in strong_links:
+		var digit = -1
+		var link_type = -1
+
+		match link.type:
+			StrongLink.LinkType.BIVALUE_CELL:
+				# Bivalue cells have two digits
+				digit = link.digit1
+				link_type = StrongLink.BIVALVE
+				linkset[link.digit1][StrongLink.BIVALVE].append(link)
+				linkset[link.digit2][StrongLink.BIVALVE].append(link)
+			StrongLink.LinkType.BILOCAL_UNIT:
+				digit = link.digit1
+				link_type = StrongLink.BILOCAL
+				linkset[digit][link_type].append(link)
+			StrongLink.LinkType.CELL_TO_GROUP:
+				digit = link.digit1
+				link_type = StrongLink.CELL_TO_GROUP
+				linkset[digit][link_type].append(link)
+			StrongLink.LinkType.GROUP_TO_CELL:
+				digit = link.digit1
+				link_type = StrongLink.GROUP_TO_CELL
+				linkset[digit][link_type].append(link)
+			StrongLink.LinkType.GROUP_TO_GROUP:
+				# Group to group links don't have a specific digit
+				link_type = StrongLink.GROUP_TO_GROUP
+				# Add to all digits? For now, skip these
+			StrongLink.LinkType.ERI_MAX:
+				digit = link.digit1
+				link_type = StrongLink.ERI_MAX
+				linkset[digit][link_type].append(link)
+			StrongLink.LinkType.ERI_ALL:
+				digit = link.digit1
+				link_type = StrongLink.ERI_ALL
+				# ERI_ALL is index 6, but not used in SplitWings
+			StrongLink.LinkType.ALS:
+				# ALS links don't have a specific digit
+				link_type = StrongLink.ALS
+				# ALS is index 7, but not used in SplitWings
 
 func _get_peer_cells(row: int, col: int) -> Array[Vector2i]:
 	var peers: Array[Vector2i] = []

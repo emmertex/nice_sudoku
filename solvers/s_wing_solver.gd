@@ -6,146 +6,132 @@ func name() -> String:
 
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
-	for digit_a in range(1, 10):
-		var d_a = digit_a - 1
-		var strong_links_a = []
-		for r in range(9):
-			var cols = []
-			for c in range(9):
-				if sudoku.grid[r][c] == 0 and generator._get_candidates(r, c).get_bit(d_a):
-					cols.append(c)
-			if cols.size() == 2:
-				strong_links_a.append({"cells": [Vector2i(r, cols[0]), Vector2i(r, cols[1])]})
+	var linkset = generator.linkset
 
-		for c in range(9):
-			var rows = []
-			for r in range(9):
-				if sudoku.grid[r][c] == 0 and generator._get_candidates(r, c).get_bit(d_a):
-					rows.append(r)
-			if rows.size() == 2:
-				strong_links_a.append({"cells": [Vector2i(rows[0], c), Vector2i(rows[1], c)]})
+	# Simplified SplitWings implementation based on the Java version
+	# This focuses on the core logic while being more maintainable
 
-		for b in range(9):
-			var cells_in_box = []
-			for i in range(9):
-				var p = Cardinals.box_to_rc(b, i)
-				if sudoku.grid[p.x][p.y] == 0 and generator._get_candidates(p.x, p.y).get_bit(d_a):
-					cells_in_box.append(p)
-			if cells_in_box.size() == 2:
-				strong_links_a.append({"cells": cells_in_box})
+	for g in range(9):  # g represents digit (0-8)
+		# Look for BIVALUE cells for this digit
+		for gLink in linkset[g][StrongLink.BIVALVE]:
+			# Find cells that see both ends of the bivalue cell
+			var bivalue_cell_idx = gLink.activeCells.next_set_bit()
+			if bivalue_cell_idx == -1:
+				continue
+			var bivalue_r = bivalue_cell_idx / 9
+			var bivalue_c = bivalue_cell_idx % 9
 
-		for link_a in strong_links_a:
-			var cell_a1 = link_a.cells[0]
-			var cell_a2 = link_a.cells[1]
-			for endpoint_a in [cell_a1, cell_a2]:
+			# Get the two candidates for this bivalue cell
+			var cand = generator._get_candidates(bivalue_r, bivalue_c)
+			var digit1 = g  # This is digit g
+			var digit2 = cand.next_set_bit(0)
+			if digit2 == digit1:
+				digit2 = cand.next_set_bit(digit1 + 1)
+
+			# Look for strong links in digit2
+			for hLink in linkset[digit2][StrongLink.BILOCAL]:
+				var cell1_idx = hLink.activeCells.next_set_bit()
+				var cell2_idx = hLink.linkedCells.next_set_bit()
+				if cell1_idx == -1 or cell2_idx == -1:
+					continue
+
+				# Check if the bivalue cell sees one of the endpoints
+				var sees_cell1 = generator._are_peers(Vector2i(bivalue_r, bivalue_c), Vector2i(cell1_idx / 9, cell1_idx % 9))
+				var sees_cell2 = generator._are_peers(Vector2i(bivalue_r, bivalue_c), Vector2i(cell2_idx / 9, cell2_idx % 9))
+
+				if not (sees_cell1 or sees_cell2):
+					continue
+
+				var endpoint = Vector2i(cell1_idx / 9, cell1_idx % 9) if sees_cell1 else Vector2i(cell2_idx / 9, cell2_idx % 9)
+				var other_end = Vector2i(cell2_idx / 9, cell2_idx % 9) if sees_cell1 else Vector2i(cell1_idx / 9, cell1_idx % 9)
+
+				# Find cells that see both endpoints of the strong link
+				var elim_cells = []
 				for r in range(9):
 					for c in range(9):
 						if sudoku.grid[r][c] != 0:
 							continue
-						var cell_bivalue = Vector2i(r, c)
-						if cell_bivalue == endpoint_a:
+						var cell = Vector2i(r, c)
+						if cell == endpoint or cell == Vector2i(bivalue_r, bivalue_c) or cell == other_end:
 							continue
-						if not generator._are_peers(cell_bivalue, endpoint_a):
+						if not generator._get_candidates(r, c).get_bit(digit2):
 							continue
-						var cand = generator._get_candidates(r, c)
-						if cand.cardinality() != 2:
-							continue
-						var d1 = cand.next_set_bit(0)
-						var d2 = cand.next_set_bit(d1 + 1)
-						if d1 != d_a and d2 != d_a:
-							continue
-						var digit_b = d1 if d2 == d_a else d2
+						if generator._are_peers(cell, other_end) and generator._are_peers(cell, endpoint):
+							elim_cells.append(cell)
 
-						var strong_links_b = []
-						for rr in range(9):
-							var cols_b = []
-							for cc in range(9):
-								if sudoku.grid[rr][cc] == 0 and generator._get_candidates(rr, cc).get_bit(digit_b):
-									cols_b.append(cc)
-							if cols_b.size() == 2:
-								strong_links_b.append({"cells": [Vector2i(rr, cols_b[0]), Vector2i(rr, cols_b[1])]})
+				if elim_cells.size() > 0:
+					# Create the hint
+					var hint = Hint.new(Hint.HintTechnique.S_WING, "")
+					hint.cells.append(Vector2i(bivalue_r, bivalue_c))
+					hint.cells.append(endpoint)
+					hint.numbers.append(digit1 + 1)
+					hint.numbers.append(digit2 + 1)
+					hint.elim_cells.append_array(elim_cells)
+					hint.elim_numbers.append(digit2 + 1)
 
-						for cc in range(9):
-							var rows_b = []
-							for rr in range(9):
-								if sudoku.grid[rr][cc] == 0 and generator._get_candidates(rr, cc).get_bit(digit_b):
-									rows_b.append(rr)
-							if rows_b.size() == 2:
-								strong_links_b.append({"cells": [Vector2i(rows_b[0], cc), Vector2i(rows_b[1], cc)]})
+					var desc = "Split-Wing: Bivalue cell %s {%d,%d} sees endpoint %s of strong link %s-%s on %d.\n\n" % [
+						generator._format_cell_list([Vector2i(bivalue_r, bivalue_c)]), digit1 + 1, digit2 + 1,
+						generator._format_cell_list([endpoint]),
+						generator._format_cell_list([Vector2i(cell1_idx / 9, cell1_idx % 9)]),
+						generator._format_cell_list([Vector2i(cell2_idx / 9, cell2_idx % 9)]), digit2 + 1
+					]
+					desc += "Eliminate %d from cells seeing both endpoints: %s." % [digit2 + 1, generator._format_cell_list(elim_cells)]
+					hint.description = desc
 
-						for bb in range(9):
-							var cells_b = []
-							for ii in range(9):
-								var pp = Cardinals.box_to_rc(bb, ii)
-								if sudoku.grid[pp.x][pp.y] == 0 and generator._get_candidates(pp.x, pp.y).get_bit(digit_b):
-									cells_b.append(pp)
-							if cells_b.size() == 2:
-								strong_links_b.append({"cells": cells_b})
+					# Check for duplicates
+					var exists = false
+					for existing in hints:
+						if existing.technique == Hint.HintTechnique.S_WING and existing.cells.has(Vector2i(bivalue_r, bivalue_c)) and existing.cells.has(endpoint):
+							exists = true
+							break
+					if not exists:
+						hints.append(hint)
 
-						for link_b in strong_links_b:
-							var cell_b1 = link_b.cells[0]
-							var cell_b2 = link_b.cells[1]
-							if cell_b1 == cell_a1 or cell_b1 == cell_a2 or cell_b2 == cell_a1 or cell_b2 == cell_a2:
-								continue
-							if cell_b1 == cell_bivalue or cell_b2 == cell_bivalue:
-								continue
-							var sees_b1 = generator._are_peers(cell_bivalue, cell_b1)
-							var sees_b2 = generator._are_peers(cell_bivalue, cell_b2)
-							if not (sees_b1 or sees_b2):
-								continue
-							var endpoint_b = cell_b1 if sees_b1 else cell_b2
-							var other_b = cell_b2 if sees_b1 else cell_b1
-							var other_a = cell_a2 if endpoint_a == cell_a1 else cell_a1
+# Helper function to check if two BitSets intersect
+func _intersects(bitset1: BitSet, bitset2: BitSet) -> bool:
+	return bitset1.intersection(bitset2).cardinality() > 0
 
-							var elim_cells = []
-							for rr in range(9):
-								for cc in range(9):
-									if sudoku.grid[rr][cc] != 0:
-										continue
-									var cell = Vector2i(rr, cc)
-									if cell in [endpoint_a, endpoint_b, cell_bivalue, other_a, other_b]:
-										continue
-									if not generator._get_candidates(rr, cc).get_bit(digit_b):
-										continue
-									if generator._are_peers(cell, other_a) and generator._are_peers(cell, other_b):
-										elim_cells.append(cell)
-
-							if elim_cells.size() > 0:
-								var exists = false
-								for existing in hints:
-									if existing.technique == Hint.HintTechnique.S_WING and existing.cells.has(endpoint_a) and existing.cells.has(cell_bivalue) and existing.cells.has(endpoint_b):
-										exists = true
-										break
-								if exists:
-									continue
-								var hint = Hint.new(Hint.HintTechnique.S_WING, "")
-								hint.cells.append(endpoint_a)
-								hint.cells.append(cell_bivalue)
-								hint.cells.append(endpoint_b)
-								hint.numbers.append(digit_a)
-								hint.numbers.append(digit_b + 1)
-								hint.elim_cells.append_array(elim_cells)
-								hint.elim_numbers.append(digit_b + 1)
-
-								var desc = "S-Wing: (%d)(%s = %s) - (%d=%d)(%s) - (%d)(%s = %s).\n\n" % [
-									digit_a, generator._format_cell_list([endpoint_a]), generator._format_cell_list([other_a]),
-									digit_a, digit_b + 1, generator._format_cell_list([cell_bivalue]),
-									digit_b + 1, generator._format_cell_list([endpoint_b]), generator._format_cell_list([other_b])
-								]
-								desc += "If %s is %d, then %s must be %d, forcing %s to be %d.\n" % [endpoint_a, digit_a, cell_bivalue, digit_b + 1, endpoint_b, digit_b + 1]
-								desc += "If %s is not %d, then %s must be %d, forcing %s to be %d.\n\n" % [endpoint_a, digit_a, other_a, digit_a, cell_bivalue, digit_a]
-								desc += "Either way, %s or %s must be %d, so eliminate %d from cells seeing both: %s." % [generator._format_cell_list([endpoint_b]), generator._format_cell_list([other_b]), digit_b + 1, digit_b + 1, generator._format_cell_list(elim_cells)]
-								hint.description = desc
-
-								var s1 = "S-Wing: Strong link on %d (%s), bivalue %s {%d/%d}, strong link on %d (%s)." % [
-									digit_a, generator._format_cell_list([endpoint_a, other_a]),
-									generator._format_cell_list([cell_bivalue]), digit_a, digit_b + 1,
-									digit_b + 1, generator._format_cell_list([endpoint_b, other_b])
-								]
-								hint.add_step(s1, [endpoint_a, cell_bivalue, endpoint_b])
-								var s2 = "Eliminate %d from cells seeing both endpoints: %s." % [digit_b + 1, generator._format_cell_list(elim_cells)]
-								hint.add_step(s2, [other_a, other_b], [], [], elim_cells.duplicate(), [digit_b + 1])
-								hints.append(hint)
+# Helper function to format a link for description
+func _format_link(link: StrongLink) -> String:
+	match link.type:
+		StrongLink.LinkType.BIVALUE_CELL:
+			var cell_idx = link.activeCells.next_set_bit()
+			var r = cell_idx / 9
+			var c = cell_idx % 9
+			var d1 = link.digit1 + 1
+			var d2 = link.digit2 + 1
+			return "(%d,%d){%d,%d}" % [r+1, c+1, d1, d2]
+		StrongLink.LinkType.BILOCAL_UNIT:
+			var c1_idx = link.activeCells.next_set_bit()
+			var c2_idx = link.linkedCells.next_set_bit()
+			var r1 = c1_idx / 9
+			var c1 = c1_idx % 9
+			var r2 = c2_idx / 9
+			var c2 = c2_idx % 9
+			var d = link.digit1 + 1
+			return "(%d,%d)=(%d,%d)[%d]" % [r1+1, c1+1, r2+1, c2+1, d]
+		StrongLink.LinkType.CELL_TO_GROUP:
+			var cell_idx = link.activeCells.next_set_bit()
+			var r = cell_idx / 9
+			var c = cell_idx % 9
+			var d = link.digit1 + 1
+			return "(%d,%d)-group[%d]" % [r+1, c+1, d]
+		StrongLink.LinkType.GROUP_TO_CELL:
+			var cell_idx = link.linkedCells.next_set_bit()
+			var r = cell_idx / 9
+			var c = cell_idx % 9
+			var d = link.digit1 + 1
+			return "group-(%d,%d)[%d]" % [r+1, c+1, d]
+		StrongLink.LinkType.GROUP_TO_GROUP:
+			return "group-group"
+		StrongLink.LinkType.ERI_MAX:
+			return "ERI-MAX"
+		StrongLink.LinkType.ERI_ALL:
+			return "ERI-ALL"
+		StrongLink.LinkType.ALS:
+			return "ALS"
+		_:
+			return "Unknown"
 
 
 
