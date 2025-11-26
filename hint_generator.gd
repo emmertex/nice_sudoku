@@ -37,8 +37,8 @@ func get_hints() -> Array[Hint]:
 		solver.solve(self, hints)
 		if (Time.get_ticks_msec() - time_start) > 50:
 			print("Solver: %s, time: %d ms, hints: %d" % [solver.name(), Time.get_ticks_msec() - time_start, hints.size()])
-		if hints.size() > 0:
-			return hints
+		#if hints.size() > 0:
+		#	return hints
 	return hints
 
 func _get_candidates(r: int, c: int) -> BitSet:
