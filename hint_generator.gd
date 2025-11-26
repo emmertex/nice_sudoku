@@ -8,7 +8,6 @@ const SOLVER_SEQUENCE = [
 	preload("res://solvers/single_candidate_solver.gd"),
 	preload("res://solvers/hidden_single_solver.gd"),
 	preload("res://solvers/naked_group_solver.gd"),
-	preload("res://solvers/shared_cell_solver.gd"),
 	preload("res://solvers/pointing_solver.gd"),
 	preload("res://solvers/x_wing_solver.gd"),
 	preload("res://solvers/swordfish_solver.gd"),
