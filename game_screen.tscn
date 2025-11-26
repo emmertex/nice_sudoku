@@ -30,13 +30,15 @@ wait_time = 0.05
 autostart = true
 
 [node name="MenuPanel" type="PopupPanel" parent="."]
-visible = false
 
 [node name="MenuContent" type="VBoxContainer" parent="MenuPanel"]
-layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 332.0
+offset_bottom = 269.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 12
@@ -141,7 +143,6 @@ text = "0:00"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-
 [node name="HBoxContainerGrid" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -159,8 +160,6 @@ columns = 9
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-theme_override_constants/hseparation = 8
-theme_override_constants/vseparation = 8
 columns = 6
 
 [node name="Button1" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/NumberButtons"]
@@ -211,16 +210,16 @@ horizontal_alignment = 1
 
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
 [connection signal="timeout" from="UIFixTimer" to="." method="_ui_hack"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/MenuToggleButton" to="." method="_on_menu_toggle_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/HintButton" to="." method="_on_HintButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/UndoButton" to="." method="_on_UndoButton_pressed"]
+[connection signal="popup_hide" from="MenuPanel" to="." method="_on_menu_popup_hide"]
 [connection signal="pressed" from="MenuPanel/MenuContent/PlayContent/NewGameButton" to="." method="_on_NewGameButton_pressed"]
 [connection signal="pressed" from="MenuPanel/MenuContent/PlayContent/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
 [connection signal="pressed" from="MenuPanel/MenuContent/PlayContent/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
 [connection signal="pressed" from="MenuPanel/MenuContent/ToolsContent/HighlightButton" to="." method="_on_highlight_button_pressed"]
 [connection signal="pressed" from="MenuPanel/MenuContent/ToolsContent/AutoPencil" to="." method="_on_AutoP_pressed"]
 [connection signal="item_selected" from="MenuPanel/MenuContent/SettingsContent/ThemeSelector" to="." method="_on_theme_selected"]
-[connection signal="popup_hide" from="MenuPanel" to="." method="_on_menu_popup_hide"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/MenuToggleButton" to="." method="_on_menu_toggle_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/HintButton" to="." method="_on_HintButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/UndoButton" to="." method="_on_UndoButton_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button10" to="." method="_on_button_c_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button11" to="." method="_on_button_p_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button12" to="." method="_on_button_pc_pressed"]

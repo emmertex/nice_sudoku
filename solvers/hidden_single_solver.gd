@@ -1,6 +1,9 @@
 extends RefCounted
 class_name HiddenSingleSolver
 
+func name() -> String:
+	return "Hidden Single Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
 	for single in _collect_hidden_singles(generator):

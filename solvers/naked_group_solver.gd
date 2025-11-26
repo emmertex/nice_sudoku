@@ -1,6 +1,9 @@
 extends RefCounted
 class_name NakedGroupSolver
 
+func name() -> String:
+	return "Naked Group Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	for r in range(9):
 		_find_naked_groups_in_unit(generator, hints, r, "row", 2)

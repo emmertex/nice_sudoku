@@ -1,6 +1,9 @@
 extends RefCounted
 class_name SashimiFishSolver
 
+func name() -> String:
+	return "Sashimi Fish Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	for digit in range(1, 10):
 		var d = digit - 1

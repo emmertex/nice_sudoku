@@ -1,6 +1,9 @@
 extends RefCounted
 class_name SingleCandidateSolver
 
+func name() -> String:
+	return "Single Candidate Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
 	for row in range(9):

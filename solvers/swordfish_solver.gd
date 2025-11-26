@@ -1,6 +1,9 @@
 extends RefCounted
 class_name SwordfishSolver
 
+func name() -> String:
+	return "Swordfish Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
 	for digit in range(1, 10):

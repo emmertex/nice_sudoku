@@ -1,6 +1,9 @@
 extends RefCounted
 class_name NishioSolver
 
+func name() -> String:
+	return "Nishio Solver"
+
 var sudoku: Sudoku
 var generator_ref: SudokuHintGenerator
 

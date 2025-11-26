@@ -1,6 +1,9 @@
 extends RefCounted
 class_name SWingSolver
 
+func name() -> String:
+	return "S-Wing Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
 	for digit_a in range(1, 10):

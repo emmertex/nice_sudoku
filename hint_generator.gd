@@ -32,8 +32,11 @@ func get_hints() -> Array[Hint]:
 	var hints: Array[Hint] = []
 	_build_strong_links()
 	for solver_script in SOLVER_SEQUENCE:
+		var time_start = Time.get_ticks_msec()
 		var solver = solver_script.new()
 		solver.solve(self, hints)
+		if (Time.get_ticks_msec() - time_start) > 50:
+			print("Solver: %s, time: %d ms, hints: %d" % [solver.name(), Time.get_ticks_msec() - time_start, hints.size()])
 		if hints.size() > 0:
 			return hints
 	return hints
@@ -47,11 +50,20 @@ func _get_candidates(r: int, c: int) -> BitSet:
 
 func _build_strong_links():
 	strong_links = []
-	
+
+	# Cache all candidates to avoid repeated calculations
+	var candidates_cache: Array[Array] = []
+	candidates_cache.resize(9)
+	for r in range(9):
+		candidates_cache[r] = []
+		candidates_cache[r].resize(9)
+		for c in range(9):
+			candidates_cache[r][c] = _get_candidates(r, c)
+
 	# Bivalue cells
 	for r in range(9):
 		for c in range(9):
-			var candidates = _get_candidates(r, c)
+			var candidates = candidates_cache[r][c]
 			if candidates.cardinality() == 2:
 				var d1 = candidates.next_set_bit(0)
 				var d2 = candidates.next_set_bit(d1 + 1)
@@ -63,7 +75,7 @@ func _build_strong_links():
 		for r in range(9):
 			var positions = BitSet.new(9)
 			for c in range(9):
-				if _get_candidates(r, c).get_bit(d):
+				if candidates_cache[r][c].get_bit(d):
 					positions.set_bit(c)
 			if positions.cardinality() == 2:
 				var c1 = positions.next_set_bit(0)
@@ -74,7 +86,7 @@ func _build_strong_links():
 		for c in range(9):
 			var positions = BitSet.new(9)
 			for r in range(9):
-				if _get_candidates(r, c).get_bit(d):
+				if candidates_cache[r][c].get_bit(d):
 					positions.set_bit(r)
 			if positions.cardinality() == 2:
 				var r1 = positions.next_set_bit(0)
@@ -86,7 +98,7 @@ func _build_strong_links():
 			var positions = BitSet.new(9)
 			for i in range(9):
 				var cell = Cardinals.box_to_rc(b, i)
-				if _get_candidates(cell.x, cell.y).get_bit(d):
+				if candidates_cache[cell.x][cell.y].get_bit(d):
 					positions.set_bit(i)
 			if positions.cardinality() == 2:
 				var i1 = positions.next_set_bit(0)
@@ -102,12 +114,12 @@ func _build_strong_links():
 			var row_group = BitSet.new(81)
 			var has_candidate = false
 			for c in range(9):
-				if _get_candidates(r, c).get_bit(d):
+				if candidates_cache[r][c].get_bit(d):
 					row_group.set_bit(r * 9 + c)
 					has_candidate = true
 			if has_candidate:
 				for c in range(9):
-					if _get_candidates(r, c).get_bit(d):
+					if candidates_cache[r][c].get_bit(d):
 						strong_links.append(StrongLink.new_cell_to_group(r, c, row_group, d))
 						strong_links.append(StrongLink.new_group_to_cell(row_group, r, c, d))
 
@@ -116,12 +128,12 @@ func _build_strong_links():
 			var col_group = BitSet.new(81)
 			var has_candidate = false
 			for r in range(9):
-				if _get_candidates(r, c).get_bit(d):
+				if candidates_cache[r][c].get_bit(d):
 					col_group.set_bit(r * 9 + c)
 					has_candidate = true
 			if has_candidate:
 				for r in range(9):
-					if _get_candidates(r, c).get_bit(d):
+					if candidates_cache[r][c].get_bit(d):
 						strong_links.append(StrongLink.new_cell_to_group(r, c, col_group, d))
 						strong_links.append(StrongLink.new_group_to_cell(col_group, r, c, d))
 
@@ -131,43 +143,56 @@ func _build_strong_links():
 			var has_candidate = false
 			for i in range(9):
 				var cell = Cardinals.box_to_rc(b, i)
-				if _get_candidates(cell.x, cell.y).get_bit(d):
+				if candidates_cache[cell.x][cell.y].get_bit(d):
 					box_group.set_bit(cell.x * 9 + cell.y)
 					has_candidate = true
 			if has_candidate:
 				for i in range(9):
 					var cell = Cardinals.box_to_rc(b, i)
-					if _get_candidates(cell.x, cell.y).get_bit(d):
+					if candidates_cache[cell.x][cell.y].get_bit(d):
 						strong_links.append(StrongLink.new_cell_to_group(cell.x, cell.y, box_group, d))
 						strong_links.append(StrongLink.new_group_to_cell(box_group, cell.x, cell.y, d))
 
 	# GROUP_TO_GROUP links (row ↔ column for same digit)
 	for d in range(9):
+		# Precompute all row groups for this digit
+		var row_groups: Array[BitSet] = []
+		row_groups.resize(9)
 		for r in range(9):
 			var row_group = BitSet.new(81)
 			for c in range(9):
-				if _get_candidates(r, c).get_bit(d):
+				if candidates_cache[r][c].get_bit(d):
 					row_group.set_bit(r * 9 + c)
-			if row_group.cardinality() == 0:
+			row_groups[r] = row_group
+
+		# Precompute all column groups for this digit
+		var col_groups: Array[BitSet] = []
+		col_groups.resize(9)
+		for c in range(9):
+			var col_group = BitSet.new(81)
+			for r in range(9):
+				if candidates_cache[r][c].get_bit(d):
+					col_group.set_bit(r * 9 + c)
+			col_groups[c] = col_group
+
+		# Create links between non-empty row and column groups
+		for r in range(9):
+			if row_groups[r].cardinality() == 0:
 				continue
 			for c in range(9):
-				var col_group = BitSet.new(81)
-				for rr in range(9):
-					if _get_candidates(rr, c).get_bit(d):
-						col_group.set_bit(rr * 9 + c)
-				if col_group.cardinality() == 0:
+				if col_groups[c].cardinality() == 0:
 					continue
-				strong_links.append(StrongLink.new_group_to_group(row_group, col_group))
+				strong_links.append(StrongLink.new_group_to_group(row_groups[r], col_groups[c]))
 
 	# ERI_MAX links (peer pairs with start/end swap flags)
 	for d in range(9):
 		for r in range(9):
 			for c in range(9):
-				if not _get_candidates(r, c).get_bit(d):
+				if not candidates_cache[r][c].get_bit(d):
 					continue
 				var peers = _get_peer_cells(r, c)
 				for peer in peers:
-					if _get_candidates(peer.x, peer.y).get_bit(d):
+					if candidates_cache[peer.x][peer.y].get_bit(d):
 						if r * 9 + c < peer.x * 9 + peer.y:
 							var node1 = BitSet.new(81)
 							node1.set_bit(r * 9 + c)
@@ -179,11 +204,11 @@ func _build_strong_links():
 	for d in range(9):
 		for r in range(9):
 			for c in range(9):
-				if not _get_candidates(r, c).get_bit(d):
+				if not candidates_cache[r][c].get_bit(d):
 					continue
 				var peers = _get_peer_cells(r, c)
 				for peer in peers:
-					if _get_candidates(peer.x, peer.y).get_bit(d):
+					if candidates_cache[peer.x][peer.y].get_bit(d):
 						if r * 9 + c < peer.x * 9 + peer.y:
 							var node1 = BitSet.new(81)
 							node1.set_bit(r * 9 + c)
@@ -196,7 +221,7 @@ func _build_strong_links():
 		var als_cells = BitSet.new(81)
 		var als_digits_set = {}
 		for c in range(9):
-			var cand = _get_candidates(r, c)
+			var cand = candidates_cache[r][c]
 			if cand.cardinality() > 1:
 				als_cells.set_bit(r * 9 + c)
 				for d in range(9):

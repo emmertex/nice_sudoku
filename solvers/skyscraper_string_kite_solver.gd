@@ -1,6 +1,9 @@
 extends RefCounted
 class_name SkyscraperStringKiteSolver
 
+func name() -> String:
+	return "Skyscraper String Kite Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
 	for digit in range(1, 10):

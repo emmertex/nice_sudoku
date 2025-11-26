@@ -1,6 +1,9 @@
 extends RefCounted
 class_name JellyfishSolver
 
+func name() -> String:
+	return "Jellyfish Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	for digit in range(1, 10):
 		var row_candidates = {}

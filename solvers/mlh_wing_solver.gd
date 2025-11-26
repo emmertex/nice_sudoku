@@ -4,6 +4,9 @@ class_name MLHWingSolver
 var sudoku: Sudoku
 var generator_ref: SudokuHintGenerator
 
+func name() -> String:
+	return "MLH Wing Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	generator_ref = generator
 	sudoku = generator.sudoku

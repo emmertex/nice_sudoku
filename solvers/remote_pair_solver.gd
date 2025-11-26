@@ -1,6 +1,9 @@
 extends RefCounted
 class_name RemotePairSolver
 
+func name() -> String:
+	return "Remote Pair Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
 	var bivalue_cells = []

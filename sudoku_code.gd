@@ -1012,6 +1012,9 @@ func solve_with_backtracking(num_solutions_to_find: int = 1) -> Array:
 	var solutions = []
 	var empty_cells = sbrc_grid.get_empty_cells()
 
+	# Sort empty cells by number of candidates (most constrained first)
+	empty_cells.sort_custom(func(a, b): return sbrc_grid.get_candidates_for_cell(a.x, a.y).cardinality() < sbrc_grid.get_candidates_for_cell(b.x, b.y).cardinality())
+
 	_solve_recursive(0, empty_cells, solutions, num_solutions_to_find)
 
 	return solutions
@@ -1130,7 +1133,10 @@ func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num
 	var r = cell.x
 	var c = cell.y
 
-	for num in range(1, 10):
+	var candidates = sbrc_grid.get_candidates_for_cell(r, c)
+	var candidate_index = candidates.next_set_bit(0)
+	while candidate_index != -1:
+		var num = candidate_index + 1
 		if _is_valid_for_backtrack(r, c, num):
 			grid[r][c] = num
 			_solve_recursive(cell_index + 1, empty_cells, solutions, num_solutions_to_find)
@@ -1138,6 +1144,7 @@ func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num
 
 			if solutions.size() >= num_solutions_to_find:
 				return
+		candidate_index = candidates.next_set_bit(candidate_index + 1)
 
 # Validation for backtracking - checks against grid directly (not sbrc_grid)
 func _is_valid_for_backtrack(row: int, col: int, num: int) -> bool:

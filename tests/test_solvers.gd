@@ -255,7 +255,7 @@ func test_no_xy_chain_on_multi_sashimi() -> bool:
 func test_backtracking_solver() -> bool:
 	var Sudoku = load("res://sudoku_code.gd")
 	var sudoku = Sudoku.new()
-	var puzzle_str = "000000000000000000000000000000000000000000000000000000000000000000000001"
+	var puzzle_str = "000260701680070090190004500820102900004602910098000063050090020070000036902010000"
 	sudoku.load_puzzle_from_string(puzzle_str)
 	var solutions = sudoku.solve_with_backtracking(1)
 	var passed = true

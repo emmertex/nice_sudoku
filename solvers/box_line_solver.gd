@@ -1,6 +1,9 @@
 extends RefCounted
 class_name BoxLineSolver
 
+func name() -> String:
+	return "Box Line Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	var sudoku = generator.sudoku
 	for num in range(1, 10):

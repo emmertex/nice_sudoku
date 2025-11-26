@@ -4,6 +4,9 @@ class_name XYChainWWingSolver
 var sudoku: Sudoku
 var generator_ref: SudokuHintGenerator
 
+func name() -> String:
+	return "XY Chain W-Wing Solver"
+
 func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 	generator_ref = generator
 	sudoku = generator.sudoku
