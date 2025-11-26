@@ -96,6 +96,119 @@ func _build_strong_links():
 				var cell2 = Cardinals.box_to_rc(b, i2)
 				strong_links.append(StrongLink.new_bilocal(d, cell1.x, cell1.y, cell2.x, cell2.y))
 
+	# CELL_TO_GROUP and GROUP_TO_CELL links (rows, columns, boxes)
+	for d in range(9):
+		# Rows
+		for r in range(9):
+			var row_group = BitSet.new(81)
+			var has_candidate = false
+			for c in range(9):
+				if _get_candidates(r, c).get_bit(d):
+					row_group.set_bit(r * 9 + c)
+					has_candidate = true
+			if has_candidate:
+				for c in range(9):
+					if _get_candidates(r, c).get_bit(d):
+						strong_links.append(StrongLink.new_cell_to_group(r, c, row_group, d))
+						strong_links.append(StrongLink.new_group_to_cell(row_group, r, c, d))
+
+		# Columns
+		for c in range(9):
+			var col_group = BitSet.new(81)
+			var has_candidate = false
+			for r in range(9):
+				if _get_candidates(r, c).get_bit(d):
+					col_group.set_bit(r * 9 + c)
+					has_candidate = true
+			if has_candidate:
+				for r in range(9):
+					if _get_candidates(r, c).get_bit(d):
+						strong_links.append(StrongLink.new_cell_to_group(r, c, col_group, d))
+						strong_links.append(StrongLink.new_group_to_cell(col_group, r, c, d))
+
+		# Boxes
+		for b in range(9):
+			var box_group = BitSet.new(81)
+			var has_candidate = false
+			for i in range(9):
+				var cell = Cardinals.box_to_rc(b, i)
+				if _get_candidates(cell.x, cell.y).get_bit(d):
+					box_group.set_bit(cell.x * 9 + cell.y)
+					has_candidate = true
+			if has_candidate:
+				for i in range(9):
+					var cell = Cardinals.box_to_rc(b, i)
+					if _get_candidates(cell.x, cell.y).get_bit(d):
+						strong_links.append(StrongLink.new_cell_to_group(cell.x, cell.y, box_group, d))
+						strong_links.append(StrongLink.new_group_to_cell(box_group, cell.x, cell.y, d))
+
+	# GROUP_TO_GROUP links (row ↔ column for same digit)
+	for d in range(9):
+		for r in range(9):
+			var row_group = BitSet.new(81)
+			for c in range(9):
+				if _get_candidates(r, c).get_bit(d):
+					row_group.set_bit(r * 9 + c)
+			if row_group.cardinality() == 0:
+				continue
+			for c in range(9):
+				var col_group = BitSet.new(81)
+				for rr in range(9):
+					if _get_candidates(rr, c).get_bit(d):
+						col_group.set_bit(rr * 9 + c)
+				if col_group.cardinality() == 0:
+					continue
+				strong_links.append(StrongLink.new_group_to_group(row_group, col_group))
+
+	# ERI_MAX links (peer pairs with start/end swap flags)
+	for d in range(9):
+		for r in range(9):
+			for c in range(9):
+				if not _get_candidates(r, c).get_bit(d):
+					continue
+				var peers = _get_peer_cells(r, c)
+				for peer in peers:
+					if _get_candidates(peer.x, peer.y).get_bit(d):
+						if r * 9 + c < peer.x * 9 + peer.y:
+							var node1 = BitSet.new(81)
+							node1.set_bit(r * 9 + c)
+							var node2 = BitSet.new(81)
+							node2.set_bit(peer.x * 9 + peer.y)
+							strong_links.append(StrongLink.new_eri_max(node1, node2, true, false))
+
+	# ERI_ALL links (all peer pairs for each digit)
+	for d in range(9):
+		for r in range(9):
+			for c in range(9):
+				if not _get_candidates(r, c).get_bit(d):
+					continue
+				var peers = _get_peer_cells(r, c)
+				for peer in peers:
+					if _get_candidates(peer.x, peer.y).get_bit(d):
+						if r * 9 + c < peer.x * 9 + peer.y:
+							var node1 = BitSet.new(81)
+							node1.set_bit(r * 9 + c)
+							var node2 = BitSet.new(81)
+							node2.set_bit(peer.x * 9 + peer.y)
+							strong_links.append(StrongLink.new_eri_all(node1, node2))
+
+	# ALS links (simple placeholder: rows with >1 candidate cells)
+	for r in range(9):
+		var als_cells = BitSet.new(81)
+		var als_digits_set = {}
+		for c in range(9):
+			var cand = _get_candidates(r, c)
+			if cand.cardinality() > 1:
+				als_cells.set_bit(r * 9 + c)
+				for d in range(9):
+					if cand.get_bit(d):
+						als_digits_set[d] = true
+		if als_cells.cardinality() >= 2 and als_digits_set.size() <= als_cells.cardinality():
+			var als_digits = []
+			for d_key in als_digits_set.keys():
+				als_digits.append(d_key)
+			strong_links.append(StrongLink.new_als(als_cells, als_digits))
+
 func _get_peer_cells(row: int, col: int) -> Array[Vector2i]:
 	var peers: Array[Vector2i] = []
 	var seen_coords = {}
