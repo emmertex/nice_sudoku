@@ -155,4 +155,3 @@ func _combinations_recursive(arr, k, start, current, result):
 	# Exclude current element
 	if arr.size() - (start + 1) >= k - current.size():
 		_combinations_recursive(arr, k, start + 1, current, result)
-

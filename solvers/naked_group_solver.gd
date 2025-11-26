@@ -109,3 +109,6 @@ func _generate_naked_group_description(generator: SudokuHintGenerator, hint: Hin
 	desc += "Therefore, we can eliminate the number(s) %s from the following cell(s): %s." % [elim_numbers_str, elim_cells_str]
 	return desc
 
+
+
+

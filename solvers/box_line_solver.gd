@@ -82,3 +82,6 @@ func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 						hint.add_step(s2blc, [], [], [], hint.elim_cells.duplicate(), [num])
 						hints.append(hint)
 
+
+
+

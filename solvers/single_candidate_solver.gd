@@ -35,3 +35,6 @@ func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 					hints.append(hint)
 					return
 
+
+
+

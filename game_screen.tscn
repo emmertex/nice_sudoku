@@ -29,6 +29,67 @@ autostart = true
 wait_time = 0.05
 autostart = true
 
+[node name="MenuPanel" type="PopupPanel" parent="."]
+visible = false
+
+[node name="MenuContent" type="VBoxContainer" parent="MenuPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="PlayContent" type="VBoxContainer" parent="MenuPanel/MenuContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="NewGameButton" type="Button" parent="MenuPanel/MenuContent/PlayContent"]
+layout_mode = 2
+text = "🎮 New Game - Start a fresh puzzle"
+
+[node name="LoadPuzzleButton" type="Button" parent="MenuPanel/MenuContent/PlayContent"]
+layout_mode = 2
+text = "📂 Load Puzzle - Continue next puzzle"
+
+[node name="PastePuzzleButton" type="Button" parent="MenuPanel/MenuContent/PlayContent"]
+layout_mode = 2
+text = "📋 Paste Puzzle - Import puzzle string"
+
+[node name="ToolsContent" type="VBoxContainer" parent="MenuPanel/MenuContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HighlightButton" type="Button" parent="MenuPanel/MenuContent/ToolsContent"]
+layout_mode = 2
+text = "✨ Highlight Mode - Change highlight style"
+
+[node name="AutoPencil" type="Button" parent="MenuPanel/MenuContent/ToolsContent"]
+layout_mode = 2
+text = "✏️ Auto Pencil - Fill all pencil marks"
+
+[node name="SettingsContent" type="VBoxContainer" parent="MenuPanel/MenuContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ThemeLabel" type="Label" parent="MenuPanel/MenuContent/SettingsContent"]
+layout_mode = 2
+text = "Theme:"
+horizontal_alignment = 1
+
+[node name="ThemeSelector" type="OptionButton" parent="MenuPanel/MenuContent/SettingsContent"]
+layout_mode = 2
+selected = 0
+fit_to_longest_item = false
+item_count = 3
+popup/item_0/text = "Dark"
+popup/item_0/id = 0
+popup/item_1/text = "Light"
+popup/item_1/id = 1
+popup/item_2/text = "ePaper"
+popup/item_2/id = 2
+
 [node name="Panel" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -49,74 +110,37 @@ layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="TopMenuBar" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
+[node name="MenuContainer" type="VBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 8
+
+[node name="TopMenuBar" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer/MenuContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
 alignment = 1
 
-[node name="HintButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
+[node name="MenuToggleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar"]
 layout_mode = 2
-text = "Get Hint"
+size_flags_horizontal = 4
+text = "☰ Menu"
 
-[node name="UndoButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
+[node name="HintButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar"]
 layout_mode = 2
-text = "Undo Move"
+size_flags_horizontal = 3
+text = "💡 Hint"
 
-[node name="PlayTimeLabel" type="Label" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
+[node name="UndoButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar"]
 layout_mode = 2
+size_flags_horizontal = 3
+text = "↶ Undo"
+
+[node name="PlayTimeLabel" type="Label" parent="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "0:00"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="OptionsToggleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar"]
-layout_mode = 2
-text = "More Options ▼"
-
-[node name="AdditionalOptions" type="VBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="GameControls" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="PastePuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls"]
-layout_mode = 2
-text = "Paste Puzzle"
-
-[node name="NewGameButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls"]
-layout_mode = 2
-text = "New Game"
-
-[node name="LoadPuzzleButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls"]
-layout_mode = 2
-text = "Load Puzzle"
-
-[node name="GameFeatures" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="HighlightButton" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures"]
-layout_mode = 2
-text = "Toggle Highlights"
-
-[node name="AutoPencil" type="Button" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures"]
-layout_mode = 2
-text = "Auto Pencil"
-
-[node name="ThemeSelector" type="OptionButton" parent="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures"]
-layout_mode = 2
-selected = 0
-fit_to_longest_item = false
-item_count = 3
-popup/item_0/text = "Dark"
-popup/item_0/id = 0
-popup/item_1/text = "Light"
-popup/item_1/id = 1
-popup/item_2/text = "ePaper"
-popup/item_2/id = 2
 
 [node name="HBoxContainerGrid" type="HBoxContainer" parent="Panel/AspectRatioContainer/VBoxContainer"]
 layout_mode = 2
@@ -187,15 +211,16 @@ horizontal_alignment = 1
 
 [connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
 [connection signal="timeout" from="UIFixTimer" to="." method="_ui_hack"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/HintButton" to="." method="_on_HintButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/UndoButton" to="." method="_on_UndoButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/TopMenuBar/OptionsToggleButton" to="." method="_on_options_toggle_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls/NewGameButton" to="." method="_on_NewGameButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameControls/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/HighlightButton" to="." method="_on_highlight_button_pressed"]
-[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/AutoPencil" to="." method="_on_AutoP_pressed"]
-[connection signal="item_selected" from="Panel/AspectRatioContainer/VBoxContainer/AdditionalOptions/GameFeatures/ThemeSelector" to="." method="_on_theme_selected"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/MenuToggleButton" to="." method="_on_menu_toggle_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/HintButton" to="." method="_on_HintButton_pressed"]
+[connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/MenuContainer/TopMenuBar/UndoButton" to="." method="_on_UndoButton_pressed"]
+[connection signal="pressed" from="MenuPanel/MenuContent/PlayContent/NewGameButton" to="." method="_on_NewGameButton_pressed"]
+[connection signal="pressed" from="MenuPanel/MenuContent/PlayContent/LoadPuzzleButton" to="." method="_on_LoadPuzzleButton_pressed"]
+[connection signal="pressed" from="MenuPanel/MenuContent/PlayContent/PastePuzzleButton" to="." method="_on_paste_puzzle_button_pressed"]
+[connection signal="pressed" from="MenuPanel/MenuContent/ToolsContent/HighlightButton" to="." method="_on_highlight_button_pressed"]
+[connection signal="pressed" from="MenuPanel/MenuContent/ToolsContent/AutoPencil" to="." method="_on_AutoP_pressed"]
+[connection signal="item_selected" from="MenuPanel/MenuContent/SettingsContent/ThemeSelector" to="." method="_on_theme_selected"]
+[connection signal="popup_hide" from="MenuPanel" to="." method="_on_menu_popup_hide"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button10" to="." method="_on_button_c_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button11" to="." method="_on_button_p_pressed"]
 [connection signal="pressed" from="Panel/AspectRatioContainer/VBoxContainer/NumberButtons/Button12" to="." method="_on_button_pc_pressed"]

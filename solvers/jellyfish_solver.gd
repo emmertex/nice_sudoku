@@ -113,3 +113,6 @@ func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 									hint.add_step(jfs2c, [], [], [], hint.elim_cells.duplicate(), [digit])
 									hints.append(hint)
 
+
+
+

@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=1 format=3 uid="uid://b8q5n8h3m2j8v"]
+[gd_resource type="Theme" load_steps=7 format=3 uid="uid://b8q5n8h3m2j8v"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_normal"]
 bg_color = Color(0.2, 0.2, 0.2, 1)
@@ -7,6 +7,18 @@ border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
 border_color = Color(0.3, 0.3, 0.3, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_focus"]
+bg_color = Color(0.2, 0.2, 0.2, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.6, 0.6, 0.6, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -31,18 +43,6 @@ border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
 border_color = Color(0.5, 0.5, 0.5, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_focus"]
-bg_color = Color(0.2, 0.2, 0.2, 1)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.6, 0.6, 0.6, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -73,7 +73,7 @@ corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
 [resource]
-Button/colors/font_color = Color(0.9, 0.9, 0.9, 1)
+Button/colors/font_color = Color(0.26838568, 0.009197028, 0.24433333, 1)
 Button/colors/font_disabled_color = Color(0.4, 0.4, 0.4, 1)
 Button/colors/font_focus_color = Color(1, 1, 1, 1)
 Button/colors/font_hover_color = Color(1, 1, 0.8, 1)
@@ -86,19 +86,12 @@ Button/styles/focus = SubResource("StyleBoxFlat_focus")
 Button/styles/hover = SubResource("StyleBoxFlat_hover")
 Button/styles/normal = SubResource("StyleBoxFlat_normal")
 Button/styles/pressed = SubResource("StyleBoxFlat_pressed")
-
+HBoxContainer/constants/separation = 12
 Label/colors/font_color = Color(0.8, 0.8, 0.8, 1)
 Label/fonts/font = null
-
 Panel/styles/panel = SubResource("StyleBoxFlat_panel")
-
 PopupPanel/styles/panel = SubResource("StyleBoxFlat_popup")
-
 RichTextLabel/colors/default_color = Color(0.85, 0.85, 0.85, 1)
 RichTextLabel/fonts/normal_font = null
-
 ScrollContainer/styles/bg = SubResource("StyleBoxFlat_panel")
-
 VBoxContainer/constants/separation = 12
-
-HBoxContainer/constants/separation = 12

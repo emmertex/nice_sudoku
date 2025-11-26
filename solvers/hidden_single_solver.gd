@@ -92,3 +92,6 @@ func _collect_hidden_singles(generator: SudokuHintGenerator) -> Array:
 
 	return singles
 
+
+
+

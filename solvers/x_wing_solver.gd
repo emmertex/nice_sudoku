@@ -104,3 +104,6 @@ func solve(generator: SudokuHintGenerator, hints: Array[Hint]) -> void:
 							hint.add_step(s3c, [], [], [], hint.elim_cells, [digit])
 							hints.append(hint)
 
+
+
+
