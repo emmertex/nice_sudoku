@@ -10,36 +10,46 @@ const SOLVER_SEQUENCE = [
 	preload("res://solvers/hidden_single_solver.gd"),
 	preload("res://solvers/naked_group_solver.gd"),
 	preload("res://solvers/pointing_solver.gd"),
-	preload("res://solvers/x_wing_solver.gd"),
-	preload("res://solvers/swordfish_solver.gd"),
-	preload("res://solvers/jellyfish_solver.gd"),
-	preload("res://solvers/sashimi_fish_solver.gd"),
-	preload("res://solvers/dds_solver.gd"),
-	preload("res://solvers/box_line_solver.gd"),
-	preload("res://solvers/skyscraper_string_kite_solver.gd"),
-	preload("res://solvers/s_wing_solver.gd"),
-	preload("res://solvers/remote_pair_solver.gd"),
-	preload("res://solvers/xy_wing_solver.gd"),
-	preload("res://solvers/xyz_wing_solver.gd"),
-	preload("res://solvers/wxyz_wing_solver.gd"),
-	preload("res://solvers/xy_chain_wwing_solver.gd"),
-	preload("res://solvers/xy_ring_solver.gd"),
-	preload("res://solvers/mlh_wing_solver.gd"),
-	preload("res://solvers/empty_rectangle_solver.gd"),
-	preload("res://solvers/nishio_solver.gd")
+	# preload("res://solvers/x_wing_solver.gd"),
+	# preload("res://solvers/swordfish_solver.gd"),
+	# preload("res://solvers/jellyfish_solver.gd"),
+	# preload("res://solvers/sashimi_fish_solver.gd"),
+	# preload("res://solvers/box_line_solver.gd"),
+	# preload("res://solvers/skyscraper_string_kite_solver.gd"),
+	# preload("res://solvers/s_wing_solver.gd"),
+	# preload("res://solvers/remote_pair_solver.gd"),
+	# preload("res://solvers/xy_wing_solver.gd"),
+	# preload("res://solvers/xyz_wing_solver.gd"),
+	# preload("res://solvers/wxyz_wing_solver.gd"),
+	# preload("res://solvers/xy_chain_wwing_solver.gd"),
+	# preload("res://solvers/xy_ring_solver.gd"),
+	# preload("res://solvers/mlh_wing_solver.gd"),
+	# preload("res://solvers/empty_rectangle_solver.gd"),
+	# preload("res://solvers/nishio_solver.gd")
 ]
 
 func get_hints() -> Array[Hint]:
+	# Ensure the sbrc_grid is up to date with the current grid state
+	# Note: We don't modify sbrc_grid.candidates directly here because
+	# _get_candidates() already applies exclude_bits when needed
+	sudoku.sbrc_grid.update_grid(sudoku.grid)
+	
 	var hints: Array[Hint] = []
+	var valid_hints: Array[Hint] = []
+
 	_build_strong_links()
 	for solver_script in SOLVER_SEQUENCE:
-		# var time_start = Time.get_ticks_msec()
+		var time_start = Time.get_ticks_msec()
 		var solver = solver_script.new()
 		solver.solve(self, hints)
-		# if (Time.get_ticks_msec() - time_start) > 50:
-		# 	print("Solver: %s, time: %d ms, hints: %d" % [solver.name(), Time.get_ticks_msec() - time_start, hints.size()])
+		if (Time.get_ticks_msec() - time_start) > 50:
+			print("Solver: %s, time: %d ms, hints: %d" % [solver.name(), Time.get_ticks_msec() - time_start, hints.size()])
 		if hints.size() > 0:
-			return hints
+			for hint in hints:
+				if _is_hint_still_valid(hint):
+					valid_hints.append(hint)
+			return valid_hints
+	
 	return hints
 
 func _get_candidates(r: int, c: int) -> BitSet:
@@ -48,6 +58,55 @@ func _get_candidates(r: int, c: int) -> BitSet:
 	if bits_to_exclude > 0:
 		cands.data[0] &= ~bits_to_exclude
 	return cands
+
+func _is_hint_still_valid(hint: Hint) -> bool:
+	# For placement hints, check if the cell is already filled
+	if hint.cells.size() == 1 and hint.numbers.size() == 1 and hint.elim_cells.is_empty():
+		var cell = hint.cells[0]
+		if sudoku.grid[cell.x][cell.y] != 0:
+			return false
+		return true
+	
+	# For elimination hints, check if any eliminations haven't been applied yet
+	# First check the main hint's eliminations
+	if not hint.elim_cells.is_empty() and not hint.elim_numbers.is_empty():
+		for cell in hint.elim_cells:
+			# Skip if cell is already filled
+			if sudoku.grid[cell.x][cell.y] != 0:
+				continue
+			for num in hint.elim_numbers:
+				# Check if this elimination hasn't been applied yet
+				if not sudoku.has_exclude_mark(cell.x, cell.y, num):
+					# Also verify the candidate still exists (before exclude_bits)
+					var candidates = sudoku.sbrc_grid.get_candidates_for_cell(cell.x, cell.y)
+					if candidates.get_bit(num - 1):
+						return true
+	
+	# Also check all steps for valid eliminations
+	if hint.has_steps():
+		for step in hint.steps:
+			if step.has("elim_cells") and step.has("elim_numbers"):
+				var step_elims = step.elim_cells
+				var step_nums = step.elim_numbers
+				if not step_elims.is_empty() and not step_nums.is_empty():
+					for cell in step_elims:
+						# Skip if cell is already filled
+						if sudoku.grid[cell.x][cell.y] != 0:
+							continue
+						for num in step_nums:
+							# Check if this elimination hasn't been applied yet
+							if not sudoku.has_exclude_mark(cell.x, cell.y, num):
+								# Also verify the candidate still exists (before exclude_bits)
+								var candidates = sudoku.sbrc_grid.get_candidates_for_cell(cell.x, cell.y)
+								if candidates.get_bit(num - 1):
+									return true
+	
+	# If we get here, all eliminations have been applied
+	if not hint.elim_cells.is_empty():
+		return false
+	
+	# For hints without eliminations (shouldn't happen, but be safe)
+	return true
 
 func _build_strong_links():
 	strong_links = []

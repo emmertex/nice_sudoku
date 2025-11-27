@@ -327,6 +327,7 @@ func switch_theme(new_theme: ThemeType):
 
 	current_theme = new_theme
 	_apply_current_theme_colors()
+	_reset_grid_styles()
 
 	# Update cached theme resource with new colors
 	_get_or_create_theme_resource()
@@ -472,32 +473,53 @@ func _create_grid():
 			button.pressed.connect(_on_cell_pressed.bind(row, col))
 
 			# Improved grid styling with better visual hierarchy
-			var style = StyleBoxFlat.new()
-			if ((col * 9) + row) % 2 == 0:
-				style.set_bg_color(get_current_theme_color("CLR_BOARD"))
-			else:
-				style.set_bg_color(get_current_theme_color("CLR_BOARD2"))
-
-			# Add subtle inner borders for all cells
-			style.set_border_width_all(1)
-			style.set_border_color(Color(0.25, 0.25, 0.25, 0.8))
-
-			# Add thicker borders for 3x3 subgrids
-			if col % 3 == 0:
-				style.set_border_width(SIDE_LEFT, 4)
-				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
-			if col % 3 == 2:
-				style.set_border_width(SIDE_RIGHT, 4)
-				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
-			if row % 3 == 0:
-				style.set_border_width(SIDE_TOP, 4)
-				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
-			if row % 3 == 2:
-				style.set_border_width(SIDE_BOTTOM, 4)
-				style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
-
+			var style = _build_cell_style(row, col)
 			button.add_theme_stylebox_override("normal", style)
 			grid_container.add_child(button)
+
+func _build_cell_style(row: int, col: int) -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	if ((col * 9) + row) % 2 == 0:
+		style.set_bg_color(get_current_theme_color("CLR_BOARD"))
+	else:
+		style.set_bg_color(get_current_theme_color("CLR_BOARD2"))
+
+	style.set_border_width_all(1)
+	style.set_border_color(Color(0.25, 0.25, 0.25, 0.8))
+
+	if col % 3 == 0:
+		style.set_border_width(SIDE_LEFT, 4)
+		style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
+	if col % 3 == 2:
+		style.set_border_width(SIDE_RIGHT, 4)
+		style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
+	if row % 3 == 0:
+		style.set_border_width(SIDE_TOP, 4)
+		style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
+	if row % 3 == 2:
+		style.set_border_width(SIDE_BOTTOM, 4)
+		style.set_border_color(get_current_theme_color("CLR_GRID_THICK"))
+
+	return style
+
+func _apply_cell_style(row: int, col: int):
+	if not grid_container:
+		return
+	var index = row * 9 + col
+	if index < 0 or index >= grid_container.get_child_count():
+		return
+	var button = grid_container.get_child(index)
+	button.add_theme_stylebox_override("normal", _build_cell_style(row, col))
+
+func _reset_grid_styles():
+	if not grid_container:
+		return
+	var total_cells = grid_container.get_child_count()
+	if total_cells == 0:
+		return
+	for row in range(9):
+		for col in range(9):
+			_apply_cell_style(row, col)
 
 func _setup_number_buttons():
 	var number_font_color = get_current_theme_color("CLR_FONT_REGULAR_NUMBER")
@@ -882,6 +904,7 @@ func _on_HintButton_pressed():
 	_update_grid_highlights()
 	_update_pencil()
 
+	
 	var hints = hint_generator.get_hints()
 	hint_panel = preload("res://hint_popup.tscn").instantiate()
 	hint_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1928,6 +1951,7 @@ func load_puzzle(index: int, difficulty: String):
 		# Run solver asynchronously after UI loads (with delay to ensure UI is ready)
 		# Use call_deferred to run after all current processing is done
 		call_deferred("_solve_puzzle_async")
+		_reset_grid_styles()
 		
 		queue_update("grid")
 		queue_update("buttons")
@@ -2139,6 +2163,7 @@ func _flash_cell_red_async(row: int, col: int):
 
 	# After tween completes, refresh highlights to ensure correct state
 	await fade_tween.finished
+	_apply_cell_style(row, col)
 	queue_update("highlights")  # Refresh highlights after flash
 
 func show_solver_failure_warning():

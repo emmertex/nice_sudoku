@@ -769,11 +769,11 @@ func save_state(file_path: String) -> bool:
 
 	var puzzle_saves = config.get_value("puzzle_saves", "puzzles", [])
 	var save_data = {
-		"grid": grid,
-		"original_grid": original_grid,
-		"pencil_bits": pencil_bits,
-		"exclude_bits": exclude_bits,
-		"action_history": action_history,
+		"grid": grid.duplicate(true),
+		"original_grid": original_grid.duplicate(true),
+		"pencil_bits": pencil_bits.duplicate(true),
+		"exclude_bits": exclude_bits.duplicate(true),
+		"action_history": action_history.duplicate(true),
 		"current_puzzle_name": current_puzzle_name,
 		"current_puzzle_difficulty": current_puzzle_difficulty,
 		"current_puzzle_index": current_puzzle_index,
@@ -823,13 +823,14 @@ func load_state(file_path: String, difficulty: String = "", index: int = -1) -> 
 	if save_to_load == null:
 		return false
 	
-	grid = save_to_load.grid
-	original_grid = save_to_load.original_grid
+	grid = save_to_load.grid.duplicate(true)
+	original_grid = save_to_load.original_grid.duplicate(true)
 	
 	# Handle backward compatibility for old save files
 	if save_to_load.has("pencil_bits") and save_to_load.has("exclude_bits"):
-		pencil_bits = save_to_load.pencil_bits
-		exclude_bits = save_to_load.exclude_bits
+		# Deep copy the arrays to ensure proper restoration
+		pencil_bits = save_to_load.pencil_bits.duplicate(true)
+		exclude_bits = save_to_load.exclude_bits.duplicate(true)
 	else:
 		# Initialize empty pencil/exclude arrays for old save files
 		_generate_pencil_grid()
