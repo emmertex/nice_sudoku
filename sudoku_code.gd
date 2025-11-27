@@ -1086,22 +1086,12 @@ func solve_puzzle() -> bool:
 		sbrc_grid.update_grid(grid)
 		return true
 	
-	# Fall back to backtracking solver
-	print("Hint-based solving incomplete, trying backtracking...")
-	grid = original_state
-	exclude_bits = original_exclude_bits
-	sbrc_grid.update_grid(grid)
-	var solutions = solve_with_backtracking(1)
-	print("Backtracking solver returned %d solutions" % solutions.size())
-	
-	if solutions.size() > 0:
-		solution_grid = solutions[0]
-		has_solution = true
-		# Restore original state
-		grid = original_state
-		sbrc_grid.update_grid(grid)
-		return true
-	
+	# Backtracking solver is disabled.
+	print("Hint-based solving incomplete. Backtracking solver is disabled, no further solving attempted.")
+	solution_grid = []
+	has_solution = false
+	return false
+
 	# No solution found
 	solution_grid = []
 	has_solution = false
@@ -1135,16 +1125,21 @@ func _solve_recursive(cell_index: int, empty_cells: Array, solutions: Array, num
 
 	var candidates = sbrc_grid.get_candidates_for_cell(r, c)
 	var candidate_index = candidates.next_set_bit(0)
+	var tried_any = false
 	while candidate_index != -1:
 		var num = candidate_index + 1
 		if _is_valid_for_backtrack(r, c, num):
+			tried_any = true
 			grid[r][c] = num
+			sbrc_grid.update_grid(grid)  # Update candidates after placing number
 			_solve_recursive(cell_index + 1, empty_cells, solutions, num_solutions_to_find)
 			grid[r][c] = 0 # backtrack
+			sbrc_grid.update_grid(grid)  # Update candidates after backtracking
 
 			if solutions.size() >= num_solutions_to_find:
 				return
 		candidate_index = candidates.next_set_bit(candidate_index + 1)
+
 
 # Validation for backtracking - checks against grid directly (not sbrc_grid)
 func _is_valid_for_backtrack(row: int, col: int, num: int) -> bool:

@@ -33,13 +33,13 @@ func get_hints() -> Array[Hint]:
 	var hints: Array[Hint] = []
 	_build_strong_links()
 	for solver_script in SOLVER_SEQUENCE:
-		var time_start = Time.get_ticks_msec()
+		# var time_start = Time.get_ticks_msec()
 		var solver = solver_script.new()
 		solver.solve(self, hints)
-		if (Time.get_ticks_msec() - time_start) > 50:
-			print("Solver: %s, time: %d ms, hints: %d" % [solver.name(), Time.get_ticks_msec() - time_start, hints.size()])
-		# if hints.size() > 0:
-		# 	return hints
+		# if (Time.get_ticks_msec() - time_start) > 50:
+		# 	print("Solver: %s, time: %d ms, hints: %d" % [solver.name(), Time.get_ticks_msec() - time_start, hints.size()])
+		if hints.size() > 0:
+			return hints
 	return hints
 
 func _get_candidates(r: int, c: int) -> BitSet:
