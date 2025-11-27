@@ -990,8 +990,21 @@ func _on_NewGameButton_pressed():
 func show_puzzle_selection_popup():
 	var popup = PopupPanel.new()
 	var window_size = get_viewport().get_visible_rect().size
-	var popup_width = min(window_size.x * 0.9, 600)
-	var popup_height = min(window_size.y * 0.85, 800)
+	# Scale proportionally with viewport, similar to font scaling
+	var min_dimension = min(window_size.x, window_size.y)
+	var scale_factor = min_dimension / 600.0  # Base scale for 600px screens
+	scale_factor = clamp(scale_factor, 0.7, 2.0)  # Limit scaling range
+	
+	# Calculate base sizes that scale with viewport
+	var base_width = 500.0
+	var base_height = 650.0
+	var popup_width = base_width * scale_factor
+	var popup_height = base_height * scale_factor
+	
+	# Ensure it doesn't exceed viewport bounds
+	popup_width = min(popup_width, window_size.x * 0.9)
+	popup_height = min(popup_height, window_size.y * 0.85)
+	
 	popup.set_size(Vector2(popup_width, popup_height))
 	popup.name = "PuzzleSelectionPopup"
 	add_child(popup)
@@ -1018,8 +1031,9 @@ func show_puzzle_selection_popup():
 
 	# Calculate consistent font sizes based on viewport
 	var fonts = _calculate_font_sizes()
-	var title_height = max(int(window_size.y * 0.06), 45)
-	var label_height = max(int(window_size.y * 0.04), 32)
+	# Reuse scale_factor already calculated above for proportional sizing
+	var title_height = max(int(45 * scale_factor), 35)
+	var label_height = max(int(32 * scale_factor), 24)
 	
 	# Title label
 	var title_label = Label.new()
@@ -1057,7 +1071,7 @@ func show_puzzle_selection_popup():
 	hover_style.set_corner_radius_all(8)
 	difficulty_options.add_theme_stylebox_override("hover", hover_style)
 
-	var selector_height = max(int(window_size.y * 0.07), 50)
+	var selector_height = max(int(50 * scale_factor), 40)
 	var dropdown_font_color = get_current_theme_color("CLR_FONT_LABEL")
 	difficulty_options.set_custom_minimum_size(Vector2(popup_width * 0.92, selector_height))
 	difficulty_options.add_theme_font_size_override("font_size", fonts.medium)
@@ -1165,7 +1179,11 @@ func _on_difficulty_selected(index: int, puzzle_list: VBoxContainer, scroll_cont
 	# Store metadata for lazy loading
 	var popup = get_node_or_null("PuzzleSelectionPopup")
 	var popup_width = popup.size.x if popup else min(window_size.y, window_size.x) * 0.8
-	var item_height = max(int(window_size.y * 0.1), 64)
+	# Use scale factor for proportional sizing
+	var min_dimension = min(window_size.x, window_size.y)
+	var scale_factor = min_dimension / 600.0
+	scale_factor = clamp(scale_factor, 0.7, 2.0)
+	var item_height = max(int(64 * scale_factor), 48)
 	var fonts = _calculate_font_sizes()
 	var puzzle_count = sudoku.get_puzzle_count()
 	
@@ -1368,7 +1386,8 @@ func _create_puzzle_row(puzzle_list: VBoxContainer, index: int, difficulty: Stri
 	# Style buttons for better visibility (reuse pre-created style boxes)
 	var resume_btn = puzzle_row.find_child("Res")
 	var new_btn = puzzle_row.find_child("New")
-	var btn_height = max(int(item_height * 0.75), 48)
+	# Button height scales with item_height, with a reasonable minimum
+	var btn_height = max(int(item_height * 0.75), int(item_height * 0.5))
 	
 	if resume_btn:
 		resume_btn.text = "▶ Resume"
@@ -1454,7 +1473,7 @@ func _populate_puzzle_list_batched(puzzle_list: VBoxContainer, difficulty: Strin
 				# Style buttons for better visibility (reuse pre-created style boxes)
 				var resume_btn = puzzle_row.find_child("Res")
 				var new_btn = puzzle_row.find_child("New")
-				var btn_height = max(int(item_height * 0.75), 48)
+				var btn_height = max(int(item_height * 0.75), int(item_height * 0.5))
 				
 				if resume_btn:
 					resume_btn.text = "▶ Resume"
@@ -2213,8 +2232,21 @@ func _setup_menu_popup():
 
 func _resize_menu_popup():
 	var window_size = get_viewport().get_visible_rect().size
-	var popup_width = min(window_size.x * 0.9, 500)
-	var popup_height = min(window_size.y * 0.8, 600)
+	# Scale proportionally with viewport, similar to font scaling
+	var min_dimension = min(window_size.x, window_size.y)
+	var scale_factor = min_dimension / 600.0  # Base scale for 600px screens
+	scale_factor = clamp(scale_factor, 0.7, 2.0)  # Limit scaling range
+	
+	# Calculate base sizes that scale with viewport
+	var base_width = 400.0
+	var base_height = 500.0
+	var popup_width = base_width * scale_factor
+	var popup_height = base_height * scale_factor
+	
+	# Ensure it doesn't exceed viewport bounds
+	popup_width = min(popup_width, window_size.x * 0.9)
+	popup_height = min(popup_height, window_size.y * 0.8)
+	
 	menu_panel.set_size(Vector2(popup_width, popup_height))
 
 func _update_highlight_button_text():

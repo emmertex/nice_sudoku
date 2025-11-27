@@ -30,6 +30,9 @@ wait_time = 0.05
 autostart = true
 
 [node name="MenuPanel" type="PopupPanel" parent="."]
+oversampling_override = 1.0
+initial_position = 2
+layout_mode = 0
 
 [node name="MenuContent" type="VBoxContainer" parent="MenuPanel"]
 anchors_preset = 15
@@ -37,8 +40,8 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 4.0
 offset_top = 4.0
-offset_right = 332.0
-offset_bottom = 269.0
+offset_right = -4.0
+offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 12
